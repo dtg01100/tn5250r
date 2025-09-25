@@ -215,14 +215,51 @@ pub enum FieldType {
     Mandatory,
     DupEnable,
     Hidden,
+    Input,      // For regular input fields
+    Password,   // For password/hidden input fields
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Field {
     pub start_position: usize,
     pub length: usize,
     pub field_type: FieldType,
     pub attribute: u8,
+}
+
+impl Field {
+    pub fn new(row: usize, col: usize, length: usize, field_type: FieldType) -> Self {
+        let start_position = row * TERMINAL_WIDTH + col;
+        Field {
+            start_position,
+            length,
+            field_type,
+            attribute: 0x20, // Default attribute
+        }
+    }
+
+    pub fn end_position(&self) -> usize {
+        if self.length > 0 {
+            self.start_position + self.length - 1
+        } else {
+            self.start_position
+        }
+    }
+
+    pub fn within_field(&self, pos: usize) -> bool {
+        if self.length == 0 {
+            return pos == self.start_position;
+        }
+        pos >= self.start_position && pos <= self.end_position()
+    }
+
+    pub fn start_row(&self) -> usize {
+        self.start_position / TERMINAL_WIDTH
+    }
+
+    pub fn start_col(&self) -> usize {
+        self.start_position % TERMINAL_WIDTH
+    }
 }
 
 #[derive(Debug)]
@@ -342,12 +379,20 @@ impl ProtocolStateMachine {
                     }
                 },
                 0x25 => { // Start of field
-                    if pos < data.len() {
-                        let field_attr = data[pos];
+                    // Start of field format: 0x25 <length> <field_attr>
+                    if pos + 1 < data.len() {
+                        let field_length = data[pos] as usize;
+                        let field_attr = data[pos + 1];
                         _current_attribute = Some(field_attr);
                         current_field_type = self.determine_field_type(field_attr);
-                        // Record field start position
-                        self.add_field(self.cursor_position, 0, current_field_type, field_attr);
+                        
+                        // Record field start position with proper length from protocol
+                        self.add_field(self.cursor_position, field_length, current_field_type, field_attr);
+                        pos += 2;
+                    } else if pos < data.len() {
+                        // Fallback for malformed field data
+                        let field_attr = data[pos];
+                        current_field_type = self.determine_field_type(field_attr);
                         pos += 1;
                     }
                 },
@@ -358,9 +403,30 @@ impl ProtocolStateMachine {
                         pos += (length as usize) + 2; // Skip length + data
                     }
                 },
+                0x20 => { // Add field (Start of Field Order with FFWs/FCWs)
+                    // Format: 0x20 <attr> <length> <ffw1> <ffw2> <fcw1> <fcw2>
+                    if pos + 5 < data.len() {
+                        let field_attr = data[pos];
+                        let field_length = data[pos + 1] as usize;
+                        let _ffw1 = data[pos + 2];  // Field Format Word 1
+                        let _ffw2 = data[pos + 3];  // Field Format Word 2
+                        let _fcw1 = data[pos + 4];  // Field Control Word 1
+                        let _fcw2 = data[pos + 5];  // Field Control Word 2
+                        
+                        current_field_type = self.determine_field_type(field_attr);
+                        
+                        // Create field with proper length from protocol
+                        self.add_field(self.cursor_position, field_length, current_field_type, field_attr);
+                        pos += 6;
+                    }
+                },
+                0x50 => { // Clear Format Table
+                    self.fields.clear();
+                },
                 0x5A => { // Reset command
                     self.screen.clear();
                     self.cursor_position = 0;
+                    self.fields.clear();  // Also clear fields on reset
                 },
                 _ => {
                     // Regular character - convert from EBCDIC to ASCII and write to screen
@@ -397,6 +463,8 @@ impl ProtocolStateMachine {
                                     FieldType::Mandatory => CharAttribute::NonDisplay, // Simplified
                                     FieldType::Skip => CharAttribute::NonDisplay,    // Simplified
                                     FieldType::Normal => CharAttribute::Normal,
+                                    FieldType::Input => CharAttribute::Normal,
+                                    FieldType::Password => CharAttribute::Hidden,
                                 };
 
                                 // Write character to screen
@@ -468,12 +536,37 @@ impl ProtocolStateMachine {
     }
     
     fn add_field(&mut self, start: usize, length: usize, field_type: FieldType, attribute: u8) {
-        self.fields.push(Field {
-            start_position: start,
-            length,
-            field_type,
-            attribute,
-        });
+        // Check if a field already exists at this position (tn5250j pattern)
+        if self.exists_at_pos(start) {
+            // Field already exists, just update its attributes if needed
+            if let Some(field) = self.fields.iter_mut().find(|f| f.start_position == start) {
+                field.field_type = field_type;
+                field.attribute = attribute;
+                // Only update length if the new length is valid (> 0)
+                if length > 0 {
+                    field.length = length;
+                }
+            }
+            return;
+        }
+
+        // Only create new field if length > 0 (valid field from protocol)
+        if length > 0 {
+            self.fields.push(Field {
+                start_position: start,
+                length,
+                field_type,
+                attribute,
+            });
+        }
+    }
+
+    fn exists_at_pos(&self, pos: usize) -> bool {
+        self.fields.iter().any(|field| field.start_position == pos)
+    }
+
+    pub fn find_field_at_pos(&self, pos: usize) -> Option<&Field> {
+        self.fields.iter().find(|field| field.within_field(pos))
     }
     
     pub fn read_buffer(&self) -> Vec<u8> {
@@ -497,6 +590,19 @@ impl ProtocolStateMachine {
         );
 
         buffer
+    }
+
+    // Public methods for testing field management
+    pub fn add_field_object(&mut self, field: Field) {
+        // Use the existing duplicate prevention logic
+        if self.exists_at_pos(field.start_position) {
+            return;
+        }
+        self.fields.push(field);
+    }
+
+    pub fn get_fields(&self) -> &Vec<Field> {
+        &self.fields
     }
 }
 

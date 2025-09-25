@@ -6,16 +6,23 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::{network, protocol_state, keyboard};
+use crate::ansi_processor::AnsiProcessor;
+use crate::field_manager::FieldManager;
+use crate::network;
+use crate::protocol_state;
+use crate::keyboard;
+use crate::terminal::{TerminalChar, CharAttribute};
 
-/// Synchronous terminal controller
+/// Core terminal controller responsible for managing the connection and protocol
 pub struct TerminalController {
-    protocol_state_machine: protocol_state::ProtocolStateMachine,
-    network_connection: Option<network::AS400Connection>,
-    connected: bool,
     host: String,
     port: u16,
-    input_buffer: Vec<u8>,
+    connected: bool,
+    protocol_state_machine: protocol_state::ProtocolStateMachine,
+    network_connection: Option<network::AS400Connection>,
+    ansi_processor: AnsiProcessor,
+    use_ansi_mode: bool,
+    field_manager: FieldManager,
 }
 
 impl TerminalController {
@@ -26,7 +33,9 @@ impl TerminalController {
             connected: false,
             host: String::new(),
             port: 23, // Default telnet port for 5250
-            input_buffer: Vec::new(),
+            ansi_processor: AnsiProcessor::new(),
+            use_ansi_mode: false,
+            field_manager: FieldManager::new(),
         }
     }
     
@@ -52,6 +61,19 @@ impl TerminalController {
         Ok(())
     }
     
+    /// Request the login screen after negotiation is complete
+    pub fn request_login_screen(&mut self) -> Result<(), String> {
+        if !self.connected {
+            return Err("Not connected to AS/400".to_string());
+        }
+        
+        // Send ReadModified command to trigger screen display
+        let read_modified_cmd = vec![0xFB]; // ReadModified command from protocol.rs
+        self.send_input(&read_modified_cmd)?;
+        
+        Ok(())
+    }
+    
     pub fn disconnect(&mut self) {
         if let Some(mut conn) = self.network_connection.take() {
             conn.disconnect();
@@ -72,9 +94,6 @@ impl TerminalController {
         if !self.connected {
             return Err("Not connected to AS/400".to_string());
         }
-        
-        // Add to local input buffer
-        self.input_buffer.extend_from_slice(input);
         
         // Send to network
         if let Some(ref mut conn) = self.network_connection {
@@ -109,11 +128,28 @@ impl TerminalController {
         // Check for incoming data from network
         if let Some(ref mut conn) = self.network_connection {
             if let Some(received_data) = conn.receive_data_channel() {
-                // Process the incoming data through the protocol state machine
-                let _ = self.protocol_state_machine.process_data(&received_data);
+                // Detect if this looks like ANSI escape sequences
+                if !self.use_ansi_mode && self.contains_ansi_sequences(&received_data) {
+                    self.use_ansi_mode = true;
+                    println!("Detected ANSI sequences - switching to ANSI terminal mode");
+                }
                 
-                // Update the terminal screen with connection success message
-                if self.protocol_state_machine.screen.to_string().contains("Connecting") {
+                if self.use_ansi_mode {
+                    // Process as ANSI terminal data
+                    self.ansi_processor.process_data(&received_data, &mut self.protocol_state_machine.screen);
+                    
+                    // Detect fields after processing ANSI data
+                    self.field_manager.detect_fields(&self.protocol_state_machine.screen);
+                } else {
+                    // Process through the 5250 protocol state machine
+                    let _ = self.protocol_state_machine.process_data(&received_data);
+                    
+                    // Detect fields after processing 5250 data
+                    self.field_manager.detect_fields(&self.protocol_state_machine.screen);
+                }
+                
+                // Update the terminal screen with connection success message if needed
+                if !self.use_ansi_mode && self.protocol_state_machine.screen.to_string().contains("Connecting") {
                     self.protocol_state_machine.screen.clear();
                     self.protocol_state_machine.screen.write_string(&format!("Connected to {}:{}\nReady...\n", self.host, self.port));
                 }
@@ -123,12 +159,208 @@ impl TerminalController {
         Ok(())
     }
     
+    /// Detect if data contains ANSI escape sequences
+    fn contains_ansi_sequences(&self, data: &[u8]) -> bool {
+        // Look for ESC [ sequences (CSI - Control Sequence Introducer)
+        for i in 0..data.len().saturating_sub(1) {
+            if data[i] == 0x1B && data[i + 1] == b'[' {
+                return true;
+            }
+        }
+        false
+    }
+    
+    /// Check if negotiation is complete and request login screen if needed
+    pub fn check_and_request_login_screen(&mut self) -> Result<(), String> {
+        if let Some(ref conn) = self.network_connection {
+            if conn.is_negotiation_complete() {
+                // Small delay to ensure negotiation is fully complete
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                self.request_login_screen()?;
+            }
+        }
+        Ok(())
+    }
+    
     pub fn get_host(&self) -> &str {
         &self.host
     }
     
     pub fn get_port(&self) -> u16 {
         self.port
+    }
+    
+    /// Navigate to next field
+    pub fn next_field(&mut self) {
+        self.field_manager.next_field();
+    }
+    
+    /// Navigate to previous field
+    pub fn previous_field(&mut self) {
+        self.field_manager.previous_field();
+    }
+    
+    /// Type character into active field
+    pub fn type_char(&mut self, ch: char) -> Result<(), String> {
+        // First get the field ID to avoid borrowing conflicts
+        let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
+            active_field.id
+        } else {
+            return Err("No active field".to_string());
+        };
+        
+        // Now get mutable reference and insert character
+        if let Some(field) = self.field_manager.get_active_field_mut() {
+            let offset = field.content.len();
+            if field.insert_char(ch, offset) {
+                // Update the screen display
+                self.update_field_display(field_id);
+                Ok(())
+            } else {
+                Err("Cannot insert character in this field".to_string())
+            }
+        } else {
+            Err("No active field".to_string())
+        }
+    }
+    
+    /// Backspace in active field
+    pub fn backspace(&mut self) -> Result<(), String> {
+        // First get the field ID to avoid borrowing conflicts
+        let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
+            active_field.id
+        } else {
+            return Err("No active field".to_string());
+        };
+        
+        if let Some(field) = self.field_manager.get_active_field_mut() {
+            let offset = field.content.len();
+            if field.backspace(offset) {
+                self.update_field_display(field_id);
+                Ok(())
+            } else {
+                Err("Cannot backspace in this field".to_string())
+            }
+        } else {
+            Err("No active field".to_string())
+        }
+    }
+    
+    /// Delete character in active field
+    pub fn delete(&mut self) -> Result<(), String> {
+        // First get the field ID to avoid borrowing conflicts
+        let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
+            active_field.id
+        } else {
+            return Err("No active field".to_string());
+        };
+        
+        if let Some(field) = self.field_manager.get_active_field_mut() {
+            let offset = field.content.len();
+            if field.delete_char(offset) {
+                self.update_field_display(field_id);
+                Ok(())
+            } else {
+                Err("Cannot delete in this field".to_string())
+            }
+        } else {
+            Err("No active field".to_string())
+        }
+    }
+    
+    /// Clear active field
+    pub fn clear_active_field(&mut self) {
+        // First get the field ID to avoid borrowing conflicts
+        let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
+            active_field.id
+        } else {
+            return;
+        };
+        
+        if let Some(field) = self.field_manager.get_active_field_mut() {
+            field.clear();
+            self.update_field_display(field_id);
+        }
+    }
+    
+    /// Get field information for display
+    pub fn get_fields_info(&self) -> Vec<(String, String, bool)> {
+        self.field_manager.get_fields().iter().map(|field| {
+            let label = field.label.clone().unwrap_or_else(|| format!("Field {}", field.id));
+            let content = field.get_display_content();
+            (label, content, field.active)
+        }).collect()
+    }
+    
+    /// Update field display on screen
+    fn update_field_display(&mut self, field_id: usize) {
+        // Find the field and update its display on screen
+        if let Some(field) = self.field_manager.get_fields().iter().find(|f| f.id == field_id) {
+            let display_content = field.get_display_content();
+            
+            // Clear the field area first
+            for i in 0..field.length {
+                if field.start_col + i <= 80 {
+                    self.protocol_state_machine.screen.set_char_at(
+                        field.start_row - 1, 
+                        field.start_col + i - 1, 
+                        TerminalChar {
+                            character: ' ',
+                            attribute: CharAttribute::Normal,
+                        }
+                    );
+                }
+            }
+            
+            // Write the field content
+            for (i, ch) in display_content.chars().enumerate() {
+                if i < field.length && field.start_col + i <= 80 {
+                    self.protocol_state_machine.screen.set_char_at(
+                        field.start_row - 1, 
+                        field.start_col + i - 1, 
+                        TerminalChar {
+                            character: ch,
+                            attribute: CharAttribute::Normal,
+                        }
+                    );
+                }
+            }
+            
+            // Show cursor in active field
+            if field.active && display_content.len() < field.length {
+                self.protocol_state_machine.screen.set_char_at(
+                    field.start_row - 1,
+                    field.start_col + display_content.len() - 1,
+                    TerminalChar {
+                        character: '_',
+                        attribute: CharAttribute::Intensified,
+                    }
+                );
+            }
+        }
+    }
+    
+    /// Get field values for form submission
+    pub fn get_field_values(&self) -> std::collections::HashMap<String, String> {
+        self.field_manager.get_field_values()
+    }
+    
+    /// Validate all fields
+    pub fn validate_fields(&self) -> Vec<(String, String)> {
+        self.field_manager.validate_all().into_iter()
+            .map(|(id, error)| {
+                let field_name = self.field_manager.get_fields().iter()
+                    .find(|f| f.id == id)
+                    .and_then(|f| f.label.clone())
+                    .unwrap_or_else(|| format!("Field {}", id));
+                (field_name, error)
+            })
+            .collect()
+    }
+    
+    /// Click/activate field at position
+    pub fn activate_field_at_position(&mut self, row: usize, col: usize) -> bool {
+        self.field_manager.set_active_field_at_position(row, col)
     }
 }
 
@@ -264,6 +496,102 @@ impl AsyncTerminalController {
     pub fn get_terminal_content(&self) -> Result<String, String> {
         if let Ok(ctrl) = self.controller.lock() {
             Ok(ctrl.get_terminal_content())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn request_login_screen(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.request_login_screen()
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn send_enter(&self) -> Result<(), String> {
+        // Send Enter key (usually mapped to a function key or newline)
+        self.send_function_key(keyboard::FunctionKey::Enter)
+    }
+    
+    pub fn backspace(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.field_manager.backspace()
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn delete(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.field_manager.delete()
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn next_field(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.next_field();
+            Ok(())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn previous_field(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.previous_field();
+            Ok(())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn type_char(&self, ch: char) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.type_char(ch)
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn get_fields_info(&self) -> Result<Vec<(String, String, bool)>, String> {
+        if let Ok(ctrl) = self.controller.lock() {
+            Ok(ctrl.get_fields_info())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn activate_field_at_position(&self, row: usize, col: usize) -> Result<bool, String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            Ok(ctrl.activate_field_at_position(row, col))
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn get_cursor_position(&self) -> Result<(usize, usize), String> {
+        if let Ok(ctrl) = self.controller.lock() {
+            Ok(ctrl.field_manager.get_cursor_position())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn set_cursor_position(&self, row: usize, col: usize) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.field_manager.set_cursor_position(row, col);
+            Ok(())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    pub fn click_at_position(&self, row: usize, col: usize) -> Result<bool, String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            Ok(ctrl.field_manager.click_at_position(row, col))
         } else {
             Err("Controller lock failed".to_string())
         }

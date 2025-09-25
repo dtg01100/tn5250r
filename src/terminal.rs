@@ -122,6 +122,14 @@ impl TerminalScreen {
         }
     }
 
+    // Set TerminalChar at specific position
+    pub fn set_char_at(&mut self, row: usize, col: usize, terminal_char: TerminalChar) {
+        if col < TERMINAL_WIDTH && row < TERMINAL_HEIGHT {
+            self.buffer[row][col] = terminal_char;
+            self.dirty = true;
+        }
+    }
+
     // Get character at specific position
     pub fn get_char_at(&self, x: usize, y: usize) -> Option<char> {
         if x < TERMINAL_WIDTH && y < TERMINAL_HEIGHT {

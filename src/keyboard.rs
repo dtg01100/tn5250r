@@ -30,6 +30,7 @@ pub enum FunctionKey {
     F22, // Help
     F23, // Attn
     F24, // Attn
+    Enter, // Enter key
 }
 
 impl FunctionKey {
@@ -60,6 +61,7 @@ impl FunctionKey {
             FunctionKey::F22 => vec![0x46, 0xF1], // F22 key (Roll Right)
             FunctionKey::F23 => vec![0x47, 0xF1], // F23 key (Help)
             FunctionKey::F24 => vec![0x48, 0xF1], // F24 key (Attn)
+            FunctionKey::Enter => vec![0x0D], // Enter key (carriage return)
         }
     }
 }

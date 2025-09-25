@@ -115,6 +115,44 @@ impl TelnetNegotiator {
         negotiator
     }
     
+    /// Escape IAC bytes in data stream (important for binary mode)
+    pub fn escape_iac_in_data(data: &[u8]) -> Vec<u8> {
+        let mut result = Vec::with_capacity(data.len());
+        
+        for &byte in data {
+            if byte == TelnetCommand::IAC as u8 {
+                // Escape IAC by doubling it (IAC IAC)
+                result.push(TelnetCommand::IAC as u8);
+                result.push(TelnetCommand::IAC as u8);
+            } else {
+                result.push(byte);
+            }
+        }
+        
+        result
+    }
+    
+    /// Remove IAC escaping from received data stream
+    pub fn unescape_iac_in_data(data: &[u8]) -> Vec<u8> {
+        let mut result = Vec::with_capacity(data.len());
+        let mut i = 0;
+        
+        while i < data.len() {
+            if data[i] == TelnetCommand::IAC as u8 && 
+               i + 1 < data.len() && 
+               data[i + 1] == TelnetCommand::IAC as u8 {
+                // Found escaped IAC (IAC IAC), add single IAC to result
+                result.push(TelnetCommand::IAC as u8);
+                i += 2; // Skip both IAC bytes
+            } else {
+                result.push(data[i]);
+                i += 1;
+            }
+        }
+        
+        result
+    }
+    
     /// Process incoming telnet data and generate appropriate responses
     pub fn process_incoming_data(&mut self, data: &[u8]) -> Vec<u8> {
         self.input_buffer.extend_from_slice(data);
@@ -186,17 +224,49 @@ impl TelnetNegotiator {
     pub fn generate_initial_negotiation(&mut self) -> Vec<u8> {
         let mut negotiation = Vec::new();
         
-        // For each preferred option, send a DO request
+        // Send both DO and WILL requests for critical options like mature implementations
         for &option in &self.preferred_options {
             if matches!(self.negotiation_states.get(&option), 
                        Some(NegotiationState::Initial)) {
-                self.negotiation_states.insert(option, NegotiationState::RequestedDo);
                 
-                negotiation.extend_from_slice(&[
-                    TelnetCommand::IAC as u8,
-                    TelnetCommand::DO as u8,
-                    option as u8
-                ]);
+                match option {
+                    // For these options, we both DO and WILL
+                    TelnetOption::Binary | 
+                    TelnetOption::EndOfRecord | 
+                    TelnetOption::SuppressGoAhead => {
+                        self.negotiation_states.insert(option, NegotiationState::RequestedDo);
+                        
+                        // Send DO request
+                        negotiation.extend_from_slice(&[
+                            TelnetCommand::IAC as u8,
+                            TelnetCommand::DO as u8,
+                            option as u8
+                        ]);
+                        
+                        // Also send WILL request
+                        negotiation.extend_from_slice(&[
+                            TelnetCommand::IAC as u8,
+                            TelnetCommand::WILL as u8,
+                            option as u8
+                        ]);
+                    },
+                    // For these options, we WILL provide them
+                    TelnetOption::TerminalType | 
+                    TelnetOption::NewEnvironment => {
+                        self.negotiation_states.insert(option, NegotiationState::RequestedWill);
+                        
+                        negotiation.extend_from_slice(&[
+                            TelnetCommand::IAC as u8,
+                            TelnetCommand::WILL as u8,
+                            option as u8
+                        ]);
+                    },
+                    // Echo is not typically used in 5250 connections
+                    TelnetOption::Echo => {
+                        // Usually we don't want echo in 5250 mode
+                        self.negotiation_states.insert(option, NegotiationState::Inactive);
+                    }
+                }
             }
         }
         
@@ -345,27 +415,41 @@ impl TelnetNegotiator {
     
     /// Handle subnegotiation (like terminal type or environment variables)
     fn handle_subnegotiation(&mut self, data: &[u8]) {
-        if data.len() < 2 {
+        if data.is_empty() {
             return;
         }
         
         if let Some(option) = TelnetOption::from_u8(data[0]) {
             match option {
                 TelnetOption::TerminalType => {
-                    // Handle terminal type negotiation
-                    if data.len() > 2 && data[1] == 1 { // SEND terminal type
-                        // Respond with our terminal type
-                        self.send_terminal_type_response();
+                    if data.len() >= 2 {
+                        match data[1] {
+                            1 => { // SEND terminal type
+                                self.send_terminal_type_response();
+                            },
+                            0 => { // IS terminal type (they're telling us their type)
+                                if data.len() > 2 {
+                                    let terminal_type = String::from_utf8_lossy(&data[2..]);
+                                    println!("Remote terminal type: {}", terminal_type);
+                                }
+                            },
+                            _ => {
+                                println!("Unknown terminal type subnegotiation command: {}", data[1]);
+                            }
+                        }
                     }
                 },
                 TelnetOption::NewEnvironment => {
-                    // Handle environment variable negotiation
-                    self.handle_environment_negotiation(&data[1..]);
+                    if data.len() >= 2 {
+                        self.handle_environment_negotiation(&data[1..]);
+                    }
                 },
                 _ => {
-                    // Other subnegotiations not yet implemented
+                    println!("Unhandled subnegotiation for option: {:?}", option);
                 }
             }
+        } else {
+            println!("Unknown subnegotiation option: {}", data[0]);
         }
     }
     
@@ -377,15 +461,126 @@ impl TelnetNegotiator {
         
         let sub_command = data[0];
         match sub_command {
-            1 => { // SEND command
-                // Send our environment variables
-                self.send_environment_variables();
+            1 => { // SEND command - they want us to send variables
+                if data.len() > 1 {
+                    // Parse requested variable names and send specific ones
+                    self.parse_and_send_requested_variables(&data[1..]);
+                } else {
+                    // No specific variables requested, send all
+                    self.send_environment_variables();
+                }
             },
-            2 => { // IS command - process their variables
-                // Process the environment variables they sent
+            2 => { // IS command - they're sending us variables
+                if data.len() > 1 {
+                    self.parse_received_environment_variables(&data[1..]);
+                }
+            },
+            0 => { // INFO command - informational
+                println!("Received environment INFO command");
             },
             _ => {
-                // Other sub-commands not yet implemented
+                println!("Unknown environment sub-command: {}", sub_command);
+            }
+        }
+    }
+    
+    /// Parse requested environment variables and send responses
+    fn parse_and_send_requested_variables(&mut self, data: &[u8]) {
+        let mut i = 0;
+        let mut response = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::NewEnvironment as u8,
+            2, // IS command
+        ];
+        
+        while i < data.len() {
+            if data[i] == 0 { // VAR type
+                i += 1;
+                let var_start = i;
+                
+                // Find the end of the variable name
+                while i < data.len() && data[i] != 0 && data[i] != 1 {
+                    i += 1;
+                }
+                
+                if i > var_start {
+                    let var_name = &data[var_start..i];
+                    let var_name_str = String::from_utf8_lossy(var_name);
+                    
+                    // Send the requested variable if we have it
+                    match var_name_str.as_ref() {
+                        "DEVNAME" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"DEVNAME");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"TN5250R");
+                        },
+                        "KBDTYPE" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"KBDTYPE");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"USB");
+                        },
+                        "CODEPAGE" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"CODEPAGE");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"37");
+                        },
+                        "USER" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"USER");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"GUEST");
+                        },
+                        _ => {
+                            println!("Requested unknown environment variable: {}", var_name_str);
+                        }
+                    }
+                }
+            } else {
+                i += 1;
+            }
+        }
+        
+        response.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ]);
+        
+        self.output_buffer.extend_from_slice(&response);
+    }
+    
+    /// Parse environment variables sent by the remote side
+    fn parse_received_environment_variables(&mut self, data: &[u8]) {
+        let mut i = 0;
+        
+        while i < data.len() {
+            if data[i] == 0 { // VAR type
+                i += 1;
+                let var_start = i;
+                
+                // Find the end of variable name
+                while i < data.len() && data[i] != 1 {
+                    i += 1;
+                }
+                
+                if i < data.len() && data[i] == 1 { // VALUE type
+                    let var_name = String::from_utf8_lossy(&data[var_start..i]);
+                    i += 1;
+                    let val_start = i;
+                    
+                    // Find the end of value
+                    while i < data.len() && data[i] != 0 && data[i] != 1 {
+                        i += 1;
+                    }
+                    
+                    let value = String::from_utf8_lossy(&data[val_start..i]);
+                    println!("Received environment variable: {}={}", var_name, value);
+                }
+            } else {
+                i += 1;
             }
         }
     }
@@ -428,34 +623,73 @@ impl TelnetNegotiator {
     
     /// Send terminal type response
     fn send_terminal_type_response(&mut self) {
-        // Send terminal type: IBM-5555-C01 (for example)
-        let response: Vec<u8> = vec![
+        // Support common IBM terminal types like mature implementations
+        // IBM-3179-2 for 24x80, IBM-3477-FC for 27x132, IBM-5555-C01 for basic 5250
+        let terminal_type = b"IBM-3179-2"; // 24x80 color display terminal
+        
+        let mut response: Vec<u8> = vec![
             TelnetCommand::IAC as u8,
             TelnetCommand::SB as u8,
             TelnetOption::TerminalType as u8,
             0, // IS command
-            b'I', b'B', b'M', b'-', b'5', b'5', b'5', b'5', b'-', b'C', b'0', b'1',
+        ];
+        
+        response.extend_from_slice(terminal_type);
+        response.extend_from_slice(&[
             TelnetCommand::IAC as u8,
             TelnetCommand::SE as u8,
-        ];
+        ]);
+        
         self.output_buffer.extend_from_slice(&response);
     }
     
     /// Send environment variables
     fn send_environment_variables(&mut self) {
-        // For now, send minimal environment variables
-        // In a real implementation, these would be configurable
-        let response: Vec<u8> = vec![
+        // Send comprehensive environment variables like mature implementations
+        // Based on tn5250j and hlandau/tn5250 patterns
+        
+        let mut response: Vec<u8> = vec![
             TelnetCommand::IAC as u8,
             TelnetCommand::SB as u8,
             TelnetOption::NewEnvironment as u8,
             2, // IS command
-            1, // VAR type
-            b'D', b'E', b'V', b'N', b'A', b'M', b'E', 0, // DEVNAME variable
-            b'T', b'N', b'5', b'2', b'5', b'0', b'R', 0, // TN5250R value
+        ];
+        
+        // Add DEVNAME (device name) variable
+        response.push(0); // VAR type
+        response.extend_from_slice(b"DEVNAME");
+        response.push(1); // VALUE type  
+        response.extend_from_slice(b"TN5250R");
+        
+        // Add KBDTYPE (keyboard type) variable
+        response.push(0); // VAR type
+        response.extend_from_slice(b"KBDTYPE");
+        response.push(1); // VALUE type
+        response.extend_from_slice(b"USB");
+        
+        // Add CODEPAGE variable
+        response.push(0); // VAR type
+        response.extend_from_slice(b"CODEPAGE");
+        response.push(1); // VALUE type
+        response.extend_from_slice(b"37"); // EBCDIC CP037
+        
+        // Add CHARSET variable
+        response.push(0); // VAR type
+        response.extend_from_slice(b"CHARSET");
+        response.push(1); // VALUE type
+        response.extend_from_slice(b"37");
+        
+        // Add USER variable (often requested by AS/400 systems)
+        response.push(0); // VAR type
+        response.extend_from_slice(b"USER");
+        response.push(1); // VALUE type
+        response.extend_from_slice(b"GUEST"); // Default user
+        
+        response.extend_from_slice(&[
             TelnetCommand::IAC as u8,
             TelnetCommand::SE as u8,
-        ];
+        ]);
+        
         self.output_buffer.extend_from_slice(&response);
     }
     

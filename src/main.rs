@@ -4,6 +4,7 @@
 
 use eframe::egui;
 
+mod ansi_processor;
 mod network;
 mod terminal;
 mod protocol;
@@ -11,20 +12,28 @@ mod protocol_state;
 mod telnet_negotiation;
 mod keyboard;
 mod controller;
+mod field_manager;
+
+use controller::AsyncTerminalController;
 
 /// Number of function keys per row in the UI
 const FUNCTION_KEYS_PER_ROW: usize = 12;
 
 /// Main application structure
 pub struct TN5250RApp {
+    controller: AsyncTerminalController,
     connection_string: String,
-    controller: controller::AsyncTerminalController,
     connected: bool,
     host: String,
     port: u16,
     input_buffer: String,
     function_keys_visible: bool,
     terminal_content: String,
+    login_screen_requested: bool,
+    connection_time: Option<std::time::Instant>,
+    fields_info: Vec<(String, String, bool)>,  // (label, content, is_active)
+    show_field_info: bool,
+    tab_pressed_this_frame: bool,  // Track if Tab was pressed to prevent egui handling
 }
 
 impl TN5250RApp {
@@ -71,6 +80,11 @@ impl TN5250RApp {
             input_buffer: String::new(),
             function_keys_visible: true,
             terminal_content,
+            login_screen_requested: false,
+            connection_time: None,
+            fields_info: Vec::new(),
+            show_field_info: true,
+            tab_pressed_this_frame: false,
         }
     }
     
@@ -96,10 +110,14 @@ impl TN5250RApp {
         match self.controller.connect(self.host.clone(), self.port) {
             Ok(()) => {
                 self.connected = true;
-                self.terminal_content = format!("Connected to {}:{}\nReady...\n", self.host, self.port);
+                self.terminal_content = format!("Connected to {}:{}\nNegotiating...\n", self.host, self.port);
+                self.connection_time = Some(std::time::Instant::now());
+                self.login_screen_requested = false;
             }
             Err(e) => {
                 self.terminal_content = format!("Connection failed: {}\n", e);
+                self.connection_time = None;
+                self.login_screen_requested = false;
             }
         }
     }
@@ -107,6 +125,8 @@ impl TN5250RApp {
     fn do_disconnect(&mut self) {
         self.controller.disconnect();
         self.connected = false;
+        self.login_screen_requested = false;
+        self.connection_time = None;
         self.terminal_content = "Disconnected from AS/400 system\nReady for new connection...\n".to_string();
     }
     
@@ -189,13 +209,230 @@ impl TN5250RApp {
             }
         }
         
+        // Update field information
+        if let Ok(fields) = self.controller.get_fields_info() {
+            self.fields_info = fields;
+        }
+        
         // Update connection status
         self.connected = self.controller.is_connected();
+        
+        // Request login screen if connected and enough time has passed
+        if self.connected && !self.login_screen_requested {
+            if let Some(connection_time) = self.connection_time {
+                if connection_time.elapsed() >= std::time::Duration::from_secs(2) {
+                    if let Err(e) = self.controller.request_login_screen() {
+                        eprintln!("Failed to request login screen: {}", e);
+                    }
+                    self.login_screen_requested = true;
+                }
+            }
+        }
+    }
+    
+    fn draw_terminal_with_cursor(&mut self, ui: &mut egui::Ui) {
+        // Get cursor position
+        let cursor_pos = self.controller.get_cursor_position().unwrap_or((1, 1));
+        
+        // Split terminal content into lines
+        let lines: Vec<&str> = self.terminal_content.lines().collect();
+        
+        // Calculate character size for positioning
+        let font = egui::FontId::monospace(14.0);
+        let char_width = ui.fonts(|f| f.glyph_width(&font, ' '));
+        let line_height = ui.fonts(|f| f.row_height(&font));
+        
+        // Create a scrollable text area with clickable regions
+        let available_size = ui.available_size();
+        let response = ui.allocate_response(available_size, egui::Sense::click());
+        
+        // Handle mouse clicks to set cursor position
+        if response.clicked() {
+            if let Some(pos) = response.interact_pointer_pos() {
+                let relative_pos = pos - response.rect.min;
+                let col = (relative_pos.x / char_width).floor() as usize + 1; // Convert to 1-based
+                let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
+                
+                // Clamp to valid terminal bounds
+                let row = row.max(1).min(24);
+                let col = col.max(1).min(80);
+                
+                if let Err(e) = self.controller.click_at_position(row, col) {
+                    eprintln!("Failed to click at position ({}, {}): {}", row, col, e);
+                }
+            }
+        }
+        
+        // Draw the terminal content
+        if ui.is_rect_visible(response.rect) {
+            let mut y_offset = 0.0;
+            
+            for (line_idx, line) in lines.iter().enumerate() {
+                let line_number = line_idx + 1; // 1-based line numbers
+                
+                // Draw each character in the line
+                for (char_idx, ch) in line.chars().enumerate() {
+                    let col_number = char_idx + 1; // 1-based column numbers
+                    
+                    let char_pos = response.rect.min + egui::vec2(char_idx as f32 * char_width, y_offset);
+                    
+                    // Check if this is the cursor position
+                    let is_cursor = cursor_pos.0 == line_number && cursor_pos.1 == col_number;
+                    
+                    // Choose color based on cursor position and field status
+                    let color = if is_cursor {
+                        egui::Color32::BLACK // Cursor character
+                    } else {
+                        egui::Color32::WHITE // Normal text
+                    };
+                    
+                    // Background color for cursor
+                    if is_cursor {
+                        let cursor_rect = egui::Rect::from_min_size(
+                            char_pos,
+                            egui::vec2(char_width, line_height)
+                        );
+                        ui.painter().rect_filled(cursor_rect, egui::Rounding::ZERO, egui::Color32::GREEN);
+                    }
+                    
+                    // Draw the character
+                    ui.painter().text(
+                        char_pos,
+                        egui::Align2::LEFT_TOP,
+                        ch,
+                        font.clone(),
+                        color,
+                    );
+                }
+                
+                y_offset += line_height;
+            }
+            
+            // Draw cursor if it's beyond the text content
+            if cursor_pos.0 as usize > lines.len() || 
+               (cursor_pos.0 as usize <= lines.len() && 
+                cursor_pos.1 as usize > lines.get(cursor_pos.0 - 1).map_or(0, |l| l.len())) {
+                
+                let cursor_char_pos = response.rect.min + egui::vec2(
+                    (cursor_pos.1 - 1) as f32 * char_width,
+                    (cursor_pos.0 - 1) as f32 * line_height
+                );
+                
+                let cursor_rect = egui::Rect::from_min_size(
+                    cursor_char_pos,
+                    egui::vec2(char_width, line_height)
+                );
+                ui.painter().rect_filled(cursor_rect, egui::Rounding::ZERO, egui::Color32::GREEN);
+                
+                // Draw a space character at cursor
+                ui.painter().text(
+                    cursor_char_pos,
+                    egui::Align2::LEFT_TOP,
+                    ' ',
+                    font,
+                    egui::Color32::BLACK,
+                );
+            }
+        }
     }
 }
 
 impl eframe::App for TN5250RApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Reset Tab flag at start of frame
+        self.tab_pressed_this_frame = false;
+        
+        // Handle keyboard events - check if Tab is pressed and consume it for field navigation
+        let mut tab_used_for_navigation = false;
+        
+        // First, check for Tab key and handle field navigation
+        let should_handle_tab = ctx.input(|i| {
+            i.key_pressed(egui::Key::Tab) && self.connected && !self.fields_info.is_empty()
+        });
+        
+        if should_handle_tab {
+            tab_used_for_navigation = true;
+            self.tab_pressed_this_frame = true;
+            
+            let is_shift = ctx.input(|i| i.modifiers.shift);
+            
+            if is_shift {
+                if let Err(e) = self.controller.previous_field() {
+                    eprintln!("Failed to navigate to previous field: {}", e);
+                }
+            } else {
+                if let Err(e) = self.controller.next_field() {
+                    eprintln!("Failed to navigate to next field: {}", e);
+                }
+            }
+        }
+        
+        // Handle other keyboard events (but not Tab if we used it for navigation)
+        ctx.input(|i| {
+            
+            // Handle other keyboard events
+            for event in &i.events {
+                match event {
+                    egui::Event::Key { key, pressed: true, modifiers: _, .. } => {
+                        match key {
+                            egui::Key::Tab => {
+                                // Already handled above
+                            }
+                            egui::Key::Enter => {
+                                // Handle Enter in fields
+                                if let Err(e) = self.controller.send_enter() {
+                                    eprintln!("Failed to send Enter: {}", e);
+                                }
+                            }
+                            egui::Key::Backspace => {
+                                if let Err(e) = self.controller.backspace() {
+                                    eprintln!("Failed to send backspace: {}", e);
+                                }
+                            }
+                            egui::Key::Delete => {
+                                if let Err(e) = self.controller.delete() {
+                                    eprintln!("Failed to send delete: {}", e);
+                                }
+                            }
+                            egui::Key::F1 => {
+                                if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F1) {
+                                    eprintln!("Failed to send F1: {}", e);
+                                }
+                            }
+                            egui::Key::F2 => {
+                                if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F2) {
+                                    eprintln!("Failed to send F2: {}", e);
+                                }
+                            }
+                            egui::Key::F3 => {
+                                if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F3) {
+                                    eprintln!("Failed to send F3: {}", e);
+                                }
+                            }
+                            _ => {
+                                // Let egui handle other keys normally
+                            }
+                        }
+                    }
+                    egui::Event::Text(text) => {
+                        // Handle text input for fields, but only if we're connected and have fields
+                        if self.connected {
+                            for ch in text.chars() {
+                                if ch.is_ascii() && !ch.is_control() {
+                                    if let Err(e) = self.controller.type_char(ch) {
+                                        eprintln!("Failed to type character '{}': {}", ch, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        // Let egui handle other events normally
+                    }
+                }
+            }
+        });
+        
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -224,6 +461,13 @@ impl eframe::App for TN5250RApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // If we used Tab for field navigation, prevent egui widget focus
+            if tab_used_for_navigation {
+                ui.memory_mut(|mem| {
+                    // Clear focus entirely to prevent widgets from getting Tab focus
+                    mem.surrender_focus(egui::Id::NULL);
+                });
+            }
             ui.heading("TN5250R - IBM AS/400 Terminal Emulator");
             ui.separator();
 
@@ -249,21 +493,31 @@ impl eframe::App for TN5250RApp {
 
             ui.separator();
 
-            // Display terminal content
+            // Display terminal content with cursor and click handling
             egui::ScrollArea::vertical()
                 .id_source("terminal_display")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    ui.add_sized(
-                        ui.available_size(),
-                        egui::TextEdit::multiline(&mut self.terminal_content)
-                            .font(egui::TextStyle::Monospace)
-                            .code_editor()
-                            .desired_rows(20)
-                            .lock_focus(true)
-                            .interactive(false), // Make it read-only for now
-                    );
+                    self.draw_terminal_with_cursor(ui);
                 });
+
+            // Display field information if available
+            if !self.fields_info.is_empty() {
+                ui.separator();
+                ui.collapsing("Field Information", |ui| {
+                    for (i, (label, content, is_active)) in self.fields_info.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            if *is_active {
+                                ui.colored_label(egui::Color32::GREEN, "►");
+                            } else {
+                                ui.label(" ");
+                            }
+                            ui.label(format!("Field {}: {} = '{}'", i + 1, label, content));
+                        });
+                    }
+                    ui.label("Use Tab/Shift+Tab to navigate between fields");
+                });
+            }
 
             ui.separator();
             

@@ -65,15 +65,52 @@ impl AS400Connection {
         // Send initial negotiation requests
         let initial_negotiation = self.telnet_negotiator.generate_initial_negotiation();
         if !initial_negotiation.is_empty() {
+            println!("Sending initial telnet negotiation ({} bytes)", initial_negotiation.len());
             stream.write_all(&initial_negotiation)?;
             stream.flush()?;
         }
         
-        // For now, we'll defer the rest of negotiation to happen asynchronously
-        // In a real implementation, we'd want to handle the negotiation properly
-        // But for now, we'll mark it as complete to avoid blocking
+        // Wait for negotiation responses with timeout
+        stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
+        
+        let mut negotiation_attempts = 0;
+        const MAX_NEGOTIATION_ATTEMPTS: usize = 50;
+        
+        while !self.telnet_negotiator.is_negotiation_complete() && negotiation_attempts < MAX_NEGOTIATION_ATTEMPTS {
+            let mut buffer = [0u8; 1024];
+            match stream.read(&mut buffer) {
+                Ok(0) => {
+                    println!("Connection closed during negotiation");
+                    break;
+                }
+                Ok(n) => {
+                    println!("Received negotiation data ({} bytes): {:?}", n, &buffer[..n.min(20)]);
+                    let response = self.telnet_negotiator.process_incoming_data(&buffer[..n]);
+                    
+                    if !response.is_empty() {
+                        println!("Sending negotiation response ({} bytes)", response.len());
+                        stream.write_all(&response)?;
+                        stream.flush()?;
+                    }
+                    
+                    negotiation_attempts += 1;
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
+                    println!("Negotiation timeout or would block, continuing...");
+                    break;
+                }
+                Err(e) => {
+                    println!("Negotiation error: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        
+        // Reset to non-blocking mode
+        stream.set_read_timeout(None)?;
         
         self.negotiation_complete = true;
+        println!("Telnet negotiation completed after {} attempts", negotiation_attempts);
         Ok(())
     }
     
@@ -140,11 +177,27 @@ impl AS400Connection {
             match receiver.try_recv() {
                 Ok(data) => {
                     // Process the received data through our telnet negotiator
-                    let processed_data = self.telnet_negotiator.process_incoming_data(&data);
-                    if !processed_data.is_empty() {
-                        Some(processed_data) // Return processed data if there is any
+                    let negotiation_response = self.telnet_negotiator.process_incoming_data(&data);
+                    
+                    // If there's a negotiation response, send it immediately
+                    if !negotiation_response.is_empty() {
+                        if let Some(ref mut stream) = self.stream {
+                            if let Err(e) = stream.write_all(&negotiation_response) {
+                                eprintln!("Failed to send telnet negotiation response: {}", e);
+                            } else if let Err(e) = stream.flush() {
+                                eprintln!("Failed to flush telnet negotiation response: {}", e);
+                            } else {
+                                println!("Sent telnet negotiation response ({} bytes)", negotiation_response.len());
+                            }
+                        }
+                    }
+                    
+                    // Filter out telnet negotiation from the data and return clean 5250 data
+                    let clean_data = self.extract_5250_data(&data);
+                    if !clean_data.is_empty() {
+                        Some(clean_data)
                     } else {
-                        Some(data) // Return original data
+                        None // No 5250 data in this packet, just negotiation
                     }
                 }
                 Err(mpsc::TryRecvError::Empty) => None, // No data available
@@ -158,6 +211,59 @@ impl AS400Connection {
         } else {
             None
         }
+    }
+    
+    /// Extract non-telnet 5250 data from the received stream
+    fn extract_5250_data(&self, data: &[u8]) -> Vec<u8> {
+        let mut result = Vec::new();
+        let mut i = 0;
+        
+        while i < data.len() {
+            if data[i] == 255 { // IAC
+                // Skip telnet commands
+                if i + 1 < data.len() {
+                    match data[i + 1] {
+                        251..=254 => { // WILL, WONT, DO, DONT
+                            if i + 2 < data.len() {
+                                i += 3; // Skip IAC + command + option
+                                continue;
+                            }
+                        },
+                        250 => { // SB (subnegotiation)
+                            // Find the SE (end of subnegotiation)
+                            let mut j = i + 2;
+                            while j + 1 < data.len() {
+                                if data[j] == 255 && data[j + 1] == 240 { // IAC SE
+                                    i = j + 2;
+                                    break;
+                                }
+                                j += 1;
+                            }
+                            if j + 1 >= data.len() {
+                                // Incomplete subnegotiation, skip rest
+                                break;
+                            }
+                            continue;
+                        },
+                        255 => { // Escaped IAC
+                            result.push(255);
+                            i += 2;
+                            continue;
+                        },
+                        _ => {
+                            // Other telnet command, skip IAC + command
+                            i += 2;
+                            continue;
+                        }
+                    }
+                }
+            }
+            
+            result.push(data[i]);
+            i += 1;
+        }
+        
+        result
     }
 
     /// Checks if the connection is active
