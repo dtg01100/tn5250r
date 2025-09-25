@@ -1,0 +1,65 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/rust
+{
+	"name": "Rust with GUI Support",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
+
+	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
+	"mounts": [
+		{
+			"source": "devcontainer-cargo-cache-${devcontainerId}",
+			"target": "/usr/local/cargo",
+			"type": "volume"
+		},
+		// X11 socket for GUI support
+		{
+			"source": "/tmp/.X11-unix",
+			"target": "/tmp/.X11-unix",
+			"type": "bind"
+		}
+	],
+
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/desktop-lite:1": {
+			"password": "vscode",
+			"webPort": "6080",
+			"vncPort": "5901"
+		}
+	},
+
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	"forwardPorts": [6080, 5901],
+
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": [
+		"bash", "-c", 
+		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libasound2-dev pkg-config && rustc --version"
+	],
+
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"vadimcn.vscode-lldb"
+			]
+		}
+	},
+
+	// Environment variables for GUI support
+	"containerEnv": {
+		"DISPLAY": ":1",
+		"XDG_RUNTIME_DIR": "/tmp/runtime-vscode",
+		"WAYLAND_DISPLAY": "wayland-1"
+	},
+
+	// Run arguments for GUI support
+	"runArgs": [
+		"--privileged"
+	]
+
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

@@ -1,0 +1,95 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file (uncomment if this is a library crate)
+# Cargo.lock
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.tmp
+*.temp
+
+# Log files
+*.log
+logs/
+
+# Runtime and temporary files
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Debug files
+debug/
+*.dSYM/
+
+# Rust-specific
+**/*.rs.bk
+*.orig
+
+# Generated documentation
+/doc/
+
+# Test results
+test-results/
+test-output/
+
+# Backup files
+*.bak
+*.backup
+
+# Archive files
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Application specific
+# Terminal session logs
+terminal_*.log
+session_*.log
+
+# Configuration files that might contain sensitive data
+config.toml
+secrets.toml
+credentials.json
+
+# X11 and GUI related temporary files
+.X*-lock
+/tmp/.X11-unix/
+
+# Generated status and report files (from our testing)
+GUI_STATUS_REPORT.md
+EXECUTION_RESULTS.md

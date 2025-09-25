@@ -1,0 +1,25 @@
+[package]
+name = "tn5250r"
+version = "0.1.0"
+edition = "2021"
+description = "A cross-platform desktop terminal emulator for IBM AS/400 (IBM i) systems"
+authors = ["Your Name <your.email@example.com>"]
+license = "GPL-2.0-or-later"
+repository = "https://github.com/your-username/tn5250r"
+homepage = "https://github.com/your-username/tn5250r"
+documentation = "https://github.com/your-username/tn5250r#readme"
+
+[dependencies]
+egui = "0.27"
+eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow", "wgpu"] }
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0"
+env_logger = "0.10"
+
+[dev-dependencies]
+
+# Binary target for the desktop application
+[[bin]]
+name = "tn5250r"
+path = "src/main.rs"
