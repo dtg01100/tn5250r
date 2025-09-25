@@ -74,9 +74,15 @@ impl AS400Connection {
         stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
         
         let mut negotiation_attempts = 0;
-        const MAX_NEGOTIATION_ATTEMPTS: usize = 50;
+        const MAX_NEGOTIATION_ATTEMPTS: usize = 30; // Reduced for faster timeout
+        const NEGOTIATION_TIMEOUT_SECS: u64 = 15; // Total timeout for negotiation
         
-        while !self.telnet_negotiator.is_negotiation_complete() && negotiation_attempts < MAX_NEGOTIATION_ATTEMPTS {
+        let negotiation_start = std::time::Instant::now();
+        
+        while !self.telnet_negotiator.is_negotiation_complete() && 
+              negotiation_attempts < MAX_NEGOTIATION_ATTEMPTS &&
+              negotiation_start.elapsed().as_secs() < NEGOTIATION_TIMEOUT_SECS {
+            
             let mut buffer = [0u8; 1024];
             match stream.read(&mut buffer) {
                 Ok(0) => {
@@ -84,19 +90,40 @@ impl AS400Connection {
                     break;
                 }
                 Ok(n) => {
-                    println!("Received negotiation data ({} bytes): {:?}", n, &buffer[..n.min(20)]);
+                    println!("Received negotiation data ({} bytes)", n);
                     let response = self.telnet_negotiator.process_incoming_data(&buffer[..n]);
                     
                     if !response.is_empty() {
                         println!("Sending negotiation response ({} bytes)", response.len());
-                        stream.write_all(&response)?;
-                        stream.flush()?;
+                        match stream.write_all(&response) {
+                            Ok(()) => {
+                                if let Err(e) = stream.flush() {
+                                    println!("Warning: Failed to flush negotiation response: {}", e);
+                                }
+                            }
+                            Err(e) => {
+                                println!("Error sending negotiation response: {}", e);
+                                return Err(e);
+                            }
+                        }
                     }
                     
                     negotiation_attempts += 1;
+                    
+                    // Small delay to prevent busy waiting
+                    std::thread::sleep(std::time::Duration::from_millis(50));
                 }
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
-                    println!("Negotiation timeout or would block, continuing...");
+                    println!("Negotiation timeout, checking if we can proceed...");
+                    
+                    // Try to force completion if essential options were attempted
+                    if self.telnet_negotiator.force_negotiation_complete() {
+                        println!("Proceeding with forced negotiation completion");
+                        break;
+                    }
+                    
+                    // If we can't force completion, give up
+                    println!("Cannot complete negotiation, timing out");
                     break;
                 }
                 Err(e) => {
@@ -109,8 +136,33 @@ impl AS400Connection {
         // Reset to non-blocking mode
         stream.set_read_timeout(None)?;
         
-        self.negotiation_complete = true;
-        println!("Telnet negotiation completed after {} attempts", negotiation_attempts);
+        // Check final negotiation status
+        if self.telnet_negotiator.is_negotiation_complete() {
+            self.negotiation_complete = true;
+            println!("RFC 2877 telnet negotiation completed successfully after {} attempts in {:.2}s", 
+                     negotiation_attempts, negotiation_start.elapsed().as_secs_f64());
+        } else {
+            println!("Telnet negotiation incomplete after {} attempts and {:.2}s", 
+                     negotiation_attempts, negotiation_start.elapsed().as_secs_f64());
+            
+            // Log current negotiation status for debugging
+            let status = self.telnet_negotiator.get_negotiation_state_details();
+            println!("Final negotiation status:");
+            for (option, state) in status {
+                println!("  {:?}: {:?}", option, state);
+            }
+            
+            // Try to proceed anyway if essential options are somewhat negotiated
+            if self.telnet_negotiator.force_negotiation_complete() {
+                self.negotiation_complete = true;
+                println!("Proceeding with partial negotiation");
+            } else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Telnet option negotiation failed - essential options not negotiated"
+                ));
+            }
+        }
         Ok(())
     }
     
