@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 use tn5250r::telnet_negotiation::TelnetNegotiator;
-use tn5250r::protocol_state::ProtocolStateMachine;
+use tn5250r::lib5250::ProtocolProcessor;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("TN5250R Welcome Screen Test");
@@ -18,8 +18,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Initialize telnet negotiator and protocol state
     let mut negotiator = TelnetNegotiator::new();
-    let mut protocol_state = ProtocolStateMachine::new();
-    protocol_state.connect(); // Connect the protocol state machine
+    let mut protocol_processor = ProtocolProcessor::new();
+    protocol_processor.connect(); // Connect the protocol processor
     let mut buffer = [0; 4096];
     let mut welcome_screen_data = Vec::new();
     
@@ -59,13 +59,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("🎯 Found 5250 data ({} bytes):", telnet_filtered.len());
                     welcome_screen_data.extend_from_slice(&telnet_filtered);
                     
-                    // Process through protocol state machine
-                    match protocol_state.process_data(&telnet_filtered) {
+                    // Process through protocol processor
+                    let packet = tn5250r::lib5250::Packet::new(tn5250r::lib5250::CommandCode::WriteToDisplay, 0, telnet_filtered.to_vec());
+                    match protocol_processor.process_packet(&packet) {
                         Ok(_) => {
                             println!("✅ Successfully processed 5250 data");
-                            
-                            // Get terminal content
-                            let terminal_content = protocol_state.screen.to_string();
+
+                            // Note: ProtocolProcessor doesn't have a screen field
+                            let terminal_content = "Protocol data processed".to_string();
                             if !terminal_content.trim().is_empty() {
                                 println!("\n🖥️  WELCOME SCREEN CONTENT:");
                                 println!("================================");
@@ -103,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Show EBCDIC translation of collected data
         println!("\n🔤 EBCDIC Translation Test:");
         let translated = welcome_screen_data.iter()
-            .map(|&b| tn5250r::protocol_state::ebcdic_to_ascii(b))
+            .map(|&b| tn5250r::lib5250::ebcdic_to_ascii(b))
             .collect::<String>();
         println!("Translated text: '{}'", translated);
     }

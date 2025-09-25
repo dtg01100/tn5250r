@@ -4,11 +4,11 @@
 
 use eframe::egui;
 
+mod lib5250;
 mod ansi_processor;
 mod network;
 mod terminal;
 mod protocol;
-mod protocol_state;
 mod telnet_negotiation;
 mod keyboard;
 mod controller;

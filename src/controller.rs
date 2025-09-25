@@ -7,9 +7,9 @@ use std::thread;
 use std::time::Duration;
 
 use crate::ansi_processor::AnsiProcessor;
-use crate::field_manager::{FieldManager, FieldError};
+use crate::field_manager::FieldManager;
 use crate::network;
-use crate::protocol_state;
+use crate::lib5250::session::Session;
 use crate::keyboard;
 use crate::terminal::{TerminalChar, CharAttribute};
 
@@ -18,17 +18,18 @@ pub struct TerminalController {
     host: String,
     port: u16,
     connected: bool,
-    protocol_state_machine: protocol_state::ProtocolStateMachine,
+    session: Session,
     network_connection: Option<network::AS400Connection>,
     ansi_processor: AnsiProcessor,
     use_ansi_mode: bool,
     field_manager: FieldManager,
+    screen: crate::terminal::TerminalScreen, // Screen management moved to controller level
 }
 
 impl TerminalController {
     pub fn new() -> Self {
         Self {
-            protocol_state_machine: protocol_state::ProtocolStateMachine::new(),
+            session: Session::new(),
             network_connection: None,
             connected: false,
             host: String::new(),
@@ -36,6 +37,7 @@ impl TerminalController {
             ansi_processor: AnsiProcessor::new(),
             use_ansi_mode: false,
             field_manager: FieldManager::new(),
+            screen: crate::terminal::TerminalScreen::new(),
         }
     }
     
@@ -48,15 +50,15 @@ impl TerminalController {
         let mut conn = network::AS400Connection::new(host, port);
         conn.connect().map_err(|e| e.to_string())?;
         
-        // Initialize protocol state machine
-        self.protocol_state_machine.connect();
+        // Initialize session
+        // Session is already initialized in new()
         
         self.network_connection = Some(conn);
         self.connected = true;
         
         // Update terminal screen with connection message
-        self.protocol_state_machine.screen.clear();
-        self.protocol_state_machine.screen.write_string(&format!("Connecting to {}:{}...\n", self.host, self.port));
+        self.screen.clear();
+        self.screen.write_string(&format!("Connecting to {}:{}...\n", self.host, self.port));
         
         Ok(())
     }
@@ -79,11 +81,11 @@ impl TerminalController {
             conn.disconnect();
         }
         self.connected = false;
-        self.protocol_state_machine.disconnect();
-        
+        // Session cleanup (if needed in the future)
+
         // Update terminal screen with disconnection message
-        self.protocol_state_machine.screen.clear();
-        self.protocol_state_machine.screen.write_string("Disconnected from AS/400 system\nReady for new connection...\n");
+        self.screen.clear();
+        self.screen.write_string("Disconnected from AS/400 system\nReady for new connection...\n");
     }
     
     pub fn is_connected(&self) -> bool {
@@ -116,7 +118,7 @@ impl TerminalController {
     }
     
     pub fn get_terminal_content(&self) -> String {
-        self.protocol_state_machine.screen.to_string()
+        self.screen.to_string()
     }
     
     // Process any incoming data from the network connection
@@ -136,22 +138,22 @@ impl TerminalController {
                 
                 if self.use_ansi_mode {
                     // Process as ANSI terminal data
-                    self.ansi_processor.process_data(&received_data, &mut self.protocol_state_machine.screen);
-                    
+                    self.ansi_processor.process_data(&received_data, &mut self.screen);
+
                     // Detect fields after processing ANSI data
-                    self.field_manager.detect_fields(&self.protocol_state_machine.screen);
+                    self.field_manager.detect_fields(&self.screen);
                 } else {
-                    // Process through the 5250 protocol state machine
-                    let _ = self.protocol_state_machine.process_data(&received_data);
-                    
+                    // Process through the 5250 session processor
+                    let _ = self.session.process_stream(&received_data);
+
                     // Detect fields after processing 5250 data
-                    self.field_manager.detect_fields(&self.protocol_state_machine.screen);
+                    self.field_manager.detect_fields(&self.screen);
                 }
-                
+
                 // Update the terminal screen with connection success message if needed
-                if !self.use_ansi_mode && self.protocol_state_machine.screen.to_string().contains("Connecting") {
-                    self.protocol_state_machine.screen.clear();
-                    self.protocol_state_machine.screen.write_string(&format!("Connected to {}:{}\nReady...\n", self.host, self.port));
+                if !self.use_ansi_mode && self.screen.to_string().contains("Connecting") {
+                    self.screen.clear();
+                    self.screen.write_string(&format!("Connected to {}:{}\nReady...\n", self.host, self.port));
                 }
             }
         }
@@ -310,9 +312,9 @@ impl TerminalController {
             // Clear the field area first
             for i in 0..field.length {
                 if field.start_col + i <= 80 {
-                    self.protocol_state_machine.screen.set_char_at(
-                        field.start_row - 1, 
-                        field.start_col + i - 1, 
+                    self.screen.set_char_at(
+                        field.start_row - 1,
+                        field.start_col + i - 1,
                         TerminalChar {
                             character: ' ',
                             attribute: CharAttribute::Normal,
@@ -324,9 +326,9 @@ impl TerminalController {
             // Write the field content
             for (i, ch) in display_content.chars().enumerate() {
                 if i < field.length && field.start_col + i <= 80 {
-                    self.protocol_state_machine.screen.set_char_at(
-                        field.start_row - 1, 
-                        field.start_col + i - 1, 
+                    self.screen.set_char_at(
+                        field.start_row - 1,
+                        field.start_col + i - 1,
                         TerminalChar {
                             character: ch,
                             attribute: CharAttribute::Normal,
@@ -337,7 +339,7 @@ impl TerminalController {
             
             // Show cursor in active field
             if field.active && display_content.len() < field.length {
-                self.protocol_state_machine.screen.set_char_at(
+                self.screen.set_char_at(
                     field.start_row - 1,
                     field.start_col + display_content.len() - 1,
                     TerminalChar {

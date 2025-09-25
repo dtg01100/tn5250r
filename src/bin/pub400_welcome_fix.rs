@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 use tn5250r::telnet_negotiation::TelnetNegotiator;
-use tn5250r::protocol_state::ebcdic_to_ascii;
+use tn5250r::lib5250::ebcdic_to_ascii;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🏠 TN5250R pub400.com Welcome Screen Fix");

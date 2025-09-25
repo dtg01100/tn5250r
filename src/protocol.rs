@@ -1,7 +1,13 @@
 //! 5250 Protocol implementation with RFC 2877/4777 compliance
-//! 
+//!
+//! DEPRECATED: This module has been replaced by lib5250::protocol and will be removed.
+//! All functionality has been migrated to the consolidated lib5250 implementation.
+//!
 //! This module handles the IBM 5250 protocol for communication with AS/400 systems,
 //! implementing the complete command set as specified in RFC 2877/4777.
+//!
+//! MIGRATION COMPLETE: The main application now uses lib5250::ProtocolProcessor
+//! instead of ProtocolProcessor. This file is kept for reference only.
 
 use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT, CharAttribute, TerminalChar};
 

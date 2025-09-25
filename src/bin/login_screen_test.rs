@@ -2,7 +2,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 use tn5250r::telnet_negotiation::TelnetNegotiator;
-use tn5250r::protocol::CommandCode;
+use tn5250r::lib5250::protocol::CommandCode;
 
 fn main() -> std::io::Result<()> {
     println!("Login Screen Test - Attempting to retrieve login screens");

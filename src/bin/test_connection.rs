@@ -1,9 +1,9 @@
-use std::io::{Read, Write};
+use std::io::Read;
 use std::net::TcpStream;
 use std::time::Duration;
 
 // Import the EBCDIC translation function
-use tn5250r::protocol_state::ebcdic_to_ascii;
+use tn5250r::lib5250::ebcdic_to_ascii;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("TN5250R Connection Test");

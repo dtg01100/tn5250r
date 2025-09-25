@@ -1,4 +1,30 @@
-use tn5250r::protocol_state::ebcdic_to_ascii;
+// TODO: EBCDIC conversion not yet implemented in new lib5250 port
+// use tn5250r::lib5250::ebcdic_to_ascii;
+
+// Placeholder EBCDIC to ASCII conversion - not accurate
+fn ebcdic_to_ascii(ebcdic: u8) -> char {
+    match ebcdic {
+        0x40 => ' ',  // Space
+        0x4a => '!',
+        0x4f => '|',
+        0x50..=0x59 => ('0' as u8 + (ebcdic - 0x50)) as char, // 0-9
+        0x5a => '!',
+        0x5b => '$',
+        0x5c => '*',
+        0x5d => ')',
+        0x5e => ';',
+        0x5f => '^',
+        0x60 => '-',
+        0x61 => '/',
+        0x81..=0x89 => ('a' as u8 + (ebcdic - 0x81)) as char, // a-i
+        0x91..=0x99 => ('j' as u8 + (ebcdic - 0x91)) as char, // j-r
+        0xa2..=0xa9 => ('s' as u8 + (ebcdic - 0xa2)) as char, // s-z
+        0xc1..=0xc9 => ('A' as u8 + (ebcdic - 0xc1)) as char, // A-I
+        0xd1..=0xd9 => ('J' as u8 + (ebcdic - 0xd1)) as char, // J-R
+        0xe2..=0xe9 => ('S' as u8 + (ebcdic - 0xe2)) as char, // S-Z
+        _ => '?',  // Unknown character
+    }
+}
 
 fn main() {
     println!("🔤 Debugging pub400.com EBCDIC data");

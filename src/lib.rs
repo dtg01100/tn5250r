@@ -1,9 +1,10 @@
+pub mod lib5250;
 pub mod ansi_processor;
 pub mod controller;
+pub mod error;
 pub mod field_manager;
 pub mod keyboard;
 pub mod network;
-pub mod protocol;
 pub mod protocol_state;
 pub mod telnet_negotiation;
 pub mod terminal;

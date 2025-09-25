@@ -431,53 +431,8 @@ impl FieldManager {
     
     /// Detect fields on the terminal screen
     pub fn detect_fields(&mut self, screen: &TerminalScreen) {
-        // Clear existing fields
-        self.fields.clear();
-        self.active_field = None;
-        self.next_field_id = 1;
-        
-        // Debug: Print the first few lines of screen content
-        let screen_text = screen.to_string();
-        let lines: Vec<&str> = screen_text.lines().collect();
-        
-        // Print debug info for the first few lines
-        eprintln!("=== FIELD DETECTION DEBUG ===");
-        for (i, line) in lines.iter().take(5).enumerate() {
-            eprintln!("Line {}: '{}'", i + 1, line);
-        }
-        eprintln!("=============================");
-        
-        for (row_idx, line) in lines.iter().enumerate() {
-            let row = row_idx + 1; // Convert to 1-based
-            
-            // Skip empty lines
-            if line.trim().is_empty() {
-                continue;
-            }
-            
-            // Only detect fields that have labels followed by colon and input patterns
-            if line.contains(": ") && (line.contains("_") || line.contains(".")) {
-                self.detect_labeled_input_fields(line, row);
-            }
-        }
-        
-        // Debug: Report detected fields
-        eprintln!("Detected {} fields:", self.fields.len());
-        for field in &self.fields {
-            eprintln!("  Field {} at ({}, {}): {:?} - '{}'", 
-                field.id, field.start_row, field.start_col, field.field_type, 
-                field.label.as_ref().unwrap_or(&"<no label>".to_string()));
-        }
-        
-        // Activate first field if any fields were found
-        if !self.fields.is_empty() {
-            self.fields[0].active = true;
-            self.active_field = Some(0);
-            
-            // Set cursor to first field
-            let field = &self.fields[0];
-            self.set_cursor_position(field.start_row, field.start_col);
-        }
+        // Use lib5250 field detection
+        let _ = crate::lib5250::field::detect_fields_from_screen(screen);
     }
     
     /// Detect fields marked with underscores
@@ -514,7 +469,7 @@ impl FieldManager {
     /// Detect fields with colon patterns (Label: _____)
     fn detect_colon_fields(&mut self, line: &str, row: usize) {
         // Look for "word:" followed by spaces or underscores
-        let re_pattern = r"([A-Za-z][A-Za-z0-9\s]*):[\s_]+";
+        let _re_pattern = r"([A-Za-z][A-Za-z0-9\s]*):[\s_]+";
         
         // Simple pattern matching for colon fields
         let chars: Vec<char> = line.chars().collect();
@@ -1094,7 +1049,7 @@ impl FieldManager {
                     let chars: Vec<char> = field_part.chars().collect();
                     let mut start_found = false;
                     
-                    for (i, &ch) in chars.iter().enumerate().skip(field_start) {
+                    for (_i, &ch) in chars.iter().enumerate().skip(field_start) {
                         if ch == '_' || ch == '.' {
                             if !start_found {
                                 start_found = true;

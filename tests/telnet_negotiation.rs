@@ -229,7 +229,7 @@ mod tests {
         let mut negotiator = TelnetNegotiator::new();
         
         // Get initial status
-        let status = negotiator.get_negotiation_status_report();
+        let status = negotiator.get_negotiation_state_details();
         assert!(!status.is_empty());
         
         // All should initially be in Initial state
@@ -239,7 +239,7 @@ mod tests {
         
         // After generating initial negotiation, states should change
         negotiator.generate_initial_negotiation();
-        let status = negotiator.get_negotiation_status_report();
+        let status = negotiator.get_negotiation_state_details();
         
         // Some options should now be in RequestedDo or RequestedWill state
         let has_requested = status.iter().any(|(_, state)| {

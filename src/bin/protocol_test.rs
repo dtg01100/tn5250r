@@ -4,7 +4,7 @@ use std::time::Duration;
 use std::thread;
 
 // Import the EBCDIC translation function and telnet negotiator
-use tn5250r::protocol_state::ebcdic_to_ascii;
+use tn5250r::lib5250::ebcdic_to_ascii;
 use tn5250r::telnet_negotiation::{TelnetNegotiator, TelnetOption};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
