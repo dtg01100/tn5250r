@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::ansi_processor::AnsiProcessor;
-use crate::field_manager::FieldManager;
+use crate::field_manager::{FieldManager, FieldError};
 use crate::network;
 use crate::protocol_state;
 use crate::keyboard;
@@ -191,13 +191,19 @@ impl TerminalController {
     }
     
     /// Navigate to next field
-    pub fn next_field(&mut self) {
-        self.field_manager.next_field();
+    pub fn next_field(&mut self) -> Result<(), String> {
+        match self.field_manager.next_field() {
+            Ok(()) => Ok(()),
+            Err(error) => Err(error.get_user_message().to_string()),
+        }
     }
     
     /// Navigate to previous field
-    pub fn previous_field(&mut self) {
-        self.field_manager.previous_field();
+    pub fn previous_field(&mut self) -> Result<(), String> {
+        match self.field_manager.previous_field() {
+            Ok(()) => Ok(()),
+            Err(error) => Err(error.get_user_message().to_string()),
+        }
     }
     
     /// Type character into active field
@@ -212,12 +218,15 @@ impl TerminalController {
         // Now get mutable reference and insert character
         if let Some(field) = self.field_manager.get_active_field_mut() {
             let offset = field.content.len();
-            if field.insert_char(ch, offset) {
-                // Update the screen display
-                self.update_field_display(field_id);
-                Ok(())
-            } else {
-                Err("Cannot insert character in this field".to_string())
+            match field.insert_char(ch, offset) {
+                Ok(_) => {
+                    // Update the screen display
+                    self.update_field_display(field_id);
+                    Ok(())
+                }
+                Err(error) => {
+                    Err(error.get_user_message().to_string())
+                }
             }
         } else {
             Err("No active field".to_string())
@@ -532,8 +541,7 @@ impl AsyncTerminalController {
     
     pub fn next_field(&self) -> Result<(), String> {
         if let Ok(mut ctrl) = self.controller.lock() {
-            ctrl.next_field();
-            Ok(())
+            ctrl.next_field()
         } else {
             Err("Controller lock failed".to_string())
         }
@@ -541,8 +549,7 @@ impl AsyncTerminalController {
     
     pub fn previous_field(&self) -> Result<(), String> {
         if let Ok(mut ctrl) = self.controller.lock() {
-            ctrl.previous_field();
-            Ok(())
+            ctrl.previous_field()
         } else {
             Err("Controller lock failed".to_string())
         }

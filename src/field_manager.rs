@@ -4,6 +4,7 @@
 //! input fields in AS/400 terminal screens.
 
 use crate::terminal::TerminalScreen;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FieldType {
@@ -17,6 +18,106 @@ pub enum FieldType {
     Protected,
     /// Selection field (dropdown/menu)
     Selection,
+    /// Automatically send ENTER when field fills
+    AutoEnter,
+    /// Must be filled before proceeding
+    Mandatory,
+    /// Visual highlighting when active
+    Highlighted,
+    /// Skip during navigation
+    Bypass,
+    /// Multi-segment field
+    Continued,
+    /// Signed numeric field
+    NumericSigned,
+    /// Letters, comma, dash, period, space only
+    AlphaOnly,
+    /// Digits only (stricter than Numeric)
+    DigitsOnly,
+    /// Auto-convert to uppercase
+    UppercaseOnly,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldBehavior {
+    /// FER - must use Field Exit key to leave field
+    pub field_exit_required: bool,
+    /// Auto-send ENTER when field is full
+    pub auto_enter: bool,
+    /// Required field - must be filled
+    pub mandatory: bool,
+    /// Skip during navigation
+    pub bypass: bool,
+    /// Right-justify content on field exit
+    pub right_adjust: bool,
+    /// Fill with zeros vs spaces
+    pub zero_fill: bool,
+    /// Auto-convert to uppercase
+    pub uppercase_convert: bool,
+    /// Allow duplicate field operation
+    pub dup_enabled: bool,
+    /// Custom next field ID for progression
+    pub cursor_progression: Option<usize>,
+}
+
+impl Default for FieldBehavior {
+    fn default() -> Self {
+        Self {
+            field_exit_required: false,
+            auto_enter: false,
+            mandatory: false,
+            bypass: false,
+            right_adjust: false,
+            zero_fill: false,
+            uppercase_convert: false,
+            dup_enabled: false,
+            cursor_progression: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FieldError {
+    /// Input validation errors
+    CursorProtected,
+    NumericOnly,
+    AlphaOnly,
+    DigitsOnly,
+    InvalidCharacter(char),
+    InvalidSignPosition,
+    
+    /// Field operation errors
+    FieldExitRequired,
+    FieldExitInvalid,
+    MandatoryEnter,
+    FieldFull,
+    NoRoomForInsert,
+    
+    /// Navigation errors
+    NoActiveField,
+    FieldNotFound(usize),
+    InvalidFieldNavigation,
+}
+
+impl FieldError {
+    pub fn get_user_message(&self) -> &'static str {
+        match self {
+            FieldError::CursorProtected => "Cursor is in protected area",
+            FieldError::NumericOnly => "Numeric characters only",
+            FieldError::AlphaOnly => "Alphabetic characters only",
+            FieldError::DigitsOnly => "Digits only",
+            FieldError::InvalidCharacter(_) => "Invalid character for this field",
+            FieldError::InvalidSignPosition => "Sign must be at beginning or end",
+            FieldError::FieldExitRequired => "Use Field Exit key to leave field",
+            FieldError::FieldExitInvalid => "Field Exit not allowed here",
+            FieldError::MandatoryEnter => "Required field must be filled",
+            FieldError::FieldFull => "Field is full",
+            FieldError::NoRoomForInsert => "No room to insert character",
+            FieldError::NoActiveField => "No field is currently active",
+            FieldError::FieldNotFound(_) => "Field not found",
+            FieldError::InvalidFieldNavigation => "Invalid field navigation",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +141,24 @@ pub struct Field {
     pub label: Option<String>,
     /// Whether field is required
     pub required: bool,
+    /// Field behavior settings
+    pub behavior: FieldBehavior,
+    /// Unique field ID for progression
+    pub field_id: usize,
+    /// Custom next field ID
+    pub next_field_id: Option<usize>,
+    /// Custom previous field ID
+    pub prev_field_id: Option<usize>,
+    /// Group ID for continued fields
+    pub continued_group_id: Option<usize>,
+    /// Visual highlighting state
+    pub highlighted: bool,
+    /// Current error state if any
+    pub error_state: Option<FieldError>,
+    /// Modified Data Tag (MDT)
+    pub modified: bool,
+    /// Current cursor position in field
+    pub cursor_position: usize,
 }
 
 impl Field {
@@ -55,6 +174,16 @@ impl Field {
             active: false,
             label: None,
             required: false,
+            // New enhanced fields
+            behavior: FieldBehavior::default(),
+            field_id: id, // Use same as id initially
+            next_field_id: None,
+            prev_field_id: None,
+            continued_group_id: None,
+            highlighted: false,
+            error_state: None,
+            modified: false,
+            cursor_position: 0,
         }
     }
     
@@ -75,32 +204,46 @@ impl Field {
     }
     
     /// Insert character at current cursor position
-    pub fn insert_char(&mut self, ch: char, offset: usize) -> bool {
-        // Check field type restrictions
-        match self.field_type {
-            FieldType::Numeric => {
-                if !ch.is_ascii_digit() && ch != '.' && ch != '-' && ch != '+' {
-                    return false; // Invalid character for numeric field
-                }
-            }
-            FieldType::Protected => {
-                return false; // Cannot edit protected fields
-            }
-            _ => {}
+    pub fn insert_char(&mut self, ch: char, offset: usize) -> Result<bool, FieldError> {
+        // Clear any previous errors
+        self.clear_error();
+        
+        // Validate character input
+        if let Err(error) = self.validate_character(ch) {
+            self.set_error(error.clone());
+            return Err(error);
         }
         
         // Check length limits
         if self.content.len() >= self.max_length {
-            return false;
+            let error = FieldError::FieldFull;
+            self.set_error(error.clone());
+            return Err(error);
+        }
+        
+        // Check if there's room to insert
+        if offset > self.content.len() {
+            let error = FieldError::NoRoomForInsert;
+            self.set_error(error.clone());
+            return Err(error);
         }
         
         // Insert character at the specified offset
-        if offset <= self.content.len() {
-            self.content.insert(offset, ch);
-            true
-        } else {
-            false
+        self.content.insert(offset, ch);
+        self.modified = true;
+        
+        // Apply transformations if needed
+        if self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert {
+            if let Some(last_char) = self.content.chars().nth(offset) {
+                let upper_char = last_char.to_uppercase().collect::<String>();
+                if upper_char.len() == 1 && upper_char != last_char.to_string() {
+                    self.content.remove(offset);
+                    self.content.insert_str(offset, &upper_char);
+                }
+            }
         }
+        
+        Ok(true)
     }
     
     /// Delete character at offset
@@ -170,6 +313,89 @@ impl Field {
         
         Ok(())
     }
+    
+    /// Set field behavior
+    pub fn set_behavior(&mut self, behavior: FieldBehavior) {
+        self.behavior = behavior;
+    }
+    
+    /// Set field error
+    pub fn set_error(&mut self, error: FieldError) {
+        self.error_state = Some(error);
+    }
+    
+    /// Clear field error
+    pub fn clear_error(&mut self) {
+        self.error_state = None;
+    }
+    
+    /// Check if field is part of a continued group
+    pub fn is_continued(&self) -> bool {
+        self.continued_group_id.is_some()
+    }
+    
+    /// Validate character input based on field type
+    pub fn validate_character(&self, ch: char) -> Result<(), FieldError> {
+        match self.field_type {
+            FieldType::DigitsOnly => {
+                if !ch.is_ascii_digit() {
+                    return Err(FieldError::DigitsOnly);
+                }
+            },
+            FieldType::Numeric => {
+                if !ch.is_ascii_digit() && !"+-., ".contains(ch) {
+                    return Err(FieldError::NumericOnly);
+                }
+            },
+            FieldType::NumericSigned => {
+                if !ch.is_ascii_digit() && !"+-".contains(ch) {
+                    return Err(FieldError::NumericOnly);
+                }
+            },
+            FieldType::AlphaOnly => {
+                if !ch.is_alphabetic() && !",.- ".contains(ch) {
+                    return Err(FieldError::AlphaOnly);
+                }
+            },
+            FieldType::Protected | FieldType::Bypass => {
+                return Err(FieldError::CursorProtected);
+            },
+            _ => {} // Allow all characters for other types
+        }
+        Ok(())
+    }
+    
+    /// Check if field should auto-enter when full
+    pub fn should_auto_enter(&self) -> bool {
+        self.field_type == FieldType::AutoEnter || self.behavior.auto_enter
+    }
+    
+    /// Check if field is mandatory
+    pub fn is_mandatory(&self) -> bool {
+        self.field_type == FieldType::Mandatory || self.behavior.mandatory || self.required
+    }
+    
+    /// Check if field should be bypassed during navigation
+    pub fn should_bypass(&self) -> bool {
+        self.field_type == FieldType::Bypass || self.behavior.bypass
+    }
+    
+    /// Apply field-specific text transformations
+    pub fn apply_transformations(&mut self) {
+        if self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert {
+            self.content = self.content.to_uppercase();
+        }
+        
+        if self.behavior.right_adjust {
+            self.content = format!("{:>width$}", self.content, width = self.max_length);
+        }
+        
+        if self.behavior.zero_fill && self.field_type == FieldType::Numeric {
+            if let Ok(_) = self.content.parse::<i32>() {
+                self.content = format!("{:0width$}", self.content, width = self.max_length);
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -184,6 +410,10 @@ pub struct FieldManager {
     cursor_row: usize,
     /// Current cursor column (1-based)
     cursor_col: usize,
+    /// Groups of continued fields (group_id -> Vec<field_indices>)
+    continued_groups: HashMap<usize, Vec<usize>>,
+    /// Current error state
+    error_state: Option<FieldError>,
 }
 
 impl FieldManager {
@@ -194,6 +424,8 @@ impl FieldManager {
             next_field_id: 1,
             cursor_row: 1,
             cursor_col: 1,
+            continued_groups: HashMap::new(),
+            error_state: None,
         }
     }
     
@@ -438,31 +670,107 @@ impl FieldManager {
         None
     }
     
-    /// Navigate to next field
-    pub fn next_field(&mut self) {
-        if let Some(current) = self.active_field {
-            self.fields[current].active = false;
-            let next = (current + 1) % self.fields.len();
-            self.active_field = Some(next);
-            self.fields[next].active = true;
+    /// Navigate to next field with enhanced logic
+    pub fn next_field(&mut self) -> Result<(), FieldError> {
+        self.navigate_to_next_field()
+    }
+    
+    /// Navigate to previous field with enhanced logic
+    pub fn previous_field(&mut self) -> Result<(), FieldError> {
+        self.navigate_to_previous_field()
+    }
+    
+    /// Enhanced field navigation with progression logic
+    pub fn navigate_to_next_field(&mut self) -> Result<(), FieldError> {
+        if self.fields.is_empty() {
+            return Err(FieldError::NoActiveField);
+        }
+        
+        let current_idx = self.active_field.unwrap_or(0);
+        let current_field = &self.fields[current_idx];
+        
+        // Check for custom cursor progression
+        if let Some(next_id) = current_field.next_field_id {
+            if let Some(next_idx) = self.find_field_by_id(next_id) {
+                return self.activate_field_by_index(next_idx);
+            }
+        }
+        
+        // Check for continued field logic
+        if let Some(group_id) = current_field.continued_group_id {
+            if let Some(next_in_group) = self.find_next_in_continued_group(group_id, current_idx) {
+                return self.activate_field_by_index(next_in_group);
+            }
+        }
+        
+        // Standard field progression with bypass logic
+        let mut next_idx = current_idx;
+        let start_idx = next_idx;
+        
+        loop {
+            next_idx = (next_idx + 1) % self.fields.len();
             
-            // Update cursor position to the beginning of the new field
-            let field = &self.fields[next];
-            self.set_cursor_position(field.start_row, field.start_col);
+            // Avoid infinite loop
+            if next_idx == start_idx {
+                return Err(FieldError::InvalidFieldNavigation);
+            }
+            
+            let candidate_field = &self.fields[next_idx];
+            
+            // Skip bypass fields
+            if candidate_field.should_bypass() {
+                continue;
+            }
+            
+            // Found a valid field
+            return self.activate_field_by_index(next_idx);
         }
     }
     
-    /// Navigate to previous field
-    pub fn previous_field(&mut self) {
-        if let Some(current) = self.active_field {
-            self.fields[current].active = false;
-            let prev = if current == 0 { self.fields.len() - 1 } else { current - 1 };
-            self.active_field = Some(prev);
-            self.fields[prev].active = true;
+    /// Enhanced previous field navigation
+    pub fn navigate_to_previous_field(&mut self) -> Result<(), FieldError> {
+        if self.fields.is_empty() {
+            return Err(FieldError::NoActiveField);
+        }
+        
+        let current_idx = self.active_field.unwrap_or(0);
+        let current_field = &self.fields[current_idx];
+        
+        // Check for custom cursor progression
+        if let Some(prev_id) = current_field.prev_field_id {
+            if let Some(prev_idx) = self.find_field_by_id(prev_id) {
+                return self.activate_field_by_index(prev_idx);
+            }
+        }
+        
+        // Check for continued field logic
+        if let Some(group_id) = current_field.continued_group_id {
+            if let Some(prev_in_group) = self.find_prev_in_continued_group(group_id, current_idx) {
+                return self.activate_field_by_index(prev_in_group);
+            }
+        }
+        
+        // Standard field progression with bypass logic
+        let mut prev_idx = current_idx;
+        let start_idx = prev_idx;
+        
+        loop {
+            prev_idx = if prev_idx == 0 { self.fields.len() - 1 } else { prev_idx - 1 };
             
-            // Update cursor position to the beginning of the new field
-            let field = &self.fields[prev];
-            self.set_cursor_position(field.start_row, field.start_col);
+            // Avoid infinite loop
+            if prev_idx == start_idx {
+                return Err(FieldError::InvalidFieldNavigation);
+            }
+            
+            let candidate_field = &self.fields[prev_idx];
+            
+            // Skip bypass fields
+            if candidate_field.should_bypass() {
+                continue;
+            }
+            
+            // Found a valid field
+            return self.activate_field_by_index(prev_idx);
         }
     }
     
@@ -485,8 +793,8 @@ impl FieldManager {
         self.fields.iter().find(|field| field.contains_position(row, col))
     }
     
-    /// Get all fields
-    pub fn get_fields(&self) -> &[Field] {
+    /// Get all fields as slice
+    pub fn get_fields_slice(&self) -> &[Field] {
         &self.fields
     }
     
@@ -853,13 +1161,124 @@ impl FieldManager {
         }
     }
     
-    /// Get the number of detected fields
+
+    
+    /// Find field by field ID
+    fn find_field_by_id(&self, field_id: usize) -> Option<usize> {
+        self.fields.iter().position(|field| field.field_id == field_id)
+    }
+    
+    /// Activate field by index
+    fn activate_field_by_index(&mut self, index: usize) -> Result<(), FieldError> {
+        if index >= self.fields.len() {
+            return Err(FieldError::FieldNotFound(index));
+        }
+        
+        // Deactivate current field
+        if let Some(current) = self.active_field {
+            self.fields[current].active = false;
+        }
+        
+        // Activate new field
+        self.fields[index].active = true;
+        self.active_field = Some(index);
+        
+        // Update cursor position
+        let field = &self.fields[index];
+        self.set_cursor_position(field.start_row, field.start_col);
+        
+        Ok(())
+    }
+    
+    /// Find next field in continued group
+    fn find_next_in_continued_group(&self, group_id: usize, current_idx: usize) -> Option<usize> {
+        if let Some(group_fields) = self.continued_groups.get(&group_id) {
+            if let Some(pos) = group_fields.iter().position(|&idx| idx == current_idx) {
+                let next_pos = (pos + 1) % group_fields.len();
+                return Some(group_fields[next_pos]);
+            }
+        }
+        None
+    }
+    
+    /// Find previous field in continued group
+    fn find_prev_in_continued_group(&self, group_id: usize, current_idx: usize) -> Option<usize> {
+        if let Some(group_fields) = self.continued_groups.get(&group_id) {
+            if let Some(pos) = group_fields.iter().position(|&idx| idx == current_idx) {
+                let prev_pos = if pos == 0 { group_fields.len() - 1 } else { pos - 1 };
+                return Some(group_fields[prev_pos]);
+            }
+        }
+        None
+    }
+    
+    /// Add field to continued group
+    pub fn add_field_to_continued_group(&mut self, field_idx: usize, group_id: usize) {
+        self.continued_groups.entry(group_id).or_insert_with(Vec::new).push(field_idx);
+        if field_idx < self.fields.len() {
+            self.fields[field_idx].continued_group_id = Some(group_id);
+        }
+    }
+    
+    /// Remove field from continued group
+    pub fn remove_field_from_continued_group(&mut self, field_idx: usize, group_id: usize) {
+        if let Some(group_fields) = self.continued_groups.get_mut(&group_id) {
+            group_fields.retain(|&idx| idx != field_idx);
+            if group_fields.is_empty() {
+                self.continued_groups.remove(&group_id);
+            }
+        }
+        if field_idx < self.fields.len() {
+            self.fields[field_idx].continued_group_id = None;
+        }
+    }
+    
+    /// Set error state
+    pub fn set_error(&mut self, error: FieldError) {
+        self.error_state = Some(error);
+    }
+    
+    /// Clear error state
+    pub fn clear_error(&mut self) {
+        self.error_state = None;
+    }
+    
+    /// Get current error state
+    pub fn get_error(&self) -> Option<&FieldError> {
+        self.error_state.as_ref()
+    }
+
+    // Test helper methods (pub only for testing) 
     pub fn field_count(&self) -> usize {
         self.fields.len()
     }
-    
-    /// Get the current active field index (for testing)
+
+    pub fn get_fields(&self) -> &Vec<Field> {
+        &self.fields
+    }
+
     pub fn get_active_field_index(&self) -> Option<usize> {
         self.active_field
+    }
+
+    pub fn get_continued_groups(&self) -> &std::collections::HashMap<usize, Vec<usize>> {
+        &self.continued_groups
+    }
+
+    pub fn get_error_state(&self) -> Option<&FieldError> {
+        self.error_state.as_ref()
+    }
+
+    pub fn add_field_for_test(&mut self, field: Field) {
+        self.fields.push(field);
+    }
+
+    pub fn set_active_field_for_test(&mut self, index: Option<usize>) {
+        self.active_field = index;
+        if let Some(idx) = index {
+            if idx < self.fields.len() {
+                self.fields[idx].active = true;
+            }
+        }
     }
 }
