@@ -15,6 +15,7 @@ mod field_manager;
 mod config;
 
 use controller::AsyncTerminalController;
+use field_manager::FieldDisplayInfo;
 
 /// Number of function keys per row in the UI
 const FUNCTION_KEYS_PER_ROW: usize = 12;
@@ -32,7 +33,7 @@ pub struct TN5250RApp {
     terminal_content: String,
     login_screen_requested: bool,
     connection_time: Option<std::time::Instant>,
-    fields_info: Vec<(String, String, bool)>,  // (label, content, is_active)
+    fields_info: Vec<field_manager::FieldDisplayInfo>,
     show_field_info: bool,
     tab_pressed_this_frame: bool,  // Track if Tab was pressed to prevent egui handling
     connecting: bool,
@@ -353,20 +354,42 @@ impl TN5250RApp {
                     // Check if this is the cursor position
                     let is_cursor = cursor_pos.0 == line_number && cursor_pos.1 == col_number;
                     
-                    // Choose color based on cursor position and field status
-                    let color = if is_cursor {
-                        egui::Color32::BLACK // Cursor character
-                    } else {
-                        egui::Color32::WHITE // Normal text
-                    };
+                    // Determine background color based on field status
+                    let mut bg_color = egui::Color32::TRANSPARENT;
+                    let mut text_color = egui::Color32::WHITE;
                     
-                    // Background color for cursor
+                    // Check if position is in an error field
+                    for field in &self.fields_info {
+                        if line_number == field.start_row && 
+                           col_number >= field.start_col && 
+                           col_number < field.start_col + field.length {
+                            if field.error_state.is_some() {
+                                bg_color = egui::Color32::RED; // Red background for error fields
+                                text_color = egui::Color32::WHITE;
+                            } else if field.highlighted {
+                                bg_color = egui::Color32::YELLOW; // Yellow background for highlighted fields
+                                text_color = egui::Color32::BLACK;
+                            } else if field.is_active {
+                                bg_color = egui::Color32::BLUE; // Blue background for active field
+                                text_color = egui::Color32::WHITE;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // Override for cursor
                     if is_cursor {
-                        let cursor_rect = egui::Rect::from_min_size(
+                        bg_color = egui::Color32::GREEN;
+                        text_color = egui::Color32::BLACK;
+                    }
+                    
+                    // Draw background if needed
+                    if bg_color != egui::Color32::TRANSPARENT {
+                        let char_rect = egui::Rect::from_min_size(
                             char_pos,
                             egui::vec2(char_width, line_height)
                         );
-                        ui.painter().rect_filled(cursor_rect, egui::Rounding::ZERO, egui::Color32::GREEN);
+                        ui.painter().rect_filled(char_rect, egui::Rounding::ZERO, bg_color);
                     }
                     
                     // Draw the character
@@ -375,7 +398,7 @@ impl TN5250RApp {
                         egui::Align2::LEFT_TOP,
                         ch,
                         font.clone(),
-                        color,
+                        text_color,
                     );
                 }
                 
@@ -635,14 +658,25 @@ impl eframe::App for TN5250RApp {
             if !self.fields_info.is_empty() {
                 ui.separator();
                 ui.collapsing("Field Information", |ui| {
-                    for (i, (label, content, is_active)) in self.fields_info.iter().enumerate() {
+                    for (i, field) in self.fields_info.iter().enumerate() {
                         ui.horizontal(|ui| {
-                            if *is_active {
+                            if field.is_active {
                                 ui.colored_label(egui::Color32::GREEN, "►");
                             } else {
                                 ui.label(" ");
                             }
-                            ui.label(format!("Field {}: {} = '{}'", i + 1, label, content));
+                            ui.label(format!("Field {}: {}", i + 1, field.label));
+                            ui.label(format!("Content: '{}'", field.content));
+                            
+                            // Show error if present
+                            if let Some(error) = &field.error_state {
+                                ui.colored_label(egui::Color32::RED, format!("Error: {}", error.get_user_message()));
+                            }
+                            
+                            // Show highlight status
+                            if field.highlighted {
+                                ui.colored_label(egui::Color32::YELLOW, "Highlighted");
+                            }
                         });
                     }
                     ui.label("Use Tab/Shift+Tab to navigate between fields");

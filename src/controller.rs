@@ -315,12 +315,8 @@ impl TerminalController {
     }
     
     /// Get field information for display
-    pub fn get_fields_info(&self) -> Vec<(String, String, bool)> {
-        self.field_manager.get_fields().iter().map(|field| {
-            let label = field.label.clone().unwrap_or_else(|| format!("Field {}", field.id));
-            let content = field.get_display_content();
-            (label, content, field.active)
-        }).collect()
+    pub fn get_fields_info(&self) -> Vec<crate::field_manager::FieldDisplayInfo> {
+        self.field_manager.get_fields_display_info()
     }
     
     /// Update field display on screen
@@ -759,7 +755,7 @@ impl AsyncTerminalController {
         }
     }
     
-    pub fn get_fields_info(&self) -> Result<Vec<(String, String, bool)>, String> {
+    pub fn get_fields_info(&self) -> Result<Vec<crate::field_manager::FieldDisplayInfo>, String> {
         if let Ok(ctrl) = self.controller.lock() {
             Ok(ctrl.get_fields_info())
         } else {

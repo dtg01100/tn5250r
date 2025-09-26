@@ -1,7 +1,20 @@
-//! Field handling for AS/400 terminal forms
-//! 
-//! This module provides functionality for detecting, navigating, and managing
-//! input fields in AS/400 terminal screens.
+/// Struct for passing field display info to UI
+#[derive(Debug, Clone)]
+pub struct FieldDisplayInfo {
+    pub label: String,
+    pub content: String,
+    pub is_active: bool,
+    pub error_state: Option<FieldError>,
+    pub highlighted: bool,
+    pub start_row: usize,
+    pub start_col: usize,
+    pub length: usize,
+}
+
+// Field handling for AS/400 terminal forms
+// 
+// This module provides functionality for detecting, navigating, and managing
+// input fields in AS/400 terminal screens.
 
 use crate::terminal::TerminalScreen;
 use std::collections::HashMap;
@@ -1228,28 +1241,19 @@ impl FieldManager {
         &self.fields
     }
 
-    pub fn get_active_field_index(&self) -> Option<usize> {
-        self.active_field
-    }
-
-    pub fn get_continued_groups(&self) -> &std::collections::HashMap<usize, Vec<usize>> {
-        &self.continued_groups
-    }
-
-    pub fn get_error_state(&self) -> Option<&FieldError> {
-        self.error_state.as_ref()
-    }
-
-    pub fn add_field_for_test(&mut self, field: Field) {
-        self.fields.push(field);
-    }
-
-    pub fn set_active_field_for_test(&mut self, index: Option<usize>) {
-        self.active_field = index;
-        if let Some(idx) = index {
-            if idx < self.fields.len() {
-                self.fields[idx].active = true;
+    /// Get detailed field info for UI rendering
+    pub fn get_fields_display_info(&self) -> Vec<FieldDisplayInfo> {
+        self.fields.iter().map(|field| {
+            FieldDisplayInfo {
+                label: field.label.clone().unwrap_or_else(|| format!("Field {}", field.id)),
+                content: field.get_display_content(),
+                is_active: field.active,
+                error_state: field.error_state.clone(),
+                highlighted: field.highlighted,
+                start_row: field.start_row,
+                start_col: field.start_col,
+                length: field.length,
             }
-        }
+        }).collect()
     }
 }
