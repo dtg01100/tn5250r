@@ -54,6 +54,17 @@ impl Session {
             enhanced: false,
         }
     }
+
+    /// Get a snapshot of the current display as a String
+    pub fn display_string(&self) -> String {
+        self.display.to_string()
+    }
+
+    /// Get current cursor position (1-based row, col for UI convenience)
+    pub fn cursor_position(&self) -> (usize, usize) {
+        let (r, c) = self.display.cursor_position();
+        (r + 1, c + 1)
+    }
     
     /// Enable or disable enhanced 5250 features
     pub fn set_enhanced(&mut self, enhanced: bool) {
@@ -514,6 +525,10 @@ impl Session {
                 // Send Query Reply
                 self.create_query_reply()
             }
+            SF_QUERY_COMMAND => {
+                // Handle QueryCommand (0x84) - respond with SetReplyMode (0x85)
+                self.create_set_reply_mode_response()
+            }
             _ => {
                 // TODO: Handle other structured field types
                 Ok(Vec::new())
@@ -655,6 +670,24 @@ impl Session {
         while response.len() < if self.enhanced { 67 } else { 61 } {
             response.push(0x00);
         }
+        
+        Ok(response)
+    }
+    
+    /// Create SetReplyMode response for QueryCommand (0x84)
+    fn create_set_reply_mode_response(&self) -> Result<Vec<u8>, String> {
+        let mut response = Vec::new();
+        
+        // Start with SetReplyMode SF ID (0x85) as first byte
+        response.push(SF_SET_REPLY_MODE);
+        
+        // Add minimal query reply data (device capabilities, etc.)
+        // Based on original ProtocolProcessor implementation
+        response.extend_from_slice(&[
+            0x00, 0x01, // Basic display capability
+            0x00, 0x50, // 80 columns  
+            0x00, 0x18, // 24 rows
+        ]);
         
         Ok(response)
     }

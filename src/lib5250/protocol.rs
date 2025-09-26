@@ -364,15 +364,15 @@ impl ProtocolProcessor {
                 // Process write to display - simplified for lib5250
                 Ok(Vec::new()) // No response needed for WriteToDisplay
             },
-            CommandCode::ReadBuffer => {
+            CommandCode::ReadInputFields => {
                 // Return user input
                 Ok(vec![self.create_read_buffer_response()])
             },
-            CommandCode::ReadModified => {
+            CommandCode::ReadMdtFields => {
                 // Return only modified fields
                 Ok(vec![self.create_read_modified_response()])
             },
-            CommandCode::ReadModifiedAll => {
+            CommandCode::ReadMdtFieldsAlt => {
                 // Return all modified fields with attributes
                 Ok(vec![self.create_read_modified_all_response()])
             },
@@ -380,27 +380,8 @@ impl ProtocolProcessor {
                 // Return immediate response (usually empty)
                 Ok(vec![self.create_read_immediate_response()])
             },
-            CommandCode::WriteToDisplayAndIdentify => {
-                // Return device identification
-                Ok(vec![self.create_device_identification()])
-            },
-            CommandCode::ReadBufferAndIdentify | CommandCode::ReadBufferAndIdentifyFd => {
-                // Return user input and device identification
-                let mut responses = vec![self.create_read_buffer_response()];
-                responses.push(self.create_device_identification());
-                Ok(responses)
-            },
             CommandCode::WriteStructuredField => {
-                // Process structured field - simplified for lib5250
-                Ok(Vec::new())
-            },
-            CommandCode::ReadStructuredField => {
-                // Return structured field data
-                Ok(vec![self.create_read_structured_field_response()])
-            },
-            CommandCode::CancelInvite => {
-                // Cancel any pending operations
-                self.cancel_pending_operations();
+                // Structured fields are handled at session level, not protocol level
                 Ok(Vec::new())
             },
             CommandCode::SaveScreen => {
@@ -430,7 +411,7 @@ impl ProtocolProcessor {
         // Return user input that has been accumulated
         let response_data = self.input_buffer.drain(..).collect();
         self.sequence_number = self.sequence_number.wrapping_add(1);
-        Packet::new(CommandCode::ReadBuffer, self.sequence_number, response_data)
+    Packet::new(CommandCode::ReadInputFields, self.sequence_number, response_data)
     }
 
     // Create a response for Read Modified command
@@ -438,7 +419,7 @@ impl ProtocolProcessor {
         // Return only modified fields (simplified implementation)
         let response_data = self.input_buffer.drain(..).collect();
         self.sequence_number = self.sequence_number.wrapping_add(1);
-        Packet::new(CommandCode::ReadModified, self.sequence_number, response_data)
+    Packet::new(CommandCode::ReadMdtFields, self.sequence_number, response_data)
     }
 
     // Create a response for Read Modified All command
@@ -446,7 +427,7 @@ impl ProtocolProcessor {
         // Return all modified fields with attributes (simplified implementation)
         let response_data = self.input_buffer.drain(..).collect();
         self.sequence_number = self.sequence_number.wrapping_add(1);
-        Packet::new(CommandCode::ReadModifiedAll, self.sequence_number, response_data)
+    Packet::new(CommandCode::ReadMdtFieldsAlt, self.sequence_number, response_data)
     }
 
     // Create a response for Read Immediate command
@@ -461,10 +442,10 @@ impl ProtocolProcessor {
         // Return structured field data (simplified implementation)
         let response_data = Vec::new();
         self.sequence_number = self.sequence_number.wrapping_add(1);
-        Packet::new(CommandCode::ReadStructuredField, self.sequence_number, response_data)
+    Packet::new(CommandCode::WriteStructuredField, self.sequence_number, response_data)
     }
 
-    // Create device identification response for WriteToDisplayAndIdentify
+    // Create device identification response (simplified)
     fn create_device_identification(&mut self) -> Packet {
         // Device identification response according to RFC 2877
         let mut id_data = Vec::new();
@@ -476,7 +457,7 @@ impl ProtocolProcessor {
         id_data.push(0x00);
 
         self.sequence_number = self.sequence_number.wrapping_add(1);
-        Packet::new(CommandCode::WriteToDisplayAndIdentify, self.sequence_number, id_data)
+    Packet::new(CommandCode::WriteToDisplay, self.sequence_number, id_data)
     }
 
     // Set the device identification string
@@ -505,6 +486,8 @@ impl ProtocolProcessor {
     pub fn add_input(&mut self, input: &[u8]) {
         self.input_buffer.extend_from_slice(input);
     }
+
+
 
     // Cancel pending operations
     fn cancel_pending_operations(&mut self) {
@@ -548,41 +531,21 @@ impl ProtocolParser {
                 Some(CommandCode::WriteToDisplay) => {
                     self.parse_write_to_display()?;
                 }
-                Some(CommandCode::ReadBuffer) => {
+                Some(CommandCode::ReadInputFields) => {
                     self.parse_read_buffer()?;
-                }
-                Some(CommandCode::ReadImmediate) => {
-                    self.parse_read_immediate()?;
-                }
-                Some(CommandCode::CancelInvite) => {
-                    self.parse_cancel_invite()?;
                 }
                 Some(CommandCode::WriteStructuredField) => {
                     self.parse_write_structured_field()?;
                 }
-                Some(CommandCode::SaveScreen) => {
+                Some(CommandCode::ReadMdtFields) => {
                     self.parse_save_screen()?;
                 }
-                Some(CommandCode::RestoreScreen) => {
+                Some(CommandCode::ReadMdtFieldsAlt) => {
                     self.parse_restore_screen()?;
                 }
-                Some(CommandCode::ReadModified) => {
-                    self.parse_read_modified()?;
-                }
-                Some(CommandCode::ReadModifiedAll) => {
-                    self.parse_read_modified_all()?;
-                }
-                Some(CommandCode::ReadStructuredField) => {
-                    self.parse_read_structured_field()?;
-                }
-                Some(CommandCode::WriteToDisplayAndIdentify) => {
-                    self.parse_write_to_display_and_identify()?;
-                }
-                Some(CommandCode::ReadBufferAndIdentify) | Some(CommandCode::ReadBufferAndIdentifyFd) => {
-                    self.parse_read_buffer_and_identify()?;
-                }
                 _ => {
-                    self.cursor += 1; // Advance past unknown command
+                    // Unknown or unsupported command; advance cursor to avoid infinite loop
+                    self.cursor += 1;
                 }
             }
         }
@@ -1110,17 +1073,13 @@ impl ProtocolParser {
             match CommandCode::from_u8(cmd) {
                 Some(command) => match command {
                     CommandCode::WriteToDisplay => self.parse_write_to_display_with_state_trait(state)?,
-                    CommandCode::ReadBuffer => self.parse_read_buffer_with_state_trait(state)?,
+                    CommandCode::ReadInputFields => self.parse_read_buffer_with_state_trait(state)?,
                     CommandCode::ReadImmediate => self.parse_read_immediate_with_state_trait(state)?,
-                    CommandCode::CancelInvite => self.parse_cancel_invite_with_state_trait(state)?,
                     CommandCode::WriteStructuredField => self.parse_write_structured_field_with_state_trait(state)?,
                     CommandCode::SaveScreen => self.parse_save_screen_with_state_trait(state)?,
                     CommandCode::RestoreScreen => self.parse_restore_screen_with_state_trait(state)?,
-                    CommandCode::ReadModified => self.parse_read_modified_with_state_trait(state)?,
-                    CommandCode::ReadModifiedAll => self.parse_read_modified_all_with_state_trait(state)?,
-                    CommandCode::ReadStructuredField => self.parse_read_structured_field_with_state_trait(state)?,
-                    CommandCode::WriteToDisplayAndIdentify => self.parse_write_to_display_and_identify_with_state_trait(state)?,
-                    CommandCode::ReadBufferAndIdentify | CommandCode::ReadBufferAndIdentifyFd => self.parse_read_buffer_and_identify_with_state_trait(state)?,
+                    CommandCode::ReadMdtFields => self.parse_read_modified_with_state_trait(state)?,
+                    CommandCode::ReadMdtFieldsAlt => self.parse_read_modified_all_with_state_trait(state)?,
                     _ => {},
                 },
                 None => return Err(format!("Invalid command code: 0x{:02X}", cmd)),

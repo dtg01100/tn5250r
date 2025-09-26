@@ -80,6 +80,10 @@ pub const PASS_THROUGH: u8 = 0x3F;
 pub const SF_5250_QUERY: u8 = 0x70;
 pub const SF_5250_QUERY_STATION_STATE: u8 = 0x72;
 
+// Additional structured field types from protocol-level processing
+pub const SF_QUERY_COMMAND: u8 = 0x84;
+pub const SF_SET_REPLY_MODE: u8 = 0x85;
+
 /// Operator Error Codes
 /// See 5494 User's Guide (GA27-3960-03) 2.3.4
 pub const ERR_DONT_KNOW: u8 = 0x01;

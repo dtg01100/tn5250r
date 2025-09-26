@@ -3,17 +3,27 @@
 //! This module provides the TCP networking functionality for connecting
 //! to AS/400 systems using the TN5250 protocol.
 
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs, SocketAddr};
 use std::io::{Read, Write, Result as IoResult};
 use std::time::Duration;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
+
+use native_tls::{TlsConnector, Certificate};
+use std::fs;
 
 use crate::telnet_negotiation::TelnetNegotiator;
 
+// A helper trait alias for objects that implement both Read and Write
+trait ReadWrite: Read + Write {}
+impl<T: Read + Write> ReadWrite for T {}
+
+type DynStream = Box<dyn ReadWrite + Send>;
+type SharedStream = Arc<Mutex<DynStream>>;
+
 /// Represents a connection to an AS/400 system
 pub struct AS400Connection {
-    stream: Option<TcpStream>,
+    stream: Option<SharedStream>,
     host: String,
     port: u16,
     receiver: Option<mpsc::Receiver<Vec<u8>>>,
@@ -21,6 +31,10 @@ pub struct AS400Connection {
     running: bool,
     telnet_negotiator: TelnetNegotiator,
     negotiation_complete: bool,
+    use_tls: bool,
+    // TLS options
+    tls_insecure: bool,
+    tls_ca_bundle_path: Option<String>,
 }
 
 impl AS400Connection {
@@ -36,22 +50,75 @@ impl AS400Connection {
             running: false,
             telnet_negotiator: TelnetNegotiator::new(),
             negotiation_complete: false,
+            use_tls: port == 992, // default secure if standard SSL port
+            tls_insecure: false,
+            tls_ca_bundle_path: None,
+        }
+    }
+
+    /// Enable or disable TLS explicitly (overrides port-based default)
+    pub fn set_tls(&mut self, enabled: bool) {
+        self.use_tls = enabled;
+    }
+
+    /// Returns true if TLS is enabled for this connection
+    pub fn is_tls_enabled(&self) -> bool {
+        self.use_tls
+    }
+
+    /// Set TLS to accept invalid certs (insecure). Use with caution.
+    pub fn set_tls_insecure(&mut self, insecure: bool) {
+        self.tls_insecure = insecure;
+    }
+
+    /// Provide a path to a PEM bundle containing trusted CAs to validate server certs.
+    pub fn set_tls_ca_bundle_path<S: Into<String>>(&mut self, path: S) {
+        let p = path.into();
+        if p.is_empty() {
+            self.tls_ca_bundle_path = None;
+        } else {
+            self.tls_ca_bundle_path = Some(p);
         }
     }
 
     /// Connects to the AS/400 system
     pub fn connect(&mut self) -> IoResult<()> {
         let address = format!("{}:{}", self.host, self.port);
-        let mut stream = TcpStream::connect(&address)?;
+        let mut tcp = TcpStream::connect(&address)?;
         
         // Set read/write timeouts
-        stream.set_read_timeout(Some(Duration::from_secs(30)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(30)))?;
-        
-        // Perform RFC-compliant telnet option negotiation
-        self.perform_telnet_negotiation(&mut stream)?;
-        
-        self.stream = Some(stream);
+        tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
+        tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
+
+        // Wrap with TLS if requested
+        let mut rw: DynStream = if self.use_tls {
+            let connector = self.build_tls_connector()?;
+            let mut tls = connector
+                .connect(self.host.as_str(), tcp)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            // Use shorter timeouts during negotiation
+            // Set on the underlying TcpStream
+            let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(10)));
+            let _ = tls.get_ref().set_write_timeout(Some(Duration::from_secs(10)));
+            // Perform telnet negotiation over TLS
+            self.perform_telnet_negotiation_rw(&mut tls)?;
+            // Reset timeouts to none (blocking) after negotiation
+            let _ = tls.get_ref().set_read_timeout(None);
+            let _ = tls.get_ref().set_write_timeout(None);
+            Box::new(tls)
+        } else {
+            // Short negotiation timeouts
+            tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
+            tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
+            // Perform negotiation in plain TCP
+            self.perform_telnet_negotiation_rw(&mut tcp)?;
+            // Reset to blocking after negotiation
+            tcp.set_read_timeout(None)?;
+            tcp.set_write_timeout(None)?;
+            Box::new(tcp)
+        };
+
+        self.stream = Some(Arc::new(Mutex::new(rw)));
         self.running = true;
         
         // Start a background thread to receive data
@@ -59,9 +126,111 @@ impl AS400Connection {
         
         Ok(())
     }
+
+    /// Connect with an explicit timeout for the initial TCP connection. Telnet negotiation still uses its own timeouts.
+    pub fn connect_with_timeout(&mut self, timeout: Duration) -> IoResult<()> {
+        // Resolve the address
+        let address = format!("{}:{}", self.host, self.port);
+        let mut addrs_iter = address.to_socket_addrs()?;
+        let addr: SocketAddr = addrs_iter.next().ok_or_else(|| std::io::Error::new(
+            std::io::ErrorKind::AddrNotAvailable,
+            "No socket addresses resolved",
+        ))?;
+
+        // Use connect_timeout for the initial TCP connect
+        let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+
+        // Set read/write timeouts
+        tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
+        tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
+
+        // Wrap with TLS if requested
+        let mut rw: DynStream = if self.use_tls {
+            let connector = self.build_tls_connector()?;
+            let mut tls = connector
+                .connect(self.host.as_str(), tcp)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            // Short negotiation timeouts
+            let _ = tls.get_ref().set_read_timeout(Some(Duration::from_secs(10)));
+            let _ = tls.get_ref().set_write_timeout(Some(Duration::from_secs(10)));
+            self.perform_telnet_negotiation_rw(&mut tls)?;
+            // Reset
+            let _ = tls.get_ref().set_read_timeout(None);
+            let _ = tls.get_ref().set_write_timeout(None);
+            Box::new(tls)
+        } else {
+            // Short negotiation timeouts
+            tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
+            tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
+            self.perform_telnet_negotiation_rw(&mut tcp)?;
+            tcp.set_read_timeout(None)?;
+            tcp.set_write_timeout(None)?;
+            Box::new(tcp)
+        };
+
+        self.stream = Some(Arc::new(Mutex::new(rw)));
+        self.running = true;
+
+        // Start a background thread to receive data
+        self.start_receive_thread();
+
+        Ok(())
+    }
+
+    /// Build a TLS connector honoring insecure and custom CA bundle options
+    fn build_tls_connector(&self) -> IoResult<TlsConnector> {
+        let mut builder = TlsConnector::builder();
+        if self.tls_insecure {
+            // Note: In native-tls, danger_accept_invalid_certs and danger_accept_invalid_hostnames are available on some platforms
+            builder.danger_accept_invalid_certs(true);
+            builder.danger_accept_invalid_hostnames(true);
+        }
+        if let Some(ref path) = self.tls_ca_bundle_path {
+            match fs::read(path) {
+                Ok(bytes) => {
+                    // Try to parse as DER first, fall back to PEM by extracting certs
+                    // native-tls expects DER; for PEM we attempt to decode common markers
+                    if let Ok(cert) = Certificate::from_der(&bytes) {
+                        builder.add_root_certificate(cert);
+                    } else {
+                        // Simple PEM parse: extract sections between BEGIN/END CERTIFICATE
+                        if let Ok(text) = String::from_utf8(bytes) {
+                            let mut added = false;
+                            let marker_begin = "-----BEGIN CERTIFICATE-----";
+                            let marker_end = "-----END CERTIFICATE-----";
+                            let mut start = 0;
+                            while let Some(b) = text[start..].find(marker_begin) {
+                                let bpos = start + b + marker_begin.len();
+                                if let Some(e) = text[bpos..].find(marker_end) {
+                                    let epos = bpos + e;
+                                    let b64 = text[bpos..epos].replace('\n', "").replace('\r', "");
+                                    if let Ok(der) = base64::decode(b64) {
+                                        if let Ok(cert) = Certificate::from_der(&der) {
+                                            builder.add_root_certificate(cert);
+                                            added = true;
+                                        }
+                                    }
+                                    start = epos + marker_end.len();
+                                } else { break; }
+                            }
+                            if !added {
+                                eprintln!("Warning: No certificates parsed from PEM bundle at {}", path);
+                            }
+                        } else {
+                            eprintln!("Warning: CA bundle at {} not valid UTF-8 for PEM parsing", path);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Warning: failed to read CA bundle {}: {}", path, e);
+                }
+            }
+        }
+        builder.build().map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+    }
     
     /// Performs RFC-compliant telnet option negotiation
-    fn perform_telnet_negotiation(&mut self, stream: &mut TcpStream) -> IoResult<()> {
+    fn perform_telnet_negotiation_rw(&mut self, stream: &mut dyn ReadWrite) -> IoResult<()> {
         // Send initial negotiation requests
         let initial_negotiation = self.telnet_negotiator.generate_initial_negotiation();
         if !initial_negotiation.is_empty() {
@@ -69,9 +238,6 @@ impl AS400Connection {
             stream.write_all(&initial_negotiation)?;
             stream.flush()?;
         }
-        
-        // Wait for negotiation responses with timeout
-        stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
         
         let mut negotiation_attempts = 0;
         const MAX_NEGOTIATION_ATTEMPTS: usize = 30; // Reduced for faster timeout
@@ -132,10 +298,7 @@ impl AS400Connection {
                 }
             }
         }
-        
-        // Reset to non-blocking mode
-        stream.set_read_timeout(None)?;
-        
+
         // Check final negotiation status
         if self.telnet_negotiator.is_negotiation_complete() {
             self.negotiation_complete = true;
@@ -168,38 +331,38 @@ impl AS400Connection {
     
     /// Starts a background thread to receive data
     fn start_receive_thread(&mut self) {
-        if let Some(stream) = &self.stream {
-            match stream.try_clone() {
-                Ok(mut stream_clone) => {
-                    let sender = self.sender.clone().unwrap();
-                    thread::spawn(move || {
-                        let mut buffer = [0; 1024];
-                        loop {
-                            match stream_clone.read(&mut buffer) {
-                                Ok(0) => break, // Connection closed
-                                Ok(n) => {
-                                    // Send received data through the channel
-                                    match sender.send(buffer[..n].to_vec()) {
-                                        Ok(()) => {
-                                            // Data sent successfully
-                                        }
-                                        Err(_) => {
-                                            // Channel send failed - receiver disconnected or channel full
-                                            eprintln!("Failed to send received data through channel - connection may be lost");
-                                            break;
-                                        }
-                                    }
-                                }
-                                Err(_) => break, // Error occurred
+        if let Some(shared) = &self.stream {
+            let shared = Arc::clone(shared);
+            let sender = self.sender.clone().unwrap();
+            thread::spawn(move || {
+                let mut buffer = [0u8; 1024];
+                loop {
+                    // Lock the stream only for the duration of the read
+                    let read_result = {
+                        let mut guard = match shared.lock() {
+                            Ok(g) => g,
+                            Err(poisoned) => poisoned.into_inner(),
+                        };
+                        guard.read(&mut buffer)
+                    };
+
+                    match read_result {
+                        Ok(0) => break, // connection closed
+                        Ok(n) => {
+                            if sender.send(buffer[..n].to_vec()).is_err() {
+                                eprintln!("Failed to send received data through channel - connection may be lost");
+                                break;
                             }
                         }
-                    });
+                        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
+                            // Just try again
+                            thread::sleep(Duration::from_millis(50));
+                            continue;
+                        }
+                        Err(_) => break,
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Failed to clone stream for receive thread: {}", e);
-                    // Don't start the thread if cloning fails
-                }
-            }
+            });
         }
     }
 
@@ -212,8 +375,9 @@ impl AS400Connection {
 
     /// Sends data to the AS/400 system
     pub fn send_data(&mut self, data: &[u8]) -> IoResult<usize> {
-        if let Some(ref mut stream) = self.stream {
-            stream.write(data)
+        if let Some(ref shared) = self.stream {
+            let mut guard = shared.lock().map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Stream lock poisoned"))?;
+            guard.write(data)
         } else {
             Err(std::io::Error::new(
                 std::io::ErrorKind::NotConnected,
@@ -233,13 +397,20 @@ impl AS400Connection {
                     
                     // If there's a negotiation response, send it immediately
                     if !negotiation_response.is_empty() {
-                        if let Some(ref mut stream) = self.stream {
-                            if let Err(e) = stream.write_all(&negotiation_response) {
-                                eprintln!("Failed to send telnet negotiation response: {}", e);
-                            } else if let Err(e) = stream.flush() {
-                                eprintln!("Failed to flush telnet negotiation response: {}", e);
-                            } else {
-                                println!("Sent telnet negotiation response ({} bytes)", negotiation_response.len());
+                        if let Some(ref shared) = self.stream {
+                            match shared.lock() {
+                                Ok(mut guard) => {
+                                    if let Err(e) = guard.write_all(&negotiation_response) {
+                                        eprintln!("Failed to send telnet negotiation response: {}", e);
+                                    } else if let Err(e) = guard.flush() {
+                                        eprintln!("Failed to flush telnet negotiation response: {}", e);
+                                    } else {
+                                        println!("Sent telnet negotiation response ({} bytes)", negotiation_response.len());
+                                    }
+                                }
+                                Err(_) => {
+                                    eprintln!("Failed to lock stream for sending telnet negotiation response");
+                                }
                             }
                         }
                     }
@@ -349,5 +520,33 @@ mod tests {
         assert_eq!(conn.get_host(), "localhost");
         assert_eq!(conn.get_port(), 23);
         assert!(!conn.is_connected());
+    }
+
+    #[test]
+    fn test_tls_default_for_port_992() {
+        let conn = AS400Connection::new("example.com".to_string(), 992);
+        assert!(conn.is_tls_enabled(), "TLS should be enabled by default on port 992");
+    }
+
+    #[test]
+    fn test_tls_default_for_port_23() {
+        let conn = AS400Connection::new("example.com".to_string(), 23);
+        assert!(!conn.is_tls_enabled(), "TLS should be disabled by default on port 23");
+    }
+
+    #[test]
+    fn test_tls_override_enable_on_23() {
+        let mut conn = AS400Connection::new("example.com".to_string(), 23);
+        assert!(!conn.is_tls_enabled());
+        conn.set_tls(true);
+        assert!(conn.is_tls_enabled(), "TLS override should enable TLS on non-SSL port");
+    }
+
+    #[test]
+    fn test_tls_override_disable_on_992() {
+        let mut conn = AS400Connection::new("example.com".to_string(), 992);
+        assert!(conn.is_tls_enabled());
+        conn.set_tls(false);
+        assert!(!conn.is_tls_enabled(), "TLS override should disable TLS on SSL port");
     }
 }

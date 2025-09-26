@@ -57,6 +57,16 @@ impl Display {
             insert_cursor_col: 0,
         }
     }
+
+    /// Get a read-only reference to the underlying terminal screen
+    pub fn screen_ref(&self) -> &TerminalScreen {
+        &self.screen
+    }
+
+    /// Get the current screen content as a string
+    pub fn to_string(&self) -> String {
+        self.screen.to_string()
+    }
     
     /// Get reference to the underlying terminal screen
     pub fn screen(&mut self) -> &mut TerminalScreen {

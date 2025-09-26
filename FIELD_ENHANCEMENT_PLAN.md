@@ -18,14 +18,19 @@ This document outlines the implementation plan for bringing advanced tn5250j beh
 - Character input validation
 - Field content management
 
-### ❌ Missing (To Be Implemented)
-- Advanced field types (Auto-enter, Mandatory, Continued, Highlighted)
-- Field highlighting and visual feedback
-- Comprehensive field exit logic
-- Advanced cursor navigation (BOF/EOF, Field+/-)
-- Error handling and visual indicators
-- Auto-enter functionality
-- Field adjustment (right-justify, zero-fill)
+### ✅ Now Implemented (Sept 2025)
+- Advanced field types (Auto-enter, Mandatory, Continued, Highlighted, Bypass, Right-adjust, Zero-fill, Uppercase)
+- Field highlighting and visual feedback (highlighted, error state)
+- Comprehensive field exit logic (field_exit_required, mandatory)
+- Continued field grouping and navigation
+- Error handling and visual indicators (FieldError, error_state)
+- Auto-enter functionality (auto_enter)
+- Field adjustment (right-justify, zero-fill, uppercase)
+
+### 🔧 In Progress / Next Steps
+- Expand protocol attribute mapping for edge cases
+- Refine continued field grouping logic
+- UI integration for error and highlight feedback
 
 ## Implementation Phases
 

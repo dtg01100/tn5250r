@@ -8,11 +8,11 @@ mod lib5250;
 mod ansi_processor;
 mod network;
 mod terminal;
-mod protocol;
 mod telnet_negotiation;
 mod keyboard;
 mod controller;
 mod field_manager;
+mod config;
 
 use controller::AsyncTerminalController;
 
@@ -26,6 +26,7 @@ pub struct TN5250RApp {
     connected: bool,
     host: String,
     port: u16,
+    config: config::SharedSessionConfig,
     input_buffer: String,
     function_keys_visible: bool,
     terminal_content: String,
@@ -34,23 +35,69 @@ pub struct TN5250RApp {
     fields_info: Vec<(String, String, bool)>,  // (label, content, is_active)
     show_field_info: bool,
     tab_pressed_this_frame: bool,  // Track if Tab was pressed to prevent egui handling
+    connecting: bool,
 }
 
 impl TN5250RApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false)
+        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false, None)
     }
     
-    fn new_with_server(_cc: &eframe::CreationContext<'_>, server: String, port: u16, auto_connect: bool) -> Self {
-        let connection_string = format!("{}:{}", server, port);
-        let host = server;
-        let port = port; // Use the provided port directly
-        
+    fn new_with_server(_cc: &eframe::CreationContext<'_>, server: String, port: u16, auto_connect: bool, cli_ssl_override: Option<bool>) -> Self {
+        // Load persistent configuration
+        let shared_config = config::load_shared_config("default".to_string());
+
+        // Seed host/port/TLS from config if available, otherwise from CLI/defaults
+        let mut host = server;
+        let mut port = port; // Use the provided port directly
+        {
+            let mut cfg = shared_config.lock().unwrap();
+            // Resolve values: prefer persisted config, then arguments/defaults
+            let cfg_host = cfg.get_string_property("connection.host");
+            let cfg_port = cfg.get_int_property("connection.port").map(|v| v as u16);
+            let cfg_ssl = cfg.get_boolean_property("connection.ssl");
+            let cfg_insecure = cfg.get_boolean_property("connection.tls.insecure");
+            let cfg_ca = cfg.get_string_property("connection.tls.caBundlePath");
+
+            if let Some(h) = cfg_host { host = h; }
+            if let Some(p) = cfg_port { port = p; }
+
+            // Apply/compute SSL setting
+            let ssl_default = port == 992;
+            let mut ssl = cfg_ssl.unwrap_or(ssl_default);
+            if let Some(cli) = cli_ssl_override {
+                // Do not persist immediately; override for this run
+                ssl = cli;
+            }
+
+            // Ensure config reflects current host/port; keep ssl as last known/persisted (or CLI override only in runtime)
+            cfg.set_property("connection.host", host.as_str());
+            cfg.set_property("connection.port", port as i64);
+            if cli_ssl_override.is_none() {
+                // Persist only when no CLI override to avoid surprising save of ephemeral override
+                cfg.set_property("connection.ssl", ssl);
+            }
+            if let Some(insec) = cfg_insecure { cfg.set_property("connection.tls.insecure", insec); }
+            if let Some(ca) = cfg_ca { cfg.set_property("connection.tls.caBundlePath", ca); }
+        }
+
+        // Save initial state so a newly created config file gets written
+        if cli_ssl_override.is_none() {
+            let _ = config::save_shared_config(&shared_config);
+        }
+
+        let connection_string = format!("{}:{}", host, port);
         let mut controller = controller::AsyncTerminalController::new();
-        
+
         // If auto-connect is requested, initiate connection
         let connected = if auto_connect {
-            match controller.connect(host.clone(), port) {
+            // Read TLS preference from config
+            let use_tls = {
+                let cfg = shared_config.lock().unwrap();
+                // If CLI override exists, prefer it at runtime
+                if let Some(cli) = cli_ssl_override { cli } else { cfg.get_boolean_property_or("connection.ssl", port == 992) }
+            };
+            match controller.connect_with_tls(host.clone(), port, Some(use_tls)) {
                 Ok(()) => {
                     true
                 },
@@ -77,6 +124,7 @@ impl TN5250RApp {
             connected,
             host,
             port,
+            config: shared_config,
             input_buffer: String::new(),
             function_keys_visible: true,
             terminal_content,
@@ -85,6 +133,7 @@ impl TN5250RApp {
             fields_info: Vec::new(),
             show_field_info: true,
             tab_pressed_this_frame: false,
+            connecting: false,
         }
     }
     
@@ -106,19 +155,24 @@ impl TN5250RApp {
         let (host, port) = self.parse_connection_string();
         self.host = host;
         self.port = port;
-        
-        match self.controller.connect(self.host.clone(), self.port) {
-            Ok(()) => {
-                self.connected = true;
-                self.terminal_content = format!("Connected to {}:{}\nNegotiating...\n", self.host, self.port);
-                self.connection_time = Some(std::time::Instant::now());
-                self.login_screen_requested = false;
-            }
-            Err(e) => {
-                self.terminal_content = format!("Connection failed: {}\n", e);
-                self.connection_time = None;
-                self.login_screen_requested = false;
-            }
+        // Use non-blocking connect to avoid UI hang
+        self.connecting = true;
+        self.terminal_content = format!("Connecting to {}:{}...\n", self.host, self.port);
+        // Read TLS settings from config
+        let (use_tls, insecure, ca_opt) = {
+            let cfg = self.config.lock().unwrap();
+            let use_tls = cfg.get_boolean_property_or("connection.ssl", self.port == 992);
+            let insecure = cfg.get_boolean_property_or("connection.tls.insecure", false);
+            let ca = cfg.get_string_property_or("connection.tls.caBundlePath", "");
+            let ca_opt = if ca.trim().is_empty() { None } else { Some(ca) };
+            (use_tls, insecure, ca_opt)
+        };
+        if let Err(e) = self.controller.connect_async_with_tls_options(self.host.clone(), self.port, Some(use_tls), Some(insecure), ca_opt) {
+            self.terminal_content = format!("Connection failed to start: {}\n", e);
+            self.connecting = false;
+        } else {
+            self.connection_time = Some(std::time::Instant::now());
+            self.login_screen_requested = false;
         }
     }
     
@@ -216,6 +270,26 @@ impl TN5250RApp {
         
         // Update connection status
         self.connected = self.controller.is_connected();
+        if self.connecting && self.connected {
+            self.connecting = false;
+            self.terminal_content = format!("Connected to {}:{}\nNegotiating...\n", self.host, self.port);
+        }
+        if self.connecting {
+            // Check for async connect error and surface it
+            if let Some(err) = self.controller.take_last_connect_error() {
+                self.connecting = false;
+                let message = if err.to_lowercase().contains("timed out") {
+                    format!("Connection timed out to {}:{}\n", self.host, self.port)
+                } else if err.to_lowercase().contains("canceled") {
+                    "Connection canceled by user\n".to_string()
+                } else {
+                    format!("Connection failed: {}\n", err)
+                };
+                self.terminal_content = message;
+                self.connection_time = None;
+                self.login_screen_requested = false;
+            }
+        }
         
         // Request login screen if connected and enough time has passed
         if self.connected && !self.login_screen_requested {
@@ -482,12 +556,68 @@ impl eframe::App for TN5250RApp {
                         let (host, port) = self.parse_connection_string();
                         self.host = host;
                         self.port = port;
+                        // Sync to configuration; do NOT auto-toggle TLS, keep user's persisted choice
+                        if let Ok(mut cfg) = self.config.lock() {
+                            cfg.set_property("connection.host", self.host.as_str());
+                            cfg.set_property("connection.port", self.port as i64);
+                        }
+                        // Persist change
+                        let _ = config::save_shared_config(&self.config);
+                    }
+                    // TLS toggle
+                    let mut ssl_enabled = {
+                        let cfg = self.config.lock().unwrap();
+                        cfg.get_boolean_property_or("connection.ssl", self.port == 992)
+                    };
+                    let checkbox = ui.checkbox(&mut ssl_enabled, "Use TLS (SSL)");
+                    if checkbox.changed() {
+                        if let Ok(mut cfg) = self.config.lock() {
+                            cfg.set_property("connection.ssl", ssl_enabled);
+                        }
+                        // Persist change
+                        let _ = config::save_shared_config(&self.config);
                     }
                     ui.end_row();
 
-                    if ui.button("Connect").clicked() {
-                        self.do_connect();
+                    ui.label("TLS Options:");
+                    let mut insecure = {
+                        let cfg = self.config.lock().unwrap();
+                        cfg.get_boolean_property_or("connection.tls.insecure", false)
+                    };
+                    if ui.checkbox(&mut insecure, "Accept invalid certificates (insecure)").changed() {
+                        if let Ok(mut cfg) = self.config.lock() {
+                            cfg.set_property("connection.tls.insecure", insecure);
+                        }
+                        let _ = config::save_shared_config(&self.config);
                     }
+                    ui.end_row();
+
+                    ui.label("CA bundle path:");
+                    let mut ca_path = {
+                        let cfg = self.config.lock().unwrap();
+                        cfg.get_string_property_or("connection.tls.caBundlePath", "")
+                    };
+                    if ui.text_edit_singleline(&mut ca_path).lost_focus() {
+                        if let Ok(mut cfg) = self.config.lock() {
+                            cfg.set_property("connection.tls.caBundlePath", ca_path.as_str());
+                        }
+                        let _ = config::save_shared_config(&self.config);
+                    }
+                    ui.end_row();
+
+                    ui.horizontal(|ui| {
+                        if ui.button("Connect").clicked() {
+                            self.do_connect();
+                        }
+                        if self.connecting {
+                            if ui.button("Cancel").clicked() {
+                                self.controller.cancel_connect();
+                                self.connecting = false;
+                                self.connection_time = None;
+                                self.terminal_content.push_str("\nConnection canceled by user.\n");
+                            }
+                        }
+                    });
                     ui.end_row();
                 });
 
@@ -595,7 +725,9 @@ impl eframe::App for TN5250RApp {
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
-                    if self.connected {
+                    if self.connecting {
+                        ui.colored_label(egui::Color32::YELLOW, &format!("Connecting to {}:{} ... ", self.host, self.port));
+                    } else if self.connected {
                         ui.colored_label(egui::Color32::GREEN, &format!("Connected to {}:{} ", self.host, self.port));
                     } else {
                         ui.colored_label(egui::Color32::RED, "Disconnected");
@@ -621,6 +753,9 @@ fn main() {
     let mut default_server = "example.system.com".to_string();
     let mut default_port = 23;
     let mut auto_connect = false;
+    let mut cli_ssl_override: Option<bool> = None;
+    let mut cli_insecure: Option<bool> = None;
+    let mut cli_ca_bundle: Option<String> = None;
     
     // Parse --server and --port options
     let mut i = 1;
@@ -630,7 +765,7 @@ fn main() {
                 if i + 1 < args.len() {
                     default_server = args[i + 1].clone();
                     auto_connect = true; // Auto-connect when server is specified
-                    i += 1; // Skip the next argument since we consumed it
+                    i += 1; // consume value
                 } else {
                     eprintln!("Error: --server requires a value");
                     std::process::exit(1);
@@ -639,15 +774,27 @@ fn main() {
             "--port" | "-p" => {
                 if i + 1 < args.len() {
                     match args[i + 1].parse::<u16>() {
-                        Ok(port) => default_port = port,
+                        Ok(p) => default_port = p,
                         Err(_) => {
                             eprintln!("Error: --port requires a numeric value");
                             std::process::exit(1);
                         }
                     }
-                    i += 1; // Skip the next argument since we consumed it
+                    i += 1; // consume value
                 } else {
                     eprintln!("Error: --port requires a value");
+                    std::process::exit(1);
+                }
+            }
+            "--ssl" => { cli_ssl_override = Some(true); }
+            "--no-ssl" => { cli_ssl_override = Some(false); }
+            "--insecure" => { cli_insecure = Some(true); }
+            "--ca-bundle" => {
+                if i + 1 < args.len() {
+                    cli_ca_bundle = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --ca-bundle requires a path");
                     std::process::exit(1);
                 }
             }
@@ -659,12 +806,13 @@ fn main() {
                 println!("Options:");
                 println!("  --server <server> or -s <server>    Set the server to connect to and auto-connect");
                 println!("  --port <port> or -p <port>          Set the port to connect to (default: 23)");
+                println!("  --ssl | --no-ssl                    Force TLS on/off for this run (overrides config)");
+                println!("  --insecure                          Accept invalid TLS certs and hostnames (NOT recommended)");
+                println!("  --ca-bundle <path>                  Use a custom CA bundle (PEM or DER) to validate server certs");
                 println!("  --help or -h                        Show this help message");
                 std::process::exit(0);
             }
-            _ => {
-                // Ignore unknown arguments for now
-            }
+            _ => { /* ignore unknown */ }
         }
         i += 1;
     }
@@ -678,15 +826,25 @@ fn main() {
     eframe::run_native(
         "TN5250R",
         options,
-        Box::new(move |cc| Box::new(TN5250RApp::new_with_server(cc, default_server, default_port, auto_connect))),
+        Box::new(move |cc| {
+            let app = TN5250RApp::new_with_server(cc, default_server, default_port, auto_connect, cli_ssl_override);
+            // Apply CLI TLS extras into config for this run (persist if user later saves/changes)
+            if let Some(insec) = cli_insecure {
+                if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.insecure", insec); }
+                let _ = config::save_shared_config(&app.config);
+            }
+            if let Some(path) = cli_ca_bundle {
+                if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.caBundlePath", path); }
+                let _ = config::save_shared_config(&app.config);
+            }
+            Box::new(app)
+        }),
     )
     .expect("Failed to run TN5250R application");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_initialization() {
         assert!(true);

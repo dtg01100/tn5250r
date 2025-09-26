@@ -4,7 +4,7 @@
 pub mod codes;
 pub mod display;
 pub mod field;
-// pub mod protocol;  // Temporarily disabled - uses wrong command codes
+pub mod protocol;
 pub mod session;
 pub mod telnet;
 
@@ -12,10 +12,9 @@ pub mod telnet;
 pub use codes::*;
 pub use display::Display;
 pub use field::*;
-// pub use protocol::{
-//     Protocol5250, ProtocolProcessor, CommandCode, FieldAttribute, 
-//     Packet, ProtocolError, ProtocolState
-// };
+pub use protocol::{
+	ProtocolProcessor, Packet, ebcdic_to_ascii, ascii_to_ebcdic, FieldAttribute,
+};
 pub use session::Session;
 pub use telnet::*;
 

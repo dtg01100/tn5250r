@@ -1,6 +1,6 @@
 /// Field attribute and management logic for 5250
 
-use crate::terminal::CharAttribute as FieldAttribute;
+use crate::lib5250::FieldAttribute;
 
 /// Detected field struct
 #[derive(Debug, Clone, PartialEq)]

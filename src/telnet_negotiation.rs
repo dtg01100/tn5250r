@@ -360,7 +360,8 @@ impl TelnetNegotiator {
                                 if let Some(end_pos) = self.find_subnegotiation_end(sb_start) {
                                     let sub_data = self.input_buffer[sb_start..end_pos].to_vec();
                                     self.handle_subnegotiation(&sub_data);
-                                    pos = end_pos + 2; // Skip to after SE
+                                    // end_pos is already positioned after IAC SE
+                                    pos = end_pos; // Skip to after SE
                                     continue;
                                 }
                             },

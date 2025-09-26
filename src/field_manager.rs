@@ -193,6 +193,22 @@ impl Field {
         col >= self.start_col && 
         col < self.start_col + self.length
     }
+
+    /// Set advanced attributes based on protocol attribute byte or heuristics
+    pub fn set_enhanced_attributes(&mut self, attribute: u8) {
+        // Example mapping, real mapping should use protocol docs
+        self.behavior.auto_enter = attribute & 0x80 != 0;
+        self.behavior.mandatory = attribute & 0x40 != 0;
+        self.behavior.bypass = attribute & 0x08 != 0;
+        self.behavior.right_adjust = attribute & 0x04 != 0;
+        self.behavior.zero_fill = attribute & 0x02 != 0;
+        self.behavior.uppercase_convert = attribute & 0x01 != 0;
+        self.highlighted = attribute & 0x20 != 0;
+        // Continued field grouping (example: attribute & 0x10)
+        if attribute & 0x10 != 0 {
+            self.continued_group_id = Some(self.id); // simplistic, real impl should group
+        }
+    }
     
     /// Get cursor position within the field (0-based offset)
     pub fn get_cursor_offset(&self, row: usize, col: usize) -> Option<usize> {

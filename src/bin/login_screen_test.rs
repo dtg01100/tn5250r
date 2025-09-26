@@ -71,11 +71,11 @@ fn test_login_screen(host: &str, port: u16) -> std::io::Result<()> {
     
     // Try common 5250 commands that might trigger screen display
     let wake_up_commands = vec![
-        // Read Modified (common initial command)
-        vec![CommandCode::ReadModified as u8],
+        // Read MDT Fields (common initial command)
+        vec![CommandCode::ReadMdtFields as u8],
         
-        // Read Buffer (request entire screen)
-        vec![CommandCode::ReadBuffer as u8],
+        // Read Input Fields (request entire screen input fields)
+        vec![CommandCode::ReadInputFields as u8],
         
         // Write to Display (might trigger initial screen)
         vec![CommandCode::WriteToDisplay as u8],

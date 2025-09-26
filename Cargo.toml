@@ -14,9 +14,11 @@ egui = "0.27"
 eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow", "wgpu"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 anyhow = "1.0"
 env_logger = "0.10"
 native-tls = "0.2"
+base64 = "0.22"
 
 [dev-dependencies]
 

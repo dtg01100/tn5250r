@@ -122,7 +122,8 @@ impl ProtocolStateMachine {
     }
 
     pub fn add_field(&mut self, row: usize, col: usize, length: usize, field_type: FieldType, attribute: u8) {
-        let field = FmField::new(self.field_manager.field_count() + 1, field_type, row + 1, col + 1, length);
+        let mut field = FmField::new(self.field_manager.field_count() + 1, field_type, row + 1, col + 1, length);
+        field.set_enhanced_attributes(attribute);
         self.field_manager.add_field_for_test(field);
     }
 

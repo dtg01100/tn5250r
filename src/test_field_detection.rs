@@ -36,7 +36,7 @@ pub fn test_field_detection() {
     
     // Test field detection
     field_manager.detect_fields(&terminal);
-    
+
     println!("\nDetected fields:");
     println!("===============");
     for field in field_manager.get_fields() {
@@ -45,8 +45,18 @@ pub fn test_field_detection() {
         if let Some(ref label) = field.label {
             println!("  Label: '{}'", label);
         }
+        println!("  Attributes: auto_enter={}, mandatory={}, continued={}, highlighted={}, bypass={}, right_adjust={}, zero_fill={}, uppercase={}",
+            field.behavior.auto_enter,
+            field.behavior.mandatory,
+            field.continued_group_id.is_some(),
+            field.highlighted,
+            field.behavior.bypass,
+            field.behavior.right_adjust,
+            field.behavior.zero_fill,
+            field.behavior.uppercase_convert
+        );
     }
-    
+
     if field_manager.field_count() == 0 {
         println!("No fields detected. This suggests the field detection needs improvement.");
     } else {

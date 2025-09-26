@@ -5,6 +5,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::ansi_processor::AnsiProcessor;
 use crate::field_manager::FieldManager;
@@ -41,13 +42,17 @@ impl TerminalController {
         }
     }
     
-    pub fn connect(&mut self, host: String, port: u16) -> Result<(), String> {
+    /// Connect with optional TLS override. When `tls_override` is Some, it forces TLS on/off.
+    pub fn connect_with_tls(&mut self, host: String, port: u16, tls_override: Option<bool>) -> Result<(), String> {
         // Update internal state
         self.host = host.clone();
         self.port = port;
         
         // Create network connection
         let mut conn = network::AS400Connection::new(host, port);
+        if let Some(tls) = tls_override {
+            conn.set_tls(tls);
+        }
         conn.connect().map_err(|e| e.to_string())?;
         
         // Initialize session
@@ -62,6 +67,10 @@ impl TerminalController {
         
         Ok(())
     }
+
+    pub fn connect(&mut self, host: String, port: u16) -> Result<(), String> {
+        self.connect_with_tls(host, port, None)
+    }
     
     /// Request the login screen after negotiation is complete
     pub fn request_login_screen(&mut self) -> Result<(), String> {
@@ -69,8 +78,8 @@ impl TerminalController {
             return Err("Not connected to AS/400".to_string());
         }
         
-        // Send ReadModified command to trigger screen display
-        let read_modified_cmd = vec![0xFB]; // ReadModified command from protocol.rs
+    // Send Read MDT Fields command to trigger screen display
+    let read_modified_cmd = vec![crate::lib5250::codes::CMD_READ_MDT_FIELDS];
         self.send_input(&read_modified_cmd)?;
         
         Ok(())
@@ -118,7 +127,21 @@ impl TerminalController {
     }
     
     pub fn get_terminal_content(&self) -> String {
+        // Prefer session's display buffer in 5250 mode
+        if !self.use_ansi_mode {
+            return self.session.display_string();
+        }
+        // ANSI mode falls back to screen buffer
         self.screen.to_string()
+    }
+
+    /// Get the UI cursor position (1-based). In 5250 mode use Session display cursor; in ANSI use screen cursor.
+    pub fn ui_cursor_position(&self) -> (usize, usize) {
+        if !self.use_ansi_mode {
+            return self.session.cursor_position();
+        }
+        // ANSI mode: cursor comes from TerminalScreen (convert to 1-based)
+        (self.screen.cursor_y + 1, self.screen.cursor_x + 1)
     }
     
     // Process any incoming data from the network connection
@@ -147,7 +170,9 @@ impl TerminalController {
                     let _ = self.session.process_stream(&received_data);
 
                     // Detect fields after processing 5250 data
-                    self.field_manager.detect_fields(&self.screen);
+                    // Use the session display's screen snapshot for field detection
+                    let screen_ref = self.session.display().screen_ref();
+                    self.field_manager.detect_fields(screen_ref);
                 }
 
                 // Update the terminal screen with connection success message if needed
@@ -210,25 +235,20 @@ impl TerminalController {
     
     /// Type character into active field
     pub fn type_char(&mut self, ch: char) -> Result<(), String> {
-        // First get the field ID to avoid borrowing conflicts
+        // For now, update field manager (local echo) until session input path is completed
         let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
             active_field.id
         } else {
             return Err("No active field".to_string());
         };
-        
-        // Now get mutable reference and insert character
         if let Some(field) = self.field_manager.get_active_field_mut() {
             let offset = field.content.len();
             match field.insert_char(ch, offset) {
                 Ok(_) => {
-                    // Update the screen display
                     self.update_field_display(field_id);
                     Ok(())
                 }
-                Err(error) => {
-                    Err(error.get_user_message().to_string())
-                }
+                Err(error) => Err(error.get_user_message().to_string()),
             }
         } else {
             Err("No active field".to_string())
@@ -309,10 +329,13 @@ impl TerminalController {
         if let Some(field) = self.field_manager.get_fields().iter().find(|f| f.id == field_id) {
             let display_content = field.get_display_content();
             
+            // Write into the session display's underlying screen so UI render reflects it
+            let screen_ref = self.session.display_mut().screen();
+
             // Clear the field area first
             for i in 0..field.length {
                 if field.start_col + i <= 80 {
-                    self.screen.set_char_at(
+                    screen_ref.set_char_at(
                         field.start_row - 1,
                         field.start_col + i - 1,
                         TerminalChar {
@@ -326,7 +349,7 @@ impl TerminalController {
             // Write the field content
             for (i, ch) in display_content.chars().enumerate() {
                 if i < field.length && field.start_col + i <= 80 {
-                    self.screen.set_char_at(
+                    screen_ref.set_char_at(
                         field.start_row - 1,
                         field.start_col + i - 1,
                         TerminalChar {
@@ -337,16 +360,15 @@ impl TerminalController {
                 }
             }
             
-            // Show cursor in active field
-            if field.active && display_content.len() < field.length {
-                self.screen.set_char_at(
-                    field.start_row - 1,
-                    field.start_col + display_content.len() - 1,
-                    TerminalChar {
-                        character: '_',
-                        attribute: CharAttribute::Intensified,
-                    }
-                );
+            // Position the session/display cursor at the insertion point for active field
+            if field.active {
+                let col = field.start_col + display_content.len();
+                if col >= 1 {
+                    // Update the cursor in the lib5250 Display so the UI can render it
+                    self.session
+                        .display_mut()
+                        .set_cursor(field.start_row - 1, col - 1);
+                }
             }
         }
     }
@@ -371,7 +393,12 @@ impl TerminalController {
     
     /// Click/activate field at position
     pub fn activate_field_at_position(&mut self, row: usize, col: usize) -> bool {
-        self.field_manager.set_active_field_at_position(row, col)
+        let activated = self.field_manager.set_active_field_at_position(row, col);
+        if activated {
+            // Reflect cursor move in session display for 5250 mode rendering
+            self.session.display_mut().set_cursor(row - 1, col - 1);
+        }
+        activated
     }
 }
 
@@ -380,6 +407,10 @@ pub struct AsyncTerminalController {
     controller: Arc<Mutex<TerminalController>>,
     running: bool,
     handle: Option<thread::JoinHandle<()>>,
+    // Async connect state
+    connect_in_progress: Arc<AtomicBool>,
+    last_connect_error: Arc<Mutex<Option<String>>>,
+    cancel_connect_flag: Arc<AtomicBool>,
 }
 
 impl AsyncTerminalController {
@@ -388,6 +419,9 @@ impl AsyncTerminalController {
             controller: Arc::new(Mutex::new(TerminalController::new())),
             running: false,
             handle: None,
+            connect_in_progress: Arc::new(AtomicBool::new(false)),
+            last_connect_error: Arc::new(Mutex::new(None)),
+            cancel_connect_flag: Arc::new(AtomicBool::new(false)),
         }
     }
     
@@ -398,7 +432,7 @@ impl AsyncTerminalController {
         
         {
             let mut ctrl = self.controller.lock().unwrap();
-            ctrl.connect(host, port)?;
+            ctrl.connect_with_tls(host, port, None)?;
         }
         
         self.running = true;
@@ -407,6 +441,151 @@ impl AsyncTerminalController {
         self.start_network_thread();
         
         Ok(())
+    }
+
+    /// Non-blocking connect: perform network connect and telnet negotiation on a background thread
+    /// Returns immediately; use `is_connected()`/`is_connecting()`/`get_last_connect_error()` to track status
+    pub fn connect_async(&mut self, host: String, port: u16) -> Result<(), String> {
+        self.connect_async_with_tls(host, port, None)
+    }
+
+    /// TLS-aware non-blocking connect with optional TLS override
+    pub fn connect_async_with_tls(&mut self, host: String, port: u16, tls_override: Option<bool>) -> Result<(), String> {
+        self.connect_async_with_tls_options(host, port, tls_override, None, None)
+    }
+
+    /// TLS-aware non-blocking connect with extra TLS options (insecure, ca bundle path)
+    pub fn connect_async_with_tls_options(&mut self, host: String, port: u16, tls_override: Option<bool>, tls_insecure: Option<bool>, ca_bundle_path: Option<String>) -> Result<(), String> {
+        // If already processing, restart cleanly
+        if self.running {
+            self.disconnect();
+        }
+        self.connect_in_progress.store(true, Ordering::SeqCst);
+        self.cancel_connect_flag.store(false, Ordering::SeqCst);
+        if let Ok(mut err) = self.last_connect_error.lock() {
+            *err = None;
+        }
+
+        let controller_ref = Arc::clone(&self.controller);
+        let connect_flag = Arc::clone(&self.connect_in_progress);
+        let err_ref = Arc::clone(&self.last_connect_error);
+        let cancel_flag = Arc::clone(&self.cancel_connect_flag);
+
+        // Spawn a single thread that performs connect then enters the processing loop
+        let handle = thread::spawn(move || {
+            // Do the blocking network connect without holding the controller lock
+            let connect_result = (|| {
+                // Early cancel check
+                if cancel_flag.load(Ordering::SeqCst) {
+                    return Err("Connection canceled by user".to_string());
+                }
+
+                let mut conn = network::AS400Connection::new(host.clone(), port);
+                if let Some(tls) = tls_override {
+                    conn.set_tls(tls);
+                }
+                if let Some(insec) = tls_insecure { conn.set_tls_insecure(insec); }
+                if let Some(ref path) = ca_bundle_path { conn.set_tls_ca_bundle_path(path.clone()); }
+                // Use a bounded timeout for TCP connect + then telnet negotiation handles its own timeouts
+                let timeout = Duration::from_secs(10);
+                conn.connect_with_timeout(timeout).map_err(|e| e.to_string())?;
+
+                // Prepare connection message outside of the controller lock to avoid borrow conflicts
+                let connected_msg = format!(
+                    "Connected to {}:{}\nReady...\n",
+                    host, port
+                );
+
+                // If cancel requested after successful connect, drop connection and return canceled
+                if cancel_flag.load(Ordering::SeqCst) {
+                    return Err("Connection canceled by user".to_string());
+                }
+
+                // Quick state update under lock
+                match controller_ref.lock() {
+                    Ok(mut ctrl) => {
+                        // Update controller state with established connection
+                        ctrl.host = host.clone();
+                        ctrl.port = port;
+                        ctrl.network_connection = Some(conn);
+                        ctrl.connected = true;
+                        // Optional: update screen message
+                        ctrl.screen.clear();
+                        ctrl.screen.write_string(&connected_msg);
+                        Ok(())
+                    }
+                    Err(_) => Err("Controller lock failed".to_string()),
+                }
+            })();
+
+            // Mark connection attempt finished (success or error)
+            connect_flag.store(false, Ordering::SeqCst);
+
+            match connect_result {
+                Ok(()) => {
+                    // Enter processing loop similar to start_network_thread
+                    loop {
+                        // Try to lock and process
+                        let mut processed = false;
+                        match controller_ref.try_lock() {
+                            Ok(mut ctrl) => {
+                                if ctrl.is_connected() {
+                                    let _ = ctrl.process_incoming_data();
+                                } else {
+                                    break;
+                                }
+                                processed = true;
+                            }
+                            Err(_) => {
+                                // Could not lock; fall through to sleep
+                            }
+                        }
+                        // Allow cancel to stop the loop if user disconnects quickly
+                        if cancel_flag.load(Ordering::SeqCst) {
+                            break;
+                        }
+                        if !processed {
+                            // Reduce busy wait when lock contention occurs
+                            thread::sleep(Duration::from_millis(5));
+                        } else {
+                            thread::sleep(Duration::from_millis(50));
+                        }
+                    }
+                }
+                Err(e) => {
+                    if let Ok(mut err) = err_ref.lock() {
+                        *err = Some(e);
+                    }
+                }
+            }
+        });
+
+        // Store handle so we can manage lifecycle if needed
+        self.handle = Some(handle);
+        Ok(())
+    }
+
+    /// TLS-aware blocking connect wrapper for symmetry with sync controller
+    pub fn connect_with_tls(&mut self, host: String, port: u16, tls_override: Option<bool>) -> Result<(), String> {
+        if self.running {
+            self.disconnect();
+        }
+        {
+            let mut ctrl = self.controller.lock().unwrap();
+            ctrl.connect_with_tls(host, port, tls_override)?;
+        }
+        self.running = true;
+        self.start_network_thread();
+        Ok(())
+    }
+
+    /// Cancel an in-progress async connection attempt
+    pub fn cancel_connect(&self) {
+        self.cancel_connect_flag.store(true, Ordering::SeqCst);
+        self.connect_in_progress.store(false, Ordering::SeqCst);
+        if let Ok(mut err) = self.last_connect_error.lock() {
+            *err = Some("Connection canceled by user".to_string());
+        }
     }
     
     fn start_network_thread(&mut self) {
@@ -472,6 +651,7 @@ impl AsyncTerminalController {
         }
         
         self.running = false;
+        self.connect_in_progress.store(false, Ordering::SeqCst);
         
         // Wait for the thread to finish, if it exists
         if let Some(_handle) = self.handle.take() {
@@ -485,6 +665,20 @@ impl AsyncTerminalController {
             ctrl.is_connected()
         } else {
             false
+        }
+    }
+
+    /// Returns true if a background connection attempt is in progress
+    pub fn is_connecting(&self) -> bool {
+        self.connect_in_progress.load(Ordering::SeqCst)
+    }
+
+    /// Get the last connect error (if any) and clear it
+    pub fn take_last_connect_error(&self) -> Option<String> {
+        if let Ok(mut err) = self.last_connect_error.lock() {
+            err.take()
+        } else {
+            None
         }
     }
     
@@ -527,7 +721,7 @@ impl AsyncTerminalController {
     
     pub fn backspace(&self) -> Result<(), String> {
         if let Ok(mut ctrl) = self.controller.lock() {
-            ctrl.field_manager.backspace()
+            ctrl.backspace()
         } else {
             Err("Controller lock failed".to_string())
         }
@@ -535,7 +729,7 @@ impl AsyncTerminalController {
     
     pub fn delete(&self) -> Result<(), String> {
         if let Ok(mut ctrl) = self.controller.lock() {
-            ctrl.field_manager.delete()
+            ctrl.delete()
         } else {
             Err("Controller lock failed".to_string())
         }
@@ -583,7 +777,7 @@ impl AsyncTerminalController {
     
     pub fn get_cursor_position(&self) -> Result<(usize, usize), String> {
         if let Ok(ctrl) = self.controller.lock() {
-            Ok(ctrl.field_manager.get_cursor_position())
+            Ok(ctrl.ui_cursor_position())
         } else {
             Err("Controller lock failed".to_string())
         }
@@ -600,7 +794,7 @@ impl AsyncTerminalController {
     
     pub fn click_at_position(&self, row: usize, col: usize) -> Result<bool, String> {
         if let Ok(mut ctrl) = self.controller.lock() {
-            Ok(ctrl.field_manager.click_at_position(row, col))
+            Ok(ctrl.activate_field_at_position(row, col))
         } else {
             Err("Controller lock failed".to_string())
         }
@@ -619,7 +813,7 @@ mod tests {
 
     #[test]
     fn test_async_controller_creation() {
-        let mut controller = AsyncTerminalController::new();
+    let controller = AsyncTerminalController::new();
         assert!(!controller.is_connected());
     }
 }

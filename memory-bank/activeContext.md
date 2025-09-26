@@ -1,17 +1,16 @@
 # TN5250R Active Context
 
 #### Telnet Module (`src/lib5250/telnet.rs`)
-- **Completed**: Full TelnetNegotiator with state management, NEW-ENVIRON and TERMINAL-TYPE options, sub-negotiation support
-- **Status**: Advanced telnet features implemented, ready for testingrent Work Focus
+- Status: Core options implemented; subnegotiation indexing bug fixed and covered by tests. Advanced options available for future work.
 
 ### Primary Objective
 Deepening the lib5250 Rust port implementation with real protocol, field, and telnet logic to achieve full feature parity with the original C library.
 
 ### Immediate Tasks
-- **Protocol Parsing**: Expand ProtocolParser to handle all 5250 command codes and structured fields
-- **Field Detection**: Implement complete field attribute parsing (numeric, intensified, protected, etc.)
-- **Telnet Negotiation**: Add support for environment variables, terminal types, and advanced options
-- **Testing**: Ensure all new logic passes unit tests and integration doesn't break existing functionality
+- Protocol: Continue aligning with canonical lib5250 codes; add structured field coverage as needed
+- Field Detection: Incrementally expand attributes and navigation behavior
+- Telnet: Keep Binary/EOR/SGA stable; stage NEW-ENVIRON and Terminal-Type when needed
+- Testing: Maintain 100% passing; add new tests per feature
 
 ## Recent Changes
 
@@ -22,17 +21,18 @@ Deepening the lib5250 Rust port implementation with real protocol, field, and te
 - **Compilation Success**: All display operations compile and integrate correctly
 - **EBCDIC Handling**: Complete character translation following lib5250 patterns
 
-### Session Module (`src/lib5250/session.rs`) - MAJOR PROGRESS
+### Session Module (`src/lib5250/session.rs`) - COMPLETED WITH STRUCTURED FIELDS
 - **Complete Command Processing**: All 5250 protocol commands ported from session.c
 - **Display Integration**: Session now properly calls Display methods instead of direct screen access
-- **Architecture Alignment**: Follows original lib5250 patterns for session management
-- **Compilation Ready**: Session module compiles successfully with Display integration
+- **Structured Field Handling**: Session-level structured field processing for QueryCommand (0x84) → SetReplyMode (0x85) and SF_5250_QUERY (0x70)
+- **Architecture Compliance**: Full session-level 5250 command processing following canonical lib5250 patterns
+- **Protocol Refactoring**: Removed structured field handling from ProtocolProcessor, properly delegated to Session layer
 
-### Protocol Module (`src/lib5250/protocol.rs`)
-- Added ProtocolParser struct with command dispatch logic
-- Implemented EBCDIC to ASCII translation table
-- Added basic command parsing for WriteToDisplay (0xF1)
-- Integrated with TN5250R's protocol_state.rs via delegation
+### Protocol Module (`src/lib5250/protocol.rs`) - REFACTORED FOR PROPER SEPARATION
+- **Packet-Level Processing**: ProtocolProcessor focuses on low-level packet handling and command routing
+- **Structured Field Delegation**: WriteStructuredField commands now properly delegated to Session layer
+- **Canonical Architecture**: Protocol layer handles packets, Session layer handles 5250 command semantics
+- **Clean Separation**: Removed session-level logic from protocol layer following lib5250 architecture patterns
 
 ### Field Module (`src/lib5250/field.rs`)
 - Created Field struct with position and attribute tracking
@@ -41,15 +41,30 @@ Deepening the lib5250 Rust port implementation with real protocol, field, and te
 - Integrated with field_manager.rs
 
 ### Telnet Module (`src/lib5250/telnet.rs`)
-- Added TelnetNegotiator struct for option negotiation
-- Implemented basic Binary, EOR, and SGA option checking
-- Added negotiation state tracking
-- Ready for expansion to advanced features
+- TelnetNegotiator with Binary, EOR, SGA; NEW-ENVIRON parsing available; subnegotiation parsing bug fixed
 
 ### Integration Points
 - Updated protocol_state.rs to delegate parsing to lib5250::protocol
 - Modified field_manager.rs to use lib5250::field for detection
 - All existing TN5250R tests still pass (25/25)
+
+### UI and Connection Flow (Non-blocking Connect) - COMPLETED
+- Added `AsyncTerminalController::connect_async(host, port)` to perform blocking TCP connect and telnet negotiation on a background thread, returning immediately to the UI.
+- Added connection progress and error tracking (`is_connecting`, `take_last_connect_error`).
+- Updated GUI (`main.rs`) to call `connect_async` from `do_connect()` and show a connecting status; avoids blocking egui event loop.
+- UI now transitions from "Connecting..." to "Negotiating..." upon connection and surfaces async errors if they occur.
+- All tests remain green after the change.
+
+### Final refinements to async connect and interactivity - COMPLETED
+- Revised `connect_async` to construct and connect `AS400Connection` outside the controller lock and only acquire the lock to update controller state. This avoids holding the mutex during blocking I/O and eliminates first-connect contention.
+- Fixed borrow-check issue by formatting the "Connected" message prior to taking the lock.
+- Routed click activation through `TerminalController::activate_field_at_position`, which also updates the lib5250 `Display` cursor, ensuring UI cursor stays in sync with field activation.
+- Re-ran full test suite: all tests passed across bins and integration tests.
+
+### Connect cancel + timeout polish - COMPLETED
+- Implemented user-initiated Cancel while "Connecting…" via `AsyncTerminalController::cancel_connect()` and a UI Cancel button.
+- Added `AS400Connection::connect_with_timeout(timeout)` and updated async connect path to use explicit timeouts; improved UI error messaging to distinguish canceled vs timeout vs generic failure.
+- Full `cargo test --all --no-fail-fast` run after these changes: all tests green.
 
 ## Active Decisions and Considerations
 
@@ -67,10 +82,10 @@ Deepening the lib5250 Rust port implementation with real protocol, field, and te
 ## Next Steps
 
 ### Short Term (Next Session)
-1. **Expand Protocol Commands**: Implement remaining 5250 command codes (ReadBuffer, ClearUnit, etc.)
-2. **Field Attributes**: Add support for all field types (numeric, intensified, hidden, etc.)
-3. **Telnet Environment**: Implement NEW-ENVIRON option for auto-signon capabilities
-4. **Test Coverage**: Add unit tests for edge cases and error conditions
+1. Solidify structured field parsing pathways in lib5250::protocol (start with Query/QueryReply and basic SF orders)
+2. Expand field navigation and validation semantics
+3. Add focused tests for new protocol branches, including timeout/cancel UI states where feasible
+4. Keep telnet tests covering subnegotiation and EOR corner cases
 
 ### Medium Term
 1. **Structured Field Parsing**: Handle complex 5250 structured fields
@@ -86,12 +101,10 @@ Deepening the lib5250 Rust port implementation with real protocol, field, and te
 ## Known Issues and Blockers
 
 ### Current Status
-- ✅ Basic scaffolding and integration complete
-- ✅ Unit tests passing for implemented features
-- ✅ No regressions in existing TN5250R functionality
-- ⚠️ Protocol parsing incomplete (only basic commands)
-- ⚠️ Field detection basic (underscore detection only)
-- ⚠️ Telnet negotiation minimal (core options only)
+- ✅ lib5250 integration in use; legacy protocol module removed from build
+- ✅ Tests passing, including telnet subnegotiation
+- ✅ UI connect flow is now non-blocking; Wayland/GUI may not start in headless CI which is expected
+- ⚠️ Structured fields and broader command surface pending as needed
 
 ### Potential Risks
 - **Protocol Complexity**: 5250 structured fields are complex; parsing errors could cause connection issues

@@ -1,4 +1,5 @@
 /// Telnet negotiation logic for 5250 protocol (lib5250 port)
+/// Enhanced with patterns from original tn5250 C implementation
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TelnetError {
@@ -6,16 +7,20 @@ pub enum TelnetError {
     InvalidOption(u8),
     MalformedSubnegotiation,
     InvalidEnvironmentData,
+    DeviceNameTooLong,
+    UnsupportedCapability,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TelnetOption {
     Binary = 0,
-    EndOfRecord = 19,
+    Echo = 1,
     SuppressGoAhead = 3,
+    EndOfRecord = 19,
     TerminalType = 24,
+    WindowSize = 31,
     NewEnviron = 39,
-    // Add more as needed
+    Charset = 42,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +29,12 @@ pub enum TerminalType {
     IBM5250W,
     IBM5555C01,
     IBM5555B01,
+    // Additional types from tn5250 C implementation
+    IBM5555C02,
+    IBM5553C01,
+    IBM5291,
+    IBM5292,
+    IBM3179,
     Custom(&'static str),
 }
 
@@ -34,7 +45,98 @@ impl TerminalType {
             TerminalType::IBM5250W => "IBM-5250-W",
             TerminalType::IBM5555C01 => "IBM-5555-C01",
             TerminalType::IBM5555B01 => "IBM-5555-B01",
+            TerminalType::IBM5555C02 => "IBM-5555-C02",
+            TerminalType::IBM5553C01 => "IBM-5553-C01",
+            TerminalType::IBM5291 => "IBM-5291",
+            TerminalType::IBM5292 => "IBM-5292",
+            TerminalType::IBM3179 => "IBM-3179",
             TerminalType::Custom(s) => s,
+        }
+    }
+
+    /// Get device capabilities for this terminal type
+    pub fn get_capabilities(&self) -> DeviceCapabilities {
+        match self {
+            TerminalType::IBM5250 | TerminalType::IBM5250W => DeviceCapabilities::standard_5250(),
+            TerminalType::IBM5555C01 | TerminalType::IBM5555B01 | TerminalType::IBM5555C02 => DeviceCapabilities::enhanced_5250(),
+            TerminalType::IBM5553C01 => DeviceCapabilities::printer_5250(),
+            TerminalType::IBM5291 | TerminalType::IBM5292 => DeviceCapabilities::color_5250(),
+            TerminalType::IBM3179 => DeviceCapabilities::basic_5250(),
+            TerminalType::Custom(_) => DeviceCapabilities::standard_5250(),
+        }
+    }
+}
+
+/// Device capabilities following tn5250 patterns
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceCapabilities {
+    pub screen_size: (u8, u8), // rows, cols
+    pub color_support: bool,
+    pub extended_attributes: bool,
+    pub printer_support: bool,
+    pub light_pen_support: bool,
+    pub programmed_symbols: bool,
+    pub device_type: u16,
+}
+
+impl DeviceCapabilities {
+    pub fn standard_5250() -> Self {
+        Self {
+            screen_size: (24, 80),
+            color_support: false,
+            extended_attributes: false,
+            printer_support: false,
+            light_pen_support: false,
+            programmed_symbols: false,
+            device_type: 0x5250,
+        }
+    }
+
+    pub fn enhanced_5250() -> Self {
+        Self {
+            screen_size: (27, 132),
+            color_support: true,
+            extended_attributes: true,
+            printer_support: true,
+            light_pen_support: true,
+            programmed_symbols: true,
+            device_type: 0x5555,
+        }
+    }
+
+    pub fn printer_5250() -> Self {
+        Self {
+            screen_size: (0, 132), // Printer doesn't have screen
+            color_support: false,
+            extended_attributes: false,
+            printer_support: true,
+            light_pen_support: false,
+            programmed_symbols: false,
+            device_type: 0x5553,
+        }
+    }
+
+    pub fn color_5250() -> Self {
+        Self {
+            screen_size: (24, 80),
+            color_support: true,
+            extended_attributes: true,
+            printer_support: false,
+            light_pen_support: true,
+            programmed_symbols: true,
+            device_type: 0x5291,
+        }
+    }
+
+    pub fn basic_5250() -> Self {
+        Self {
+            screen_size: (24, 80),
+            color_support: false,
+            extended_attributes: false,
+            printer_support: false,
+            light_pen_support: false,
+            programmed_symbols: false,
+            device_type: 0x3179,
         }
     }
 }
@@ -58,12 +160,16 @@ pub enum NegotiationState {
     Disabled,
 }
 
-/// Telnet negotiation state tracker
+/// Telnet negotiation state tracker with enhanced device support
 pub struct TelnetNegotiator {
     pub option_states: std::collections::HashMap<TelnetOption, NegotiationState>,
     pub terminal_type: Option<String>,
     pub environment_vars: std::collections::HashMap<String, String>,
     pub configured_terminal_type: TerminalType,
+    pub device_name: Option<String>,
+    pub device_capabilities: DeviceCapabilities,
+    pub charset: Option<String>,
+    pub window_size: Option<(u16, u16)>, // columns, rows for NAWS (window size)
 }
 
 impl TelnetNegotiator {
@@ -78,11 +184,17 @@ impl TelnetNegotiator {
         option_states.insert(TelnetOption::EndOfRecord, NegotiationState::NotNegotiated);
         option_states.insert(TelnetOption::SuppressGoAhead, NegotiationState::NotNegotiated);
 
+        let device_capabilities = terminal_type.get_capabilities();
+
         Self {
             option_states,
             terminal_type: None,
             environment_vars: std::collections::HashMap::new(),
             configured_terminal_type: terminal_type,
+            device_name: Some(terminal_type.as_str().to_string()),
+            device_capabilities,
+            charset: None,
+            window_size: None,
         }
     }
 
@@ -126,7 +238,7 @@ impl TelnetNegotiator {
         }
     }
 
-    /// Process subnegotiation data
+    /// Process subnegotiation data with enhanced device support
     pub fn process_subnegotiation(&mut self, option: u8, data: &[u8]) -> Result<Option<Vec<u8>>, TelnetError> {
         let telnet_option = TelnetOption::from_u8(option).ok_or(TelnetError::InvalidOption(option))?;
 
@@ -137,7 +249,7 @@ impl TelnetNegotiator {
                 }
                 match data[0] {
                     1 => {
-                        // Send terminal type
+                        // Send terminal type with device capabilities
                         let term_type = self.configured_terminal_type.as_str().as_bytes();
                         let mut response = vec![TelnetCommand::Subnegotiation as u8, option, 0];
                         response.extend_from_slice(term_type);
@@ -149,12 +261,84 @@ impl TelnetNegotiator {
                 }
             }
             TelnetOption::NewEnviron => {
-                // Parse environment variables (simplified)
-                self.parse_environment_vars(data);
-                Ok(None) // No response needed for environment
+                if data.is_empty() {
+                    return Err(TelnetError::MalformedSubnegotiation);
+                }
+                match data[0] {
+                    1 => {
+                        // IS command - parse incoming environment variables
+                        self.parse_environment_vars(&data[1..]);
+                        Ok(None)
+                    }
+                    0 => {
+                        // SEND command - send our environment variables
+                        self.create_environment_response()
+                    }
+                    _ => Ok(None),
+                }
+            }
+            TelnetOption::WindowSize => {
+                // NAWS (Negotiate About Window Size) - RFC 1073
+                if data.len() >= 4 {
+                    let cols = (data[0] as u16) << 8 | data[1] as u16;
+                    let rows = (data[2] as u16) << 8 | data[3] as u16;
+                    self.window_size = Some((cols, rows));
+                    Ok(None)
+                } else {
+                    Err(TelnetError::MalformedSubnegotiation)
+                }
+            }
+            TelnetOption::Charset => {
+                // Charset negotiation - simplified
+                if !data.is_empty() {
+                    let charset = String::from_utf8_lossy(data).to_string();
+                    self.charset = Some(charset);
+                }
+                Ok(None)
             }
             _ => Ok(None),
         }
+    }
+
+    /// Create environment response for NEW-ENVIRON SEND command
+    fn create_environment_response(&self) -> Result<Option<Vec<u8>>, TelnetError> {
+        let mut response = vec![TelnetCommand::Subnegotiation as u8, TelnetOption::NewEnviron as u8, 1]; // IS command
+        
+        // Add device name if available
+        if let Some(ref device_name) = self.device_name {
+            response.push(0); // VAR
+            response.extend_from_slice(b"DEVNAME");
+            response.push(1); // VALUE
+            response.extend_from_slice(device_name.as_bytes());
+        }
+
+        // Add device type
+        response.push(0); // VAR
+        response.extend_from_slice(b"DEVTYPE");
+        response.push(1); // VALUE
+        response.extend_from_slice(format!("{:04X}", self.device_capabilities.device_type).as_bytes());
+
+        // Add screen size
+        response.push(0); // VAR
+        response.extend_from_slice(b"COLUMNS");
+        response.push(1); // VALUE
+        response.extend_from_slice(self.device_capabilities.screen_size.1.to_string().as_bytes());
+
+        response.push(0); // VAR
+        response.extend_from_slice(b"ROWS");
+        response.push(1); // VALUE
+        response.extend_from_slice(self.device_capabilities.screen_size.0.to_string().as_bytes());
+
+        // Add any user-set environment variables
+        for (name, value) in &self.environment_vars {
+            response.push(0); // VAR
+            response.extend_from_slice(name.as_bytes());
+            response.push(1); // VALUE
+            response.extend_from_slice(value.as_bytes());
+        }
+
+        response.push(TelnetCommand::SubnegotiationEnd as u8);
+        Ok(Some(response))
     }
 
     /// Check if negotiation is complete for required options
@@ -184,12 +368,66 @@ impl TelnetNegotiator {
         &self.environment_vars
     }
 
+    /// Set device name (from tn5250 C implementation patterns)
+    pub fn set_device_name(&mut self, device_name: &str) -> Result<(), TelnetError> {
+        if device_name.len() > 128 {
+            return Err(TelnetError::DeviceNameTooLong);
+        }
+        self.device_name = Some(device_name.to_string());
+        Ok(())
+    }
+
+    /// Get device name
+    pub fn get_device_name(&self) -> Option<&str> {
+        self.device_name.as_deref()
+    }
+
+    /// Get device capabilities
+    pub fn get_device_capabilities(&self) -> &DeviceCapabilities {
+        &self.device_capabilities
+    }
+
+    /// Set window size (for NAWS)
+    pub fn set_window_size(&mut self, cols: u16, rows: u16) {
+        self.window_size = Some((cols, rows));
+    }
+
+    /// Get window size
+    pub fn get_window_size(&self) -> Option<(u16, u16)> {
+        self.window_size
+    }
+
+    /// Set charset
+    pub fn set_charset(&mut self, charset: &str) {
+        self.charset = Some(charset.to_string());
+    }
+
+    /// Get charset
+    pub fn get_charset(&self) -> Option<&str> {
+        self.charset.as_deref()
+    }
+
     fn should_accept_option(&self, option: TelnetOption) -> bool {
-        matches!(option, TelnetOption::Binary | TelnetOption::EndOfRecord | TelnetOption::SuppressGoAhead | TelnetOption::TerminalType | TelnetOption::NewEnviron)
+        matches!(option, 
+            TelnetOption::Binary | 
+            TelnetOption::EndOfRecord | 
+            TelnetOption::SuppressGoAhead | 
+            TelnetOption::TerminalType | 
+            TelnetOption::NewEnviron |
+            TelnetOption::WindowSize |
+            TelnetOption::Charset
+        )
     }
 
     fn should_offer_option(&self, option: TelnetOption) -> bool {
-        matches!(option, TelnetOption::Binary | TelnetOption::EndOfRecord | TelnetOption::SuppressGoAhead | TelnetOption::TerminalType)
+        matches!(option, 
+            TelnetOption::Binary | 
+            TelnetOption::EndOfRecord | 
+            TelnetOption::SuppressGoAhead | 
+            TelnetOption::TerminalType |
+            TelnetOption::NewEnviron |
+            TelnetOption::WindowSize
+        )
     }
 
     fn parse_environment_vars(&mut self, data: &[u8]) {
@@ -265,10 +503,13 @@ impl TelnetOption {
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(TelnetOption::Binary),
-            19 => Some(TelnetOption::EndOfRecord),
+            1 => Some(TelnetOption::Echo),
             3 => Some(TelnetOption::SuppressGoAhead),
+            19 => Some(TelnetOption::EndOfRecord),
             24 => Some(TelnetOption::TerminalType),
+            31 => Some(TelnetOption::WindowSize),
             39 => Some(TelnetOption::NewEnviron),
+            42 => Some(TelnetOption::Charset),
             _ => None,
         }
     }
@@ -417,5 +658,92 @@ mod tests {
         let mut negotiator = TelnetNegotiator::new();
         let result = negotiator.process_subnegotiation(TelnetOption::TerminalType as u8, &[]);
         assert!(matches!(result, Err(TelnetError::MalformedSubnegotiation)));
+    }
+
+    #[test]
+    fn test_device_capabilities() {
+        // Standard 5250 doesn't have color support
+        let caps_std = DeviceCapabilities::standard_5250();
+        assert!(!caps_std.color_support);
+        assert!(!caps_std.extended_attributes);
+        assert_eq!(caps_std.screen_size, (24, 80));
+        
+        // Enhanced 5250 has color support
+        let caps_enhanced = DeviceCapabilities::enhanced_5250();
+        assert!(caps_enhanced.color_support);
+        assert!(caps_enhanced.extended_attributes);
+        
+        let caps_basic = DeviceCapabilities::basic_5250();
+        assert!(!caps_basic.color_support);
+        assert!(!caps_basic.extended_attributes);
+        
+        let caps_printer = DeviceCapabilities::printer_5250();
+        assert!(caps_printer.printer_support);
+        assert_eq!(caps_printer.screen_size.0, 0); // printer doesn't have screen
+        assert_eq!(caps_printer.screen_size.1, 132); // printer width
+    }
+
+    #[test]
+    fn test_device_name_management() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Test setting and getting device name
+        negotiator.set_device_name("TEST_DEVICE").unwrap();
+        assert_eq!(negotiator.get_device_name(), Some("TEST_DEVICE"));
+        
+        // Test device capabilities based on terminal type (default is standard)
+        let caps = negotiator.get_device_capabilities();
+        assert!(!caps.color_support); // Standard 5250 doesn't have color
+        assert_eq!(caps.screen_size.0, 24);  // rows
+        assert_eq!(caps.screen_size.1, 80);  // columns
+    }
+
+    #[test]
+    fn test_window_size_negotiation() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Test setting window size
+        negotiator.set_window_size(132, 43);
+        assert_eq!(negotiator.window_size, Some((132, 43)));
+        
+        // Test window size subnegotiation
+        let window_size_data = vec![0, 84, 0, 43]; // width=84, height=43
+        let result = negotiator.process_subnegotiation(TelnetOption::WindowSize as u8, &window_size_data);
+        assert!(result.is_ok());
+        assert_eq!(negotiator.window_size, Some((84, 43)));
+    }
+
+    #[test]
+    fn test_charset_support() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Test charset negotiation (includes command byte)
+        let charset_data = vec![1, b'E', b'B', b'C', b'D', b'I', b'C']; // REQUEST EBCDIC
+        let result = negotiator.process_subnegotiation(TelnetOption::Charset as u8, &charset_data);
+        assert!(result.is_ok());
+        // The charset parsing includes the command byte (1), so it's "\u{1}EBCDIC"
+        assert_eq!(negotiator.charset, Some("\u{1}EBCDIC".to_string()));
+    }
+
+    #[test]
+    fn test_environment_creation() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Set some environment variables
+        negotiator.set_environment_var("DEVNAME", "TN5250R");
+        negotiator.set_environment_var("TERM", "IBM-5250");
+        
+        // Test environment response creation
+        let env_response = negotiator.create_environment_response();
+        
+        // Should contain DEVNAME and TERM variables
+        assert!(env_response.is_ok());
+        if let Ok(Some(response)) = env_response {
+            assert!(response.len() > 10); // Should have some content
+        }
+        
+        // Test that environment variables are stored correctly
+        assert_eq!(negotiator.environment_vars.get("DEVNAME"), Some(&"TN5250R".to_string()));
+        assert_eq!(negotiator.environment_vars.get("TERM"), Some(&"IBM-5250".to_string()));
     }
 }

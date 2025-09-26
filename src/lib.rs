@@ -1,5 +1,6 @@
 pub mod lib5250;
 pub mod ansi_processor;
+pub mod config;
 pub mod controller;
 pub mod error;
 pub mod field_manager;

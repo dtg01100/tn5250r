@@ -38,24 +38,28 @@ Each command has specific data formats and screen update behaviors that need car
 ### Subtasks
 | ID | Description | Status | Updated | Notes |
 |----|-------------|--------|---------|-------|
-| 1.1 | Add all 5250 command codes to enum | Complete | 2025-01-21 | All command codes in session.rs |
-| 1.2 | Implement command parsing logic | Complete | 2025-01-21 | Full session.c port with all commands |
-| 1.3 | Handle structured field commands | Complete | 2025-01-21 | WriteStructuredField implemented |
-| 1.4 | Implement screen manipulation commands | Complete | 2025-01-21 | Clear, roll, save/restore all working |
-| 1.5 | Display integration completed | Complete | 2025-01-21 | Session uses Display following lib5250 patterns |
-| 1.6 | Compilation and integration testing | Complete | 2025-01-21 | Main library compiles successfully |
+| 1.1 | Align command codes to canonical lib5250 set | Complete | 2025-09-26 | ReadInputFields/ReadMdtFields/ReadMdtFieldsAlt mapped |
+| 1.2 | Implement command parsing logic | Complete | 2025-01-21 | Session-level command processing implemented |
+| 1.3 | Handle structured field commands | Complete | 2025-01-21 | QueryCommand/SetReplyMode and SF_5250_QUERY implemented |
+| 1.4 | Implement screen manipulation commands | Complete | 2025-09-26 | Roll and write paths wired via Display |
+| 1.5 | Display integration completed | Complete | 2025-09-26 | Session uses Display following lib5250 patterns |
+| 1.6 | Compilation and integration testing | Complete | 2025-01-21 | All 121 tests passing |
+| 1.7 | Architectural refactoring | Complete | 2025-01-21 | Moved structured fields from Protocol to Session layer |
 
 ## Progress Log
+### 2025-01-21
+- **TASK COMPLETED**: Successfully implemented session-level structured field processing
+- Completed architectural refactoring - moved structured field handling from ProtocolProcessor to Session layer
+- Session now handles QueryCommand (0x84) → SetReplyMode (0x85) responses
+- Session handles SF_5250_QUERY (0x70) structured fields 
+- Updated 5 structured field tests to validate session-level processing instead of protocol-level
+- All 121 tests pass after refactoring
+- Architecture now follows canonical lib5250 patterns with proper separation of concerns
+- Protocol layer handles packets, Session layer handles 5250 command semantics
+
 ### 2025-09-25
 
-### 2025-01-21
-- Completed full session.rs port from lib5250 session.c with all 5250 command codes
-- Implemented complete Display module bridging lib5250 display.c with TN5250R TerminalScreen
-- Achieved successful session → display → terminal architecture alignment with lib5250
-- Session now uses Display methods instead of direct screen access
-- All protocol commands (WriteToDisplay, ReadBuffer, Roll, ClearUnit, etc.) implemented
-- WriteStructuredField and other complex commands ported from original C code
-- Display operations (clear_unit, addch, set_cursor, erase_region, roll) working
-- EBCDIC translation and character conversion following lib5250 patterns
-- Main library and binary compile successfully with complete integration
-- **TASK COMPLETED**: Full 5250 protocol parsing achieved through session/display port
+### 2025-09-26
+- Aligned ProtocolProcessor to canonical lib5250 codes; updated dependent code and tests
+- Fixed telnet subnegotiation pointer bug; all tests pass
+- Legacy protocol module removed from build; using lib5250 exclusively
