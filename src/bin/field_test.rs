@@ -31,9 +31,9 @@ fn main() {
             match controller.get_fields_info() {
                 Ok(fields_info) => {
                     println!("Detected {} fields:", fields_info.len());
-                    for (i, (label, content, active)) in fields_info.iter().enumerate() {
-                        let status = if *active { " [ACTIVE]" } else { "" };
-                        println!("  Field {}: {} = '{}'{}", i + 1, label, content, status);
+                    for (i, field) in fields_info.iter().enumerate() {
+                        let status = if field.is_active { " [ACTIVE]" } else { "" };
+                        println!("  Field {}: {} = '{}'{}", i + 1, &field.label, &field.content, status);
                     }
                 }
                 Err(e) => {
@@ -51,9 +51,9 @@ fn main() {
                 
                 // Check current field
                 if let Ok(fields_info) = controller.get_fields_info() {
-                    for (i, (label, _content, active)) in fields_info.iter().enumerate() {
-                        if *active {
-                            println!("Now on field {}: {}", i + 1, label);
+                    for (i, field) in fields_info.iter().enumerate() {
+                        if field.is_active {
+                            println!("Now on field {}: {}", i + 1, &field.label);
                             break;
                         }
                     }
@@ -73,9 +73,9 @@ fn main() {
             
             // Check field content after typing
             if let Ok(fields_info) = controller.get_fields_info() {
-                for (i, (_label, content, active)) in fields_info.iter().enumerate() {
-                    if *active {
-                        println!("Field {} now contains: '{}'", i + 1, content);
+                for (i, field) in fields_info.iter().enumerate() {
+                    if field.is_active {
+                        println!("Field {} now contains: '{}'", i + 1, &field.content);
                         break;
                     }
                 }
@@ -90,9 +90,9 @@ fn main() {
                 
                 // Check field content after backspace
                 if let Ok(fields_info) = controller.get_fields_info() {
-                    for (i, (_label, content, active)) in fields_info.iter().enumerate() {
-                        if *active {
-                            println!("Field {} after backspace: '{}'", i + 1, content);
+                    for (i, field) in fields_info.iter().enumerate() {
+                        if field.is_active {
+                            println!("Field {} after backspace: '{}'", i + 1, &field.content);
                             break;
                         }
                     }
@@ -107,9 +107,9 @@ fn main() {
                 println!("Navigated to previous field");
                 
                 if let Ok(fields_info) = controller.get_fields_info() {
-                    for (i, (label, _content, active)) in fields_info.iter().enumerate() {
-                        if *active {
-                            println!("Now on field {}: {}", i + 1, label);
+                    for (i, field) in fields_info.iter().enumerate() {
+                        if field.is_active {
+                            println!("Now on field {}: {}", i + 1, &field.label);
                             break;
                         }
                     }

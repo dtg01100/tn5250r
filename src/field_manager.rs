@@ -1256,4 +1256,33 @@ impl FieldManager {
             }
         }).collect()
     }
+
+    /// Add field for testing purposes
+    pub fn add_field_for_test(&mut self, field: Field) {
+        let field_id = field.field_id;
+        self.fields.push(field);
+        if field_id >= self.next_field_id {
+            self.next_field_id = field_id + 1;
+        }
+    }
+
+    /// Get the index of the currently active field
+    pub fn get_active_field_index(&self) -> Option<usize> {
+        self.active_field
+    }
+
+    /// Test helper: Get continued groups
+    pub fn get_continued_groups(&self) -> &HashMap<usize, Vec<usize>> {
+        &self.continued_groups
+    }
+
+    /// Test helper: Get error state
+    pub fn get_error_state(&self) -> Option<&FieldError> {
+        self.error_state.as_ref()
+    }
+
+    /// Test helper: Set active field index directly
+    pub fn set_active_field_for_test(&mut self, index: Option<usize>) {
+        self.active_field = index;
+    }
 }
