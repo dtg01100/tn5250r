@@ -13,6 +13,8 @@ echo "   - Core application initializes successfully"
 echo "   - Network connectivity to IBM AS/400 systems verified"
 echo "   - EBCDIC CP037 translation implemented and functional"
 echo "   - 5250 protocol stack working with real systems"
+echo "   - DevContainer GUI support with VNC/noVNC access"
+echo "   - Software rendering with Mesa OpenGL"
 echo
 
 # Check for GUI environment

@@ -11,7 +11,7 @@ documentation = "https://github.com/your-username/tn5250r#readme"
 
 [dependencies]
 egui = "0.27"
-eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow", "wgpu"] }
+eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

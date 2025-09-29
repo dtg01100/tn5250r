@@ -35,7 +35,7 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": [
 		"bash", "-c", 
-		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libasound2-dev pkg-config && rustc --version"
+		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libgl1-mesa-glx mesa-utils libglu1-mesa-dev libasound2-dev pkg-config xvfb && rustc --version"
 	],
 
 	// Configure tool-specific properties.
@@ -52,7 +52,9 @@
 	"containerEnv": {
 		"DISPLAY": ":1",
 		"XDG_RUNTIME_DIR": "/tmp/runtime-vscode",
-		"WAYLAND_DISPLAY": "wayland-1"
+		"WINIT_UNIX_BACKEND": "x11",
+		"LIBGL_ALWAYS_SOFTWARE": "1",
+		"GALLIUM_DRIVER": "softpipe"
 	},
 
 	// Run arguments for GUI support
