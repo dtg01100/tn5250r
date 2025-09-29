@@ -32,10 +32,22 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	"forwardPorts": [6080, 5901],
 
+	// Use 'onCreateCommand' to run commands after the container is created but before VS Code starts.
+	"onCreateCommand": [
+		"bash", "-c",
+		"sudo mkdir -p /tmp/runtime-vscode && sudo chmod 700 /tmp/runtime-vscode && sudo chown vscode:vscode /tmp/runtime-vscode"
+	],
+
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": [
-		"bash", "-c", 
+		"bash", "-c",
 		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libgl1-mesa-glx mesa-utils libglu1-mesa-dev libasound2-dev pkg-config xvfb && rustc --version"
+	],
+
+	// Use 'postStartCommand' to run commands after VS Code starts but before the user connects.
+	"postStartCommand": [
+		"bash", "-c",
+		"sudo mkdir -p /tmp/runtime-vscode && sudo chmod 700 /tmp/runtime-vscode && sudo chown vscode:vscode /tmp/runtime-vscode"
 	],
 
 	// Configure tool-specific properties.

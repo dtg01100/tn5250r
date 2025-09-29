@@ -22,31 +22,6 @@ pub enum CharAttribute {
     Hidden,           // Hidden field
 }
 
-impl CharAttribute {
-    /// Convert from 5250 protocol attribute byte
-    pub fn from_u8(attribute: u8) -> Self {
-        match attribute {
-            0x20 => CharAttribute::Normal,
-            0x21 => CharAttribute::Protected,
-            0x22 => CharAttribute::Numeric,
-            0x23 => CharAttribute::Protected, // Protected + Numeric
-            0x24 => CharAttribute::NonDisplay,
-            0x25 => CharAttribute::Protected, // Protected + NonDisplay
-            0x26 => CharAttribute::NonDisplay, // NonDisplay + Numeric
-            0x27 => CharAttribute::Protected, // Protected + NonDisplay + Numeric
-            0x28 => CharAttribute::Intensified,
-            0x29 => CharAttribute::Protected, // Protected + Intensified
-            0x2A => CharAttribute::Intensified, // Intensified + Numeric
-            0x2B => CharAttribute::Protected, // Protected + Intensified + Numeric
-            0x2C => CharAttribute::Hidden,
-            0x2D => CharAttribute::Protected, // Protected + Hidden
-            0x2E => CharAttribute::Hidden, // Hidden + Numeric
-            0x2F => CharAttribute::Protected, // Protected + Hidden + Numeric
-            _ => CharAttribute::Normal, // Default for unknown attributes
-        }
-    }
-}
-
 // Represents a single character on the terminal screen
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TerminalChar {
@@ -64,7 +39,7 @@ impl Default for TerminalChar {
 }
 
 // Represents the terminal screen buffer
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TerminalScreen {
     pub buffer: [[TerminalChar; TERMINAL_WIDTH]; TERMINAL_HEIGHT],
     pub cursor_x: usize,
@@ -147,14 +122,6 @@ impl TerminalScreen {
         }
     }
 
-    // Set TerminalChar at specific position
-    pub fn set_char_at(&mut self, row: usize, col: usize, terminal_char: TerminalChar) {
-        if col < TERMINAL_WIDTH && row < TERMINAL_HEIGHT {
-            self.buffer[row][col] = terminal_char;
-            self.dirty = true;
-        }
-    }
-
     // Get character at specific position
     pub fn get_char_at(&self, x: usize, y: usize) -> Option<char> {
         if x < TERMINAL_WIDTH && y < TERMINAL_HEIGHT {
@@ -162,133 +129,6 @@ impl TerminalScreen {
         } else {
             None
         }
-    }
-
-    // 5250-specific methods needed by session.rs
-
-    /// Clear screen in alternate mode
-    pub fn clear_alternate(&mut self) {
-        // For now, same as regular clear
-        self.clear(); 
-    }
-
-    /// Clear format table
-    pub fn clear_format_table(&mut self) {
-        // Format table clearing - for now just mark as dirty
-        self.dirty = true;
-    }
-
-    /// Set cursor position (5250-style 0-based)
-    pub fn set_cursor(&mut self, row: usize, col: usize) {
-        self.move_cursor(col, row);
-    }
-
-    /// Set pending insert cursor position
-    pub fn set_pending_insert_cursor(&mut self, row: usize, col: usize) {
-        // For now, just move cursor there
-        self.set_cursor(row, col);
-    }
-
-    /// Add character at current cursor position (like write_char)
-    pub fn add_char(&mut self, ch: u8) {
-        // Convert EBCDIC byte to ASCII char - simplified conversion
-        let ascii_ch = if ch >= 0x20 && ch <= 0x7E { 
-            ch as char 
-        } else { 
-            ' ' 
-        };
-        self.write_char(ascii_ch);
-    }
-
-    /// Lock keyboard (mark as system locked)
-    pub fn lock_keyboard(&mut self) {
-        // TODO: Implement keyboard locking state
-        self.dirty = true;
-    }
-
-    /// Unlock keyboard (allow user input)
-    pub fn unlock_keyboard(&mut self) {
-        // TODO: Implement keyboard unlocking state
-        self.dirty = true;
-    }
-
-    /// Beep/alert sound
-    pub fn beep(&mut self) {
-        // TODO: Implement system beep
-        // For now, just ignore
-    }
-
-    /// Get current cursor row
-    pub fn cursor_row(&self) -> usize {
-        self.cursor_y
-    }
-
-    /// Get current cursor column
-    pub fn cursor_col(&self) -> usize {
-        self.cursor_x
-    }
-
-    /// Erase region from cursor to end position
-    pub fn erase_region(&mut self, start_row: usize, start_col: usize, end_row: usize, end_col: usize) {
-        for row in start_row..=end_row.min(TERMINAL_HEIGHT - 1) {
-            let start_col_for_row = if row == start_row { start_col } else { 0 };
-            let end_col_for_row = if row == end_row { end_col } else { TERMINAL_WIDTH - 1 };
-            
-            for col in start_col_for_row..=end_col_for_row.min(TERMINAL_WIDTH - 1) {
-                self.buffer[row][col] = TerminalChar::default();
-            }
-        }
-        self.dirty = true;
-    }
-
-    /// Get current screen data as bytes
-    pub fn get_screen_data(&self) -> Vec<u8> {
-        let mut data = Vec::new();
-        for row in &self.buffer {
-            for cell in row {
-                data.push(cell.character as u8);
-            }
-        }
-        data
-    }
-
-    /// Roll/scroll screen region
-    pub fn roll(&mut self, top: u8, bottom: u8, lines: i8) {
-        let top = top as usize;
-        let bottom = bottom as usize;
-        
-        if lines > 0 {
-            // Scroll up
-            for _ in 0..lines {
-                for row in top..bottom {
-                    if row + 1 < TERMINAL_HEIGHT {
-                        self.buffer[row] = self.buffer[row + 1];
-                    }
-                }
-                // Clear bottom line
-                if bottom < TERMINAL_HEIGHT {
-                    for col in 0..TERMINAL_WIDTH {
-                        self.buffer[bottom][col] = TerminalChar::default();
-                    }
-                }
-            }
-        } else if lines < 0 {
-            // Scroll down
-            for _ in 0..(-lines) {
-                for row in (top + 1..=bottom).rev() {
-                    if row > 0 {
-                        self.buffer[row] = self.buffer[row - 1];
-                    }
-                }
-                // Clear top line
-                if top < TERMINAL_HEIGHT {
-                    for col in 0..TERMINAL_WIDTH {
-                        self.buffer[top][col] = TerminalChar::default();
-                    }
-                }
-            }
-        }
-        self.dirty = true;
     }
 }
 
