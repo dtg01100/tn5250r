@@ -1136,8 +1136,9 @@ impl FieldManager {
             // Clear the field area first
             for i in 0..field.length.min(crate::terminal::TERMINAL_WIDTH - start_col) {
                 if start_col + i < crate::terminal::TERMINAL_WIDTH && row < crate::terminal::TERMINAL_HEIGHT {
-                    terminal.buffer[row][start_col + i].character = '_';
-                    terminal.buffer[row][start_col + i].attribute = match field.field_type {
+                    let index = crate::terminal::TerminalScreen::buffer_index(start_col + i, row);
+                    terminal.buffer[index].character = '_';
+                    terminal.buffer[index].attribute = match field.field_type {
                         FieldType::Protected => crate::terminal::CharAttribute::Protected,
                         FieldType::Password => crate::terminal::CharAttribute::NonDisplay,
                         FieldType::Numeric => crate::terminal::CharAttribute::Numeric,
@@ -1152,7 +1153,8 @@ impl FieldManager {
                     break;
                 }
                 if start_col + i < crate::terminal::TERMINAL_WIDTH && row < crate::terminal::TERMINAL_HEIGHT {
-                    terminal.buffer[row][start_col + i].character = ch;
+                    let index = crate::terminal::TerminalScreen::buffer_index(start_col + i, row);
+                    terminal.buffer[index].character = ch;
                 }
             }
         }

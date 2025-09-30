@@ -28,8 +28,9 @@ pub fn test_field_detection() {
     // Set up the terminal screen with the sample content
     for (row, line) in login_screen_lines.iter().enumerate() {
         for (col, ch) in line.chars().enumerate() {
-            if row < terminal.buffer.len() && col < terminal.buffer[row].len() {
-                terminal.buffer[row][col].character = ch;
+            if row < crate::terminal::TERMINAL_HEIGHT && col < crate::terminal::TERMINAL_WIDTH {
+                let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                terminal.buffer[index].character = ch;
             }
         }
     }

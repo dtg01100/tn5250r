@@ -11,6 +11,70 @@
 
 use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT, CharAttribute, TerminalChar};
 
+/// PERFORMANCE OPTIMIZATION: EBCDIC to ASCII lookup table
+/// Pre-computed conversion table for fast EBCDIC character translation
+/// This eliminates the expensive if-else chains in the original code
+static EBCDIC_TO_ASCII: [char; 256] = [
+    // 0x00-0x3F: Control characters, nulls, and unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0x40: Space
+    ' ',
+    // 0x41-0x49: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0x4A-0x4F: Symbols
+    '\0', '.', '<', '(', '+', '|', '&',
+    // 0x50-0x5A: Symbols
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '!',
+    // 0x5B-0x5F: Symbols
+    '$', '*', ')', ';',
+    // 0x60-0x6A: Symbols
+    '-', '/', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', ',',
+    // 0x6B-0x6F: Symbols
+    '%', '_', '>', '?',
+    // 0x70-0x79: Symbols
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', ':',
+    // 0x7A-0x7F: Symbols
+    '#', '@', '\'', '=', '"',
+    // 0x80-0x89: Lowercase a-i
+    '\0', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    // 0x8A-0x90: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0x91-0x99: Lowercase j-r
+    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+    // 0x9A-0xA1: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0xA2-0xA9: Lowercase s-z
+    's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+    // 0xAA-0xBF: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0xC0-0xC9: Uppercase A-I
+    '\0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
+    // 0xCA-0xD0: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0xD1-0xD9: Uppercase J-R
+    'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R',
+    // 0xDA-0xE1: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0xE2-0xE9: Uppercase S-Z
+    'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    // 0xEA-0xEF: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0',
+    // 0xF0-0xF9: Digits 0-9
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    // 0xFA-0xFF: Unassigned
+    '\0', '\0', '\0', '\0', '\0', '\0',
+];
+
+/// PERFORMANCE OPTIMIZATION: Fast EBCDIC to ASCII conversion using lookup table
+#[inline(always)]
+fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
+    EBCDIC_TO_ASCII[ebcdic_byte as usize]
+}
+
 // 5250 protocol command codes as defined in RFC 2877
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CommandCode {
@@ -313,25 +377,29 @@ impl Packet {
     }
     
     /// Serialize packet to bytes according to 5250 protocol specification
+    /// CRITICAL FIX: Corrected length calculation to prevent protocol compliance issues
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut result = Vec::new();
-        
+
         // Add command code
         result.push(self.command as u8);
-        
+
         // Add sequence number
         result.push(self.sequence_number);
-        
-        // Add length (big-endian 16-bit)
-        let length = (self.data.len() + 6) as u16; // +6 for command, sequence, length fields, and flags
+
+        // CRITICAL FIX: Correct length calculation
+        // Length field should include flags (1 byte) + data length
+        // Total packet structure: [command(1)][sequence(1)][length(2)][flags(1)][data(N)]
+        // So length = 1 (flags) + data.len()
+        let length = (self.data.len() + 1) as u16;
         result.extend_from_slice(&length.to_be_bytes());
-        
-        // Add flags if any
+
+        // Add flags
         result.push(self.flags);
-        
+
         // Add data
         result.extend_from_slice(&self.data);
-        
+
         result
     }
     
@@ -642,51 +710,9 @@ impl ProtocolProcessor {
                     // Just consume the byte
                 },
                 _ => {
-                    // Regular character - convert from EBCDIC to ASCII and write to screen
-                    let ch = if byte >= 0x81 && byte <= 0x89 { // lowercase a-i
-                        (b'a' + (byte - 0x81)) as char
-                    } else if byte >= 0x91 && byte <= 0x99 { // lowercase j-r
-                        (b'j' + (byte - 0x91)) as char
-                    } else if byte >= 0xA2 && byte <= 0xA9 { // lowercase s-z
-                        (b's' + (byte - 0xA2)) as char
-                    } else if byte >= 0xC1 && byte <= 0xC9 { // uppercase A-I
-                        (b'A' + (byte - 0xC1)) as char
-                    } else if byte >= 0xD1 && byte <= 0xD9 { // uppercase J-R
-                        (b'J' + (byte - 0xD1)) as char
-                    } else if byte >= 0xE2 && byte <= 0xE9 { // uppercase S-Z
-                        (b'S' + (byte - 0xE2)) as char
-                    } else if byte >= 0xF0 && byte <= 0xF9 { // digits 0-9
-                        (b'0' + (byte - 0xF0)) as char
-                    } else {
-                        match byte {
-                            0x40 => ' ',  // space
-                            0x4B => '.',  // period
-                            0x4C => '<',  // less than
-                            0x4D => '(',  // left parenthesis
-                            0x4E => '+',  // plus
-                            0x4F => '|',  // logical or
-                            0x50 => '&',  // ampersand
-                            0x5B => '!',  // exclamation
-                            0x5C => '$',  // dollar
-                            0x5D => '*',  // asterisk
-                            0x5E => ')',  // right parenthesis
-                            0x5F => ';',  // semicolon
-                            0x60 => '-',  // minus/hyphen
-                            0x61 => '/',  // slash
-                            0x6B => ',',  // comma
-                            0x6C => '%',  // percent
-                            0x6D => '_',  // underscore
-                            0x6E => '>',  // greater than
-                            0x6F => '?',  // question mark
-                            0x7A => ':',  // colon
-                            0x7B => '#',  // number sign
-                            0x7C => '@',  // at sign
-                            0x7D => '\'', // apostrophe
-                            0x7E => '=',  // equals
-                            0x7F => '"',  // quotation mark
-                            _ => ' ',     // default to space for unmapped characters
-                        }
-                    };
+                    // PERFORMANCE OPTIMIZATION: Use lookup table for EBCDIC to ASCII conversion
+                    // This replaces the expensive if-else chains with O(1) array lookup
+                    let ch = ebcdic_to_ascii(byte);
 
                     // Handle special characters
                     match ch {

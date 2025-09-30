@@ -50,7 +50,7 @@ impl TerminalController {
         self.port = port;
 
         // Create network connection
-        let mut conn = network::AS400Connection::new(host, port);
+        let mut conn = network::AS400Connection::new(host.clone(), port);
         if let Some(tls) = tls_override {
             conn.set_tls(tls);
         }
@@ -70,6 +70,19 @@ impl TerminalController {
         // SECURITY: Use generic connection message without exposing sensitive details
         self.screen.clear();
         self.screen.write_string("Connecting to remote system...\n");
+
+        // Record connection attempt in monitoring
+        let monitoring = crate::monitoring::MonitoringSystem::global();
+        monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
+            timestamp: std::time::Instant::now(),
+            event_type: crate::monitoring::IntegrationEventType::ComponentInteraction,
+            source_component: "controller".to_string(),
+            target_component: Some("network".to_string()),
+            description: format!("Connection attempt to {}:{}", host, port),
+            details: std::collections::HashMap::new(),
+            duration_us: None,
+            success: true,
+        });
 
         Ok(())
     }
@@ -114,7 +127,7 @@ impl TerminalController {
         // CRITICAL FIX: Clear screen content that might contain sensitive data
         // Validate screen has content before clearing
         if self.screen.cursor_x != 0 || self.screen.cursor_y != 0 ||
-           self.screen.buffer.iter().any(|row| row.iter().any(|cell| cell.character != ' ')) {
+           self.screen.buffer.iter().any(|cell| cell.character != ' ') {
             self.screen.clear();
         }
 
@@ -123,6 +136,19 @@ impl TerminalController {
 
         // CRITICAL FIX: Safe screen update with bounds checking
         self.screen.write_string("Disconnected from remote system\nReady for new connection...\n");
+
+        // Record disconnection in monitoring
+        let monitoring = crate::monitoring::MonitoringSystem::global();
+        monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
+            timestamp: std::time::Instant::now(),
+            event_type: crate::monitoring::IntegrationEventType::ComponentInteraction,
+            source_component: "controller".to_string(),
+            target_component: Some("network".to_string()),
+            description: "Controller disconnected from network".to_string(),
+            details: std::collections::HashMap::new(),
+            duration_us: None,
+            success: true,
+        });
 
         println!("SECURITY: Controller disconnected with complete resource cleanup");
     }

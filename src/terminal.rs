@@ -41,7 +41,9 @@ impl Default for TerminalChar {
 // Represents the terminal screen buffer
 #[derive(Debug)]
 pub struct TerminalScreen {
-    pub buffer: [[TerminalChar; TERMINAL_WIDTH]; TERMINAL_HEIGHT],
+    // PERFORMANCE OPTIMIZATION: Use Vec for better cache locality
+    // 1D vector provides better memory access patterns than 2D arrays
+    pub buffer: Vec<TerminalChar>,
     pub cursor_x: usize,
     pub cursor_y: usize,
     pub dirty: bool, // Flag to indicate if screen needs to be redrawn
@@ -50,17 +52,133 @@ pub struct TerminalScreen {
 impl TerminalScreen {
     pub fn new() -> Self {
         Self {
-            buffer: [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT],
+            // PERFORMANCE OPTIMIZATION: Pre-allocate vector with exact capacity
+            buffer: vec![TerminalChar::default(); TERMINAL_WIDTH * TERMINAL_HEIGHT],
             cursor_x: 0,
             cursor_y: 0,
             dirty: true,
         }
     }
 
+    /// PERFORMANCE OPTIMIZATION: Calculate 1D index from 2D coordinates
+    /// Inlined for maximum performance
+    #[inline(always)]
+    pub fn buffer_index(x: usize, y: usize) -> usize {
+        y * TERMINAL_WIDTH + x
+    }
+
+    /// PERFORMANCE OPTIMIZATION: Bulk buffer operations for better cache locality
+    /// Clear entire buffer with optimized memory access pattern
+    #[inline]
+    pub fn clear_buffer_optimized(&mut self) {
+        // PERFORMANCE: Use raw pointer operations for maximum speed
+        // This avoids bounds checking and iterator overhead
+        let default_char = TerminalChar {
+            character: ' ',
+            attribute: CharAttribute::Normal,
+        };
+
+        // SAFETY: We know the buffer size is TERMINAL_WIDTH * TERMINAL_HEIGHT
+        // and we're filling it with valid data
+        unsafe {
+            let ptr = self.buffer.as_mut_ptr();
+            for i in 0..TERMINAL_WIDTH * TERMINAL_HEIGHT {
+                *ptr.add(i) = default_char;
+            }
+        }
+
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.dirty = true;
+
+        // PERFORMANCE MONITORING: Track buffer clear operations
+        // TODO: Re-enable performance metrics once import issues are resolved
+        // crate::performance_metrics::PerformanceMetrics::global()
+        //     .terminal_metrics
+        //     .buffer_clears
+        //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// PERFORMANCE OPTIMIZATION: Bulk character writing with cache-friendly access
+    /// Write multiple characters to a row with optimized memory access
+    #[inline]
+    pub fn write_chars_to_row(&mut self, row: usize, col_start: usize, chars: &[char], attr: CharAttribute) {
+        if row >= TERMINAL_HEIGHT {
+            return;
+        }
+
+        let start_idx = Self::buffer_index(col_start, row);
+        let max_chars = TERMINAL_WIDTH.saturating_sub(col_start);
+        let chars_to_write = chars.len().min(max_chars);
+
+        // PERFORMANCE: Direct buffer access with bounds checking minimized
+        for i in 0..chars_to_write {
+            let buffer_idx = start_idx + i;
+            if buffer_idx < self.buffer.len() {
+                self.buffer[buffer_idx] = TerminalChar {
+                    character: chars[i],
+                    attribute: attr,
+                };
+            }
+        }
+
+        self.dirty = true;
+    }
+
+    /// PERFORMANCE OPTIMIZATION: Bulk attribute setting for regions
+    /// Set attributes for a rectangular region efficiently
+    #[inline]
+    pub fn set_region_attributes(&mut self, start_row: usize, start_col: usize,
+                                width: usize, height: usize, attr: CharAttribute) {
+        let end_row = (start_row + height).min(TERMINAL_HEIGHT);
+        let end_col = (start_col + width).min(TERMINAL_WIDTH);
+
+        // PERFORMANCE: Iterate row by row for better cache locality
+        for row in start_row..end_row {
+            let row_start_idx = Self::buffer_index(start_col, row);
+            let row_end_idx = Self::buffer_index(end_col, row);
+
+            // PERFORMANCE: Direct slice access for contiguous memory
+            let row_slice = &mut self.buffer[row_start_idx..row_end_idx];
+            for cell in row_slice.iter_mut() {
+                cell.attribute = attr;
+            }
+        }
+
+        self.dirty = true;
+    }
+
+    /// PERFORMANCE OPTIMIZATION: Fast buffer copy operations
+    /// Copy a region from one buffer to another with optimized access
+    #[inline]
+    pub fn copy_region(&mut self, src: &TerminalScreen, src_row: usize, src_col: usize,
+                      dst_row: usize, dst_col: usize, width: usize, height: usize) {
+        let src_end_row = (src_row + height).min(TERMINAL_HEIGHT);
+        let src_end_col = (src_col + width).min(TERMINAL_WIDTH);
+        let dst_end_row = (dst_row + height).min(TERMINAL_HEIGHT);
+        let dst_end_col = (dst_col + width).min(TERMINAL_WIDTH);
+
+        let copy_height = (src_end_row - src_row).min(dst_end_row - dst_row);
+        let copy_width = (src_end_col - src_col).min(dst_end_col - dst_col);
+
+        // PERFORMANCE: Row-by-row copy for cache efficiency
+        for row_offset in 0..copy_height {
+            let src_row_idx = Self::buffer_index(src_col, src_row + row_offset);
+            let dst_row_idx = Self::buffer_index(dst_col, dst_row + row_offset);
+
+            // PERFORMANCE: Use copy_from_slice for bulk memory operations
+            let src_slice = &src.buffer[src_row_idx..src_row_idx + copy_width];
+            let dst_slice = &mut self.buffer[dst_row_idx..dst_row_idx + copy_width];
+            dst_slice.copy_from_slice(src_slice);
+        }
+
+        self.dirty = true;
+    }
+
     // Clear the entire screen
     pub fn clear(&mut self) {
-        // CRITICAL FIX: Use safe clearing method to prevent any potential issues
-        self.safe_clear();
+        // PERFORMANCE OPTIMIZATION: Use optimized bulk clearing for better cache locality
+        self.clear_buffer_optimized();
     }
 
     // Write a character at the current cursor position
@@ -79,31 +197,37 @@ impl TerminalScreen {
             return;
         }
 
-        // Additional safety check: ensure we don't write to invalid memory
-        if self.cursor_y < TERMINAL_HEIGHT && self.cursor_x < TERMINAL_WIDTH {
-            self.buffer[self.cursor_y][self.cursor_x] = TerminalChar {
-                character: ch,
-                attribute: attr,
-            };
-            self.dirty = true;
+        // PERFORMANCE OPTIMIZATION: Use 1D vector indexing for better cache locality
+        let index = Self::buffer_index(self.cursor_x, self.cursor_y);
+        self.buffer[index] = TerminalChar {
+            character: ch,
+            attribute: attr,
+        };
+        self.dirty = true;
 
-            // Move cursor to next position (unless it's a protected field)
-            if !matches!(attr, CharAttribute::Protected | CharAttribute::Hidden) {
-                // CRITICAL FIX: Safer cursor advancement with bounds checking
-                if self.cursor_x + 1 >= TERMINAL_WIDTH {
-                    // Move to next line
-                    self.cursor_x = 0;
-                    if self.cursor_y + 1 < TERMINAL_HEIGHT {
-                        self.cursor_y += 1;
-                    } else {
-                        // CRITICAL FIX: Handle end of screen gracefully
-                        // Option 1: Stay at end of last line
-                        self.cursor_y = TERMINAL_HEIGHT - 1;
-                        self.cursor_x = TERMINAL_WIDTH - 1;
-                    }
+        // PERFORMANCE MONITORING: Track character write operations
+        // TODO: Re-enable performance metrics once import issues are resolved
+        // crate::PerformanceMetrics::global()
+        //     .terminal_metrics
+        //     .character_writes
+        //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        // Move cursor to next position (unless it's a protected field)
+        if !matches!(attr, CharAttribute::Protected | CharAttribute::Hidden) {
+            // CRITICAL FIX: Safer cursor advancement with bounds checking
+            if self.cursor_x + 1 >= TERMINAL_WIDTH {
+                // Move to next line
+                self.cursor_x = 0;
+                if self.cursor_y + 1 < TERMINAL_HEIGHT {
+                    self.cursor_y += 1;
                 } else {
-                    self.cursor_x += 1;
+                    // CRITICAL FIX: Handle end of screen gracefully
+                    // Option 1: Stay at end of last line
+                    self.cursor_y = TERMINAL_HEIGHT - 1;
+                    self.cursor_x = TERMINAL_WIDTH - 1;
                 }
+            } else {
+                self.cursor_x += 1;
             }
         }
     }
@@ -158,8 +282,9 @@ impl TerminalScreen {
             return;
         }
 
-        // Safe to write - perform bounds-checked operation
-        self.buffer[y][x] = TerminalChar {
+        // PERFORMANCE OPTIMIZATION: Use 1D vector indexing for better cache locality
+        let index = Self::buffer_index(x, y);
+        self.buffer[index] = TerminalChar {
             character: ch,
             attribute: CharAttribute::Normal,
         };
@@ -170,7 +295,9 @@ impl TerminalScreen {
     pub fn get_char_at(&self, x: usize, y: usize) -> Option<char> {
         // CRITICAL FIX: Enhanced boundary validation for safe access
         if x < TERMINAL_WIDTH && y < TERMINAL_HEIGHT {
-            Some(self.buffer[y][x].character)
+            // PERFORMANCE OPTIMIZATION: Use 1D vector indexing for better cache locality
+            let index = Self::buffer_index(x, y);
+            Some(self.buffer[index].character)
         } else {
             None
         }
@@ -180,7 +307,9 @@ impl TerminalScreen {
     pub fn set_char_at(&mut self, x: usize, y: usize, ch: TerminalChar) {
         // CRITICAL FIX: Enhanced boundary validation for safe modification
         if x < TERMINAL_WIDTH && y < TERMINAL_HEIGHT {
-            self.buffer[y][x] = ch;
+            // PERFORMANCE OPTIMIZATION: Use 1D vector indexing for better cache locality
+            let index = Self::buffer_index(x, y);
+            self.buffer[index] = ch;
             self.dirty = true;
         }
     }
@@ -188,32 +317,31 @@ impl TerminalScreen {
     /// CRITICAL FIX: Validate terminal screen buffer consistency
     /// This method ensures the buffer is in a valid state
     pub fn validate_buffer_consistency(&self) -> Result<(), String> {
-        // Validate buffer dimensions
-        if self.buffer.len() != TERMINAL_HEIGHT {
-            return Err(format!("Invalid buffer height: {}", self.buffer.len()));
+        // PERFORMANCE OPTIMIZATION: Validate buffer dimensions for 1D vector
+        if self.buffer.len() != TERMINAL_WIDTH * TERMINAL_HEIGHT {
+            return Err(format!("Invalid buffer size: {} (expected {})",
+                             self.buffer.len(), TERMINAL_WIDTH * TERMINAL_HEIGHT));
         }
 
-        for (row_idx, row) in self.buffer.iter().enumerate() {
-            if row.len() != TERMINAL_WIDTH {
-                return Err(format!("Invalid buffer width at row {}: {}", row_idx, row.len()));
+        // PERFORMANCE OPTIMIZATION: Iterate through 1D vector for better cache locality
+        for index in 0..self.buffer.len() {
+            let terminal_char = &self.buffer[index];
+            let row_idx = index / TERMINAL_WIDTH;
+            let col_idx = index % TERMINAL_WIDTH;
+
+            // Check for invalid Unicode or dangerous characters
+            if (terminal_char.character as u32) > 0x10FFFF {
+                return Err(format!("Invalid Unicode character at ({}, {}): {}",
+                                 row_idx, col_idx, terminal_char.character as u32));
             }
 
-            // Validate each character in the row
-            for (col_idx, terminal_char) in row.iter().enumerate() {
-                // Check for invalid Unicode or dangerous characters
-                if (terminal_char.character as u32) > 0x10FFFF {
-                    return Err(format!("Invalid Unicode character at ({}, {}): {}",
-                                     row_idx, col_idx, terminal_char.character as u32));
-                }
-
-                // Check for dangerous control characters that shouldn't be in buffer
-                if terminal_char.character.is_control() &&
-                   terminal_char.character != '\n' &&
-                   terminal_char.character != '\r' &&
-                   terminal_char.character != '\t' {
-                    return Err(format!("Dangerous control character at ({}, {}): {}",
-                                     row_idx, col_idx, terminal_char.character as u32));
-                }
+            // Check for dangerous control characters that shouldn't be in buffer
+            if terminal_char.character.is_control() &&
+               terminal_char.character != '\n' &&
+               terminal_char.character != '\r' &&
+               terminal_char.character != '\t' {
+                return Err(format!("Dangerous control character at ({}, {}): {}",
+                                 row_idx, col_idx, terminal_char.character as u32));
             }
         }
 
@@ -227,11 +355,9 @@ impl TerminalScreen {
 
     /// CRITICAL FIX: Safe buffer clearing with validation
     pub fn safe_clear(&mut self) {
-        // Clear buffer with safe characters
-        for row in self.buffer.iter_mut() {
-            for cell in row.iter_mut() {
-                *cell = TerminalChar::default();
-            }
+        // PERFORMANCE OPTIMIZATION: Clear 1D vector directly for better cache locality
+        for cell in self.buffer.iter_mut() {
+            *cell = TerminalChar::default();
         }
 
         // Reset cursor to safe position
@@ -304,9 +430,11 @@ impl Clone for TerminalScreen {
 
 impl fmt::Display for TerminalScreen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for row in &self.buffer {
-            for cell in row {
-                write!(f, "{}", cell.character)?;
+        // PERFORMANCE OPTIMIZATION: Iterate through 1D vector for better cache locality
+        for row in 0..TERMINAL_HEIGHT {
+            for col in 0..TERMINAL_WIDTH {
+                let index = Self::buffer_index(col, row);
+                write!(f, "{}", self.buffer[index].character)?;
             }
             writeln!(f)?;
         }
@@ -400,7 +528,9 @@ mod tests {
     #[test]
     fn test_terminal_screen_creation() {
         let screen = TerminalScreen::new();
-        assert_eq!(screen.buffer[0][0].character, ' ');
+        // PERFORMANCE OPTIMIZATION: Use 1D vector indexing
+        let index = TerminalScreen::buffer_index(0, 0);
+        assert_eq!(screen.buffer[index].character, ' ');
         assert_eq!(screen.cursor_x, 0);
         assert_eq!(screen.cursor_y, 0);
     }
@@ -409,7 +539,9 @@ mod tests {
     fn test_write_char() {
         let mut screen = TerminalScreen::new();
         screen.write_char('A');
-        assert_eq!(screen.buffer[0][0].character, 'A');
+        // PERFORMANCE OPTIMIZATION: Use 1D vector indexing
+        let index = TerminalScreen::buffer_index(0, 0);
+        assert_eq!(screen.buffer[index].character, 'A');
         assert_eq!(screen.cursor_x, 1);
     }
 
@@ -417,11 +549,12 @@ mod tests {
     fn test_write_string() {
         let mut screen = TerminalScreen::new();
         screen.write_string("Hello");
-        assert_eq!(screen.buffer[0][0].character, 'H');
-        assert_eq!(screen.buffer[0][1].character, 'e');
-        assert_eq!(screen.buffer[0][2].character, 'l');
-        assert_eq!(screen.buffer[0][3].character, 'l');
-        assert_eq!(screen.buffer[0][4].character, 'o');
+        // PERFORMANCE OPTIMIZATION: Use 1D vector indexing
+        assert_eq!(screen.buffer[TerminalScreen::buffer_index(0, 0)].character, 'H');
+        assert_eq!(screen.buffer[TerminalScreen::buffer_index(1, 0)].character, 'e');
+        assert_eq!(screen.buffer[TerminalScreen::buffer_index(2, 0)].character, 'l');
+        assert_eq!(screen.buffer[TerminalScreen::buffer_index(3, 0)].character, 'l');
+        assert_eq!(screen.buffer[TerminalScreen::buffer_index(4, 0)].character, 'o');
     }
 
     #[test]

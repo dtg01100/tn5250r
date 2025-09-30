@@ -6,15 +6,49 @@
 /// Based on the original lib5250 session.c implementation from the tn5250 project.
 /// Copyright (C) 1997-2008 Michael Madore
 /// Rust port: 2024
+///
+/// INTEGRATION ARCHITECTURE DECISIONS:
+/// ===================================
+///
+/// 1. **Central Integration Hub**: Session serves as the central coordinator
+///    for all components (network, telnet negotiation, protocol processing).
+///    This resolves integration issues by providing a unified interface
+///    while maintaining component separation.
+///
+/// 2. **Component Integration with Fallbacks**: Session integrates optional
+///    components (TelnetNegotiator, ProtocolProcessor) with automatic fallback
+///    to direct processing when components are unavailable or fail. This ensures
+///    robust operation even with partial component failures.
+///
+/// 3. **Protocol Mode Awareness**: Session maintains protocol mode state and
+///    routes data processing accordingly (TN5250, NVT, AutoDetect). This
+///    enables seamless handling of different connection types.
+///
+/// 4. **Error Handling and Recovery**: Comprehensive error propagation with
+///    fallback mechanisms. Failed operations gracefully degrade rather than
+///    causing system failure.
+///
+/// 5. **Security Integration**: Authentication, rate limiting, and session
+///    validation are integrated into the session management layer, providing
+///    security controls at the appropriate architectural level.
+///
+/// 6. **Health Monitoring**: IntegrationHealth struct provides visibility into
+///    component status, enabling proactive maintenance and troubleshooting.
 
 use super::codes::*;
 use super::display::Display;
+use crate::network::ProtocolMode;
+use crate::telnet_negotiation::TelnetNegotiator;
+use super::protocol::{ProtocolProcessor, Packet};
 
 /// Maximum number of input fields supported
 const MAX_INPUT_FIELDS: usize = 65535;
 
 /// Default device identification string
 const DEFAULT_DEVICE_ID: &str = "IBM-3179-2";
+
+// Note: Command dispatch table removed due to complexity - keeping original match-based approach
+// for maintainability. The match statement is efficient enough for the current use case.
 
 /// Session state for 5250 protocol processing
 #[derive(Debug)]
@@ -25,7 +59,8 @@ pub struct Session {
     /// Current read operation command code (if any)
     pub read_opcode: u8,
 
-    /// Buffer for incoming data stream
+    /// PERFORMANCE OPTIMIZATION: Pre-allocated buffer with capacity hint
+    /// Reduces allocations during data processing
     data_buffer: Vec<u8>,
 
     /// Current position in data buffer
@@ -54,6 +89,18 @@ pub struct Session {
 
     /// SECURITY: Last command timestamp for timing validation
     last_command_time: std::time::Instant,
+
+    /// INTEGRATION: Protocol mode for handling different connection types
+    protocol_mode: ProtocolMode,
+
+    /// INTEGRATION: Telnet negotiator for option negotiation
+    telnet_negotiator: Option<TelnetNegotiator>,
+
+    /// INTEGRATION: Protocol processor for 5250 protocol handling
+    protocol_processor: Option<ProtocolProcessor>,
+
+    /// INTEGRATION: Fallback buffer for when components are unavailable
+    fallback_buffer: Vec<u8>,
 }
 
 impl Session {
@@ -63,7 +110,9 @@ impl Session {
         let mut session = Self {
             invited: false,
             read_opcode: 0,
-            data_buffer: Vec::new(),
+            // PERFORMANCE OPTIMIZATION: Pre-allocate buffer with reasonable capacity
+            // Reduces allocations during data processing
+            data_buffer: Vec::with_capacity(8192), // 8KB initial capacity
             buffer_pos: 0,
             display: Display::new(),
             device_id: DEFAULT_DEVICE_ID.to_string(),
@@ -73,6 +122,11 @@ impl Session {
             max_command_size: 65535, // 64KB max command size
             command_count: 0,
             last_command_time: std::time::Instant::now(),
+            // INTEGRATION: Initialize with auto-detection and optional components
+            protocol_mode: ProtocolMode::AutoDetect,
+            telnet_negotiator: Some(TelnetNegotiator::new()),
+            protocol_processor: Some(ProtocolProcessor::new()),
+            fallback_buffer: Vec::new(),
         };
 
         // SECURITY: Generate a unique session token for validation
@@ -881,6 +935,235 @@ impl Session {
     pub fn set_max_command_size(&mut self, size: usize) {
         self.max_command_size = size.min(65535); // Cap at 64KB
     }
+
+    /// INTEGRATION: Set protocol mode for the session
+    pub fn set_protocol_mode(&mut self, mode: ProtocolMode) {
+        self.protocol_mode = mode;
+        println!("INTEGRATION: Session protocol mode set to {:?}", mode);
+    }
+
+    /// INTEGRATION: Get current protocol mode
+    pub fn get_protocol_mode(&self) -> ProtocolMode {
+        self.protocol_mode
+    }
+
+    /// INTEGRATION: Process data with integrated components and fallbacks
+    /// This method coordinates between network, telnet, and protocol components
+    pub fn process_integrated_data(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        // INTEGRATION: Validate input data size
+        if data.len() > self.max_command_size {
+            return Err("Command size exceeds maximum allowed".to_string());
+        }
+
+        // INTEGRATION: Rate limiting
+        self.enforce_rate_limit()?;
+
+        // INTEGRATION: Authentication check
+        if !self.validate_session_authentication() {
+            return Err("Session authentication required".to_string());
+        }
+
+        let mut responses = Vec::new();
+
+        match self.protocol_mode {
+            ProtocolMode::TN5250 => {
+                // INTEGRATION: Use integrated 5250 processing
+                responses = self.process_5250_data_integrated(data)?;
+            },
+            ProtocolMode::NVT => {
+                // INTEGRATION: Handle NVT data (plain text)
+                responses = self.process_nvt_data(data)?;
+            },
+            ProtocolMode::AutoDetect => {
+                // INTEGRATION: Auto-detect and switch mode
+                responses = self.process_auto_detect_data(data)?;
+            }
+        }
+
+        // INTEGRATION: Update command tracking
+        self.command_count += 1;
+        self.last_command_time = std::time::Instant::now();
+
+        Ok(responses)
+    }
+
+    /// INTEGRATION: Process 5250 data with integrated components
+    fn process_5250_data_integrated(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        let mut responses = Vec::new();
+
+        // INTEGRATION: First, process through telnet negotiator if available
+        if let Some(ref mut negotiator) = self.telnet_negotiator {
+            let negotiation_response = negotiator.process_incoming_data(data);
+            if !negotiation_response.is_empty() {
+                responses.extend_from_slice(&negotiation_response);
+            }
+
+            // INTEGRATION: Filter out telnet commands from data
+            let clean_data = self.extract_5250_from_telnet(data);
+            if clean_data.is_empty() {
+                return Ok(responses); // Only negotiation, no 5250 data
+            }
+
+            // INTEGRATION: Process 5250 data through protocol processor
+            if let Some(ref mut processor) = self.protocol_processor {
+                if let Some(packet) = Packet::from_bytes(&clean_data) {
+                    match processor.process_packet(&packet) {
+                        Ok(protocol_responses) => {
+                            for response in protocol_responses {
+                                responses.extend_from_slice(&response.to_bytes());
+                            }
+                        },
+                        Err(e) => {
+                            println!("INTEGRATION: Protocol processor error, falling back to direct processing: {}", e);
+                            // INTEGRATION: Fallback to direct session processing
+                            return self.process_stream(&clean_data);
+                        }
+                    }
+                } else {
+                    // INTEGRATION: Fallback to direct session processing
+                    return self.process_stream(&clean_data);
+                }
+            } else {
+                // INTEGRATION: Fallback to direct session processing
+                return self.process_stream(&clean_data);
+            }
+        } else {
+            // INTEGRATION: No telnet negotiator, process directly
+            return self.process_stream(data);
+        }
+
+        Ok(responses)
+    }
+
+    /// INTEGRATION: Process NVT (plain text) data
+    fn process_nvt_data(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        // INTEGRATION: For NVT, just store the data in fallback buffer
+        // This could be extended to handle ANSI escape sequences, etc.
+        self.fallback_buffer.extend_from_slice(data);
+        Ok(Vec::new())
+    }
+
+    /// INTEGRATION: Auto-detect protocol and process accordingly
+    fn process_auto_detect_data(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        // INTEGRATION: Simple auto-detection based on data patterns
+        if data.len() >= 2 && data[0] == 0x04 { // ESC sequence indicates 5250
+            self.protocol_mode = ProtocolMode::TN5250;
+            println!("INTEGRATION: Auto-detected 5250 protocol");
+            self.process_5250_data_integrated(data)
+        } else if data.iter().all(|&b| b >= 32 && b <= 126) { // Plain ASCII
+            self.protocol_mode = ProtocolMode::NVT;
+            println!("INTEGRATION: Auto-detected NVT protocol");
+            self.process_nvt_data(data)
+        } else {
+            // INTEGRATION: Default to 5250 for AS/400 compatibility
+            self.protocol_mode = ProtocolMode::TN5250;
+            println!("INTEGRATION: Defaulting to 5250 protocol");
+            self.process_5250_data_integrated(data)
+        }
+    }
+
+    /// INTEGRATION: Extract 5250 data from telnet stream
+    fn extract_5250_from_telnet(&self, data: &[u8]) -> Vec<u8> {
+        // INTEGRATION: Simple telnet command filtering
+        // This is a basic implementation - could be enhanced
+        let mut result = Vec::new();
+        let mut i = 0;
+
+        while i < data.len() {
+            if data[i] == 255 { // IAC
+                if i + 1 < data.len() {
+                    match data[i + 1] {
+                        251..=254 => { // WILL/WONT/DO/DONT
+                            i += 3; // Skip IAC + command + option
+                            continue;
+                        },
+                        250 => { // SB
+                            // Find SE
+                            let mut j = i + 2;
+                            while j + 1 < data.len() {
+                                if data[j] == 255 && data[j + 1] == 240 { // IAC SE
+                                    i = j + 2;
+                                    break;
+                                }
+                                j += 1;
+                            }
+                            if j + 1 >= data.len() {
+                                i = data.len(); // Malformed, skip to end
+                            }
+                            continue;
+                        },
+                        255 => { // Escaped IAC
+                            result.push(255);
+                            i += 2;
+                            continue;
+                        },
+                        _ => {
+                            i += 2; // Skip IAC + command
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            result.push(data[i]);
+            i += 1;
+        }
+
+        result
+    }
+
+    /// INTEGRATION: Enable/disable integrated components
+    pub fn set_component_enabled(&mut self, component: &str, enabled: bool) {
+        match component {
+            "telnet" => {
+                if enabled && self.telnet_negotiator.is_none() {
+                    self.telnet_negotiator = Some(TelnetNegotiator::new());
+                } else if !enabled {
+                    self.telnet_negotiator = None;
+                }
+            },
+            "protocol" => {
+                if enabled && self.protocol_processor.is_none() {
+                    self.protocol_processor = Some(ProtocolProcessor::new());
+                } else if !enabled {
+                    self.protocol_processor = None;
+                }
+            },
+            _ => println!("INTEGRATION: Unknown component: {}", component),
+        }
+        println!("INTEGRATION: Component {} {}", component, if enabled { "enabled" } else { "disabled" });
+    }
+
+    /// INTEGRATION: Get fallback buffer contents (for NVT data, etc.)
+    pub fn get_fallback_data(&mut self) -> Vec<u8> {
+        self.fallback_buffer.drain(..).collect()
+    }
+
+    /// INTEGRATION: Check if all integrated components are healthy
+    pub fn check_integration_health(&self) -> IntegrationHealth {
+        let telnet_ok = self.telnet_negotiator.is_some();
+        let protocol_ok = self.protocol_processor.is_some();
+        let display_ok = true; // Display is always available
+        let session_ok = self.session_token.is_some();
+
+        IntegrationHealth {
+            telnet_negotiator: telnet_ok,
+            protocol_processor: protocol_ok,
+            display: display_ok,
+            session: session_ok,
+            overall_healthy: telnet_ok && protocol_ok && display_ok && session_ok,
+        }
+    }
+}
+
+/// INTEGRATION: Health status of integrated components
+#[derive(Debug, Clone)]
+pub struct IntegrationHealth {
+    pub telnet_negotiator: bool,
+    pub protocol_processor: bool,
+    pub display: bool,
+    pub session: bool,
+    pub overall_healthy: bool,
 }
 
 impl Default for Session {
