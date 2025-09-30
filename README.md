@@ -5,10 +5,12 @@ TN5250R is a cross-platform desktop terminal emulator written in Rust, designed 
 ## Features
 
 - Cross-platform desktop application (Windows, macOS, Linux)
-- IBM 5250 terminal emulation
+- IBM 5250 and TN3270 terminal emulation with protocol auto-detection
+- Multiple screen size options (24×80, 32×80, 43×80, 27×132)
+- Comprehensive terminal settings dialog for protocol and display configuration
 - Secure connections to AS/400 systems (TLS on port 992 by default)
 - Customizable appearance and keyboard mapping
-- Session management
+- Session management with persistent configuration
 
 ## Building
 
@@ -85,9 +87,26 @@ Notes:
 - The CA bundle path can point to a single certificate file or a bundle containing multiple certs. PEM files with one or more certificates are supported; DER-encoded single certificates are also supported.
 - When both a custom CA bundle is provided and --insecure is set, the insecure option takes precedence (certificate errors will be ignored).
 
+### Terminal Settings
+
+TN5250R provides a comprehensive settings dialog accessible via the "Settings" button in the main menu. The settings include:
+
+#### Protocol Mode
+- **TN5250 (IBM AS/400)**: Standard IBM AS/400 terminal protocol (default)
+- **TN3270 (IBM Mainframe)**: IBM mainframe terminal protocol
+- **Auto-Detect**: Automatically detect protocol based on server response
+
+#### Screen Size Options
+- **Model 2 (24×80)**: Standard 24 rows × 80 columns (1920 characters)
+- **Model 3 (32×80)**: Extended 32 rows × 80 columns (2560 characters) 
+- **Model 4 (43×80)**: Large 43 rows × 80 columns (3440 characters)
+- **Model 5 (27×132)**: Wide 27 rows × 132 columns (3564 characters)
+
+Settings are automatically saved when changed and take effect on the next connection. Use the "Reset to Defaults" button to restore original settings.
+
 ### Configuration persistence
 
-TN5250R persists session settings (host, port, TLS) to a JSON file and reloads them on startup. The UI automatically saves changes to host/port and the TLS checkbox.
+TN5250R persists session settings (host, port, TLS, protocol mode, screen size) to a JSON file and reloads them on startup. The UI automatically saves changes to connection settings and terminal configuration.
 
 Config file location preference order:
 - TN5250R_CONFIG env var (absolute path)
@@ -96,13 +115,20 @@ Config file location preference order:
 - Windows: %APPDATA%/tn5250r/session.json
 - Fallback: ./session.json
 
-Persisted keys relevant to TLS:
+Persisted configuration keys:
 
+**Connection Settings:**
 - connection.ssl: boolean (true to enable TLS; defaults true on port 992, false otherwise)
 - connection.tls.insecure: boolean (default: false)
 - connection.tls.caBundlePath: string path to custom CA bundle (default: empty)
 
-These can also be modified in the UI under Connection → TLS Options.
+**Terminal Settings:**
+- terminal.protocolMode: string ("TN5250", "TN3270", "AutoDetect"; default: "TN5250")
+- terminal.screenSize: string ("Model2", "Model3", "Model4", "Model5"; default: "Model2")
+- terminal.rows: integer (screen height in rows; auto-set based on screen size)
+- terminal.cols: integer (screen width in columns; auto-set based on screen size)
+
+Connection settings can be modified in the UI under Connection → TLS Options. Terminal settings are accessible via the Settings button in the main menu.
 
 ## Contributing
 

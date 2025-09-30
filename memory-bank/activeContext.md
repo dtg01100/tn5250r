@@ -14,6 +14,14 @@ Deepening the lib5250 Rust port implementation with real protocol, field, and te
 
 ## Recent Changes
 
+### Terminal Settings Dialog (`src/main.rs`) - COMPLETED September 30, 2025
+- **Comprehensive Settings UI**: Implemented professional settings dialog accessible via main menu Settings button
+- **Protocol Configuration**: Radio button selection for TN5250 (IBM AS/400), TN3270 (IBM Mainframe), and Auto-Detect modes
+- **Screen Size Options**: Support for Model 2-5 screen sizes (24×80, 32×80, 43×80, 27×132) with detailed tooltips
+- **Persistent Configuration**: Automatic saving/loading using existing SessionConfig system with keys terminal.protocolMode and terminal.screenSize
+- **User Experience**: Current configuration display, Reset to Defaults functionality, settings take effect on next connection
+- **Integration**: Proper module imports, config persistence, follows existing UI patterns from advanced settings dialog
+
 ### Display Module (`src/lib5250/display.rs`) - COMPLETED
 - **Complete lib5250 Port**: Full implementation of display.c functions (clear_unit, addch, set_cursor, erase_region, roll)
 - **Session Integration**: Session successfully updated to use Display instead of direct TerminalScreen

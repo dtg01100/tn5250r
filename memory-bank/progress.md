@@ -70,6 +70,14 @@
 - **Comprehensive Testing**: 7 configuration tests covering property management, change notifications, and serialization
 - **Foundation**: Established configuration system that other enhancement tasks will build upon
 
+### ✅ Terminal Settings Dialog (September 2025)
+- **Comprehensive Settings UI**: Professional dialog with protocol mode and screen size configuration
+- **Protocol Mode Selection**: TN5250 (IBM AS/400), TN3270 (IBM Mainframe), Auto-Detect options with radio buttons
+- **Screen Size Options**: Model 2-5 supporting 24×80, 32×80, 43×80, and 27×132 dimensions
+- **Configuration Integration**: Automatic saving/loading of settings using existing SessionConfig system
+- **User Experience**: Settings button in main menu, tooltips, current configuration display, reset to defaults
+- **Persistent Settings**: Settings saved to config file and loaded on startup, take effect on next connection
+
 ## What's Left to Build
 
 ### 🔄 Protocol Implementation (High Priority)
