@@ -35,3 +35,8 @@ rand = "0.8"
 [[bin]]
 name = "tn5250r"
 path = "src/main.rs"
+
+# Test binary for TN5250 field input
+[[bin]]
+name = "tn5250_field_input_test"
+path = "src/bin/tn5250_field_input_test.rs"

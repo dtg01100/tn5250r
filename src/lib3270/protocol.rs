@@ -111,6 +111,94 @@ impl ProtocolProcessor3270 {
         
         response
     }
+    
+    /// Encode field data for transmission in 3270 format
+    /// Returns encoded field data with buffer addresses and field contents
+    pub fn encode_field_data(&self, field_data: &[(u16, String)]) -> Vec<u8> {
+        let mut encoded = Vec::new();
+        
+        for (address, content) in field_data {
+            // Add Set Buffer Address (SBA) order
+            encoded.push(ORDER_SBA);
+            
+            // Add buffer address (12-bit or 14-bit encoding)
+            let (b1, b2) = if self.use_14bit_addressing {
+                addressing::encode_14bit_address(*address)
+            } else {
+                addressing::encode_12bit_address(*address)
+            };
+            encoded.push(b1);
+            encoded.push(b2);
+            
+            // Add field content (convert to EBCDIC)
+            for ch in content.chars() {
+                let ebcdic_byte = crate::protocol_common::ebcdic::ascii_to_ebcdic(ch);
+                encoded.push(ebcdic_byte);
+            }
+        }
+        
+        encoded
+    }
+    
+    /// Send input fields with Read Modified response format
+    /// This is called when Enter or a function key is pressed
+    pub fn send_input_fields(&self, display: &Display3270, aid: AidKey, modified_fields: &[(u16, String)]) -> Vec<u8> {
+        let mut response = Vec::new();
+        
+        // Add AID byte
+        response.push(aid.to_u8());
+        
+        // Add cursor address (2 bytes)
+        let cursor_addr = display.cursor_address();
+        let (b1, b2) = if self.use_14bit_addressing {
+            addressing::encode_14bit_address(cursor_addr)
+        } else {
+            addressing::encode_12bit_address(cursor_addr)
+        };
+        response.push(b1);
+        response.push(b2);
+        
+        // Encode and add modified field data
+        let field_data = self.encode_field_data(modified_fields);
+        response.extend_from_slice(&field_data);
+        
+        response
+    }
+    
+    /// Send field data with AID key and pending input
+    /// This combines pending input with AID key for transmission
+    pub fn send_field_input(&self, display: &Display3270, aid: AidKey, pending_input: &[u8]) -> Vec<u8> {
+        let mut response = Vec::new();
+        
+        // Add AID byte
+        response.push(aid.to_u8());
+        
+        // Add cursor address (2 bytes)
+        let cursor_addr = display.cursor_address();
+        let (b1, b2) = if self.use_14bit_addressing {
+            addressing::encode_14bit_address(cursor_addr)
+        } else {
+            addressing::encode_12bit_address(cursor_addr)
+        };
+        response.push(b1);
+        response.push(b2);
+        
+        // Add pending input data
+        response.extend_from_slice(pending_input);
+        
+        response
+    }
+    
+    /// Get modified fields from display for transmission
+    /// Returns list of (address, content) tuples for modified fields
+    pub fn get_modified_fields(&self, _display: &Display3270) -> Vec<(u16, String)> {
+        let modified_fields = Vec::new();
+        
+        // TODO: Implement proper field tracking with MDT (Modified Data Tag)
+        // This requires integration with field_manager
+        
+        modified_fields
+    }
 }
 
 impl Default for ProtocolProcessor3270 {

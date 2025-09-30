@@ -834,6 +834,84 @@ impl Session {
     pub fn display_mut(&mut self) -> &mut Display {
         &mut self.display
     }
+    
+    /// Encode field data for transmission in 5250 format
+    /// Returns encoded field data with buffer addresses and field lengths
+    pub fn encode_field_data(&self, field_data: &[(usize, usize, String)]) -> Vec<u8> {
+        let mut encoded = Vec::new();
+        
+        for (row, col, content) in field_data {
+            // Add Set Buffer Address (SBA) order
+            encoded.push(super::codes::SBA);
+            
+            // Add buffer address (row and col as 1-based)
+            encoded.push(*row as u8);
+            encoded.push(*col as u8);
+            
+            // Add field content (convert to EBCDIC)
+            for ch in content.chars() {
+                let ebcdic_byte = crate::protocol_common::ebcdic::ascii_to_ebcdic(ch);
+                encoded.push(ebcdic_byte);
+            }
+        }
+        
+        encoded
+    }
+    
+    /// Send input fields with Read MDT Fields response format
+    /// This is called when Enter or a function key is pressed
+    pub fn send_input_fields(&mut self, aid_code: u8, modified_fields: &[(usize, usize, String)]) -> Result<Vec<u8>, String> {
+        let mut response = Vec::new();
+        
+        // Add cursor position (1-based)
+        let (cursor_row, cursor_col) = self.display.cursor_position();
+        response.push((cursor_row + 1) as u8);
+        response.push((cursor_col + 1) as u8);
+        
+        // Add AID code
+        response.push(aid_code);
+        
+        // Encode and add modified field data
+        let field_data = self.encode_field_data(modified_fields);
+        response.extend_from_slice(&field_data);
+        
+        // Clear read operation after sending
+        self.read_opcode = 0;
+        self.display.lock_keyboard();
+        
+        Ok(response)
+    }
+    
+    /// Get modified fields from display for transmission
+    /// Returns list of (row, col, content) tuples for modified fields
+    pub fn get_modified_fields(&self) -> Vec<(usize, usize, String)> {
+        // TODO: Implement proper field tracking with MDT (Modified Data Tag)
+        // For now, return empty vector - this should be integrated with field_manager
+        Vec::new()
+    }
+    
+    /// Send field data with AID key
+    /// This combines pending input with AID key for transmission
+    pub fn send_field_input(&mut self, aid_code: u8, pending_input: &[u8]) -> Result<Vec<u8>, String> {
+        let mut response = Vec::new();
+        
+        // Add cursor position (1-based)
+        let (cursor_row, cursor_col) = self.display.cursor_position();
+        response.push((cursor_row + 1) as u8);
+        response.push((cursor_col + 1) as u8);
+        
+        // Add AID code
+        response.push(aid_code);
+        
+        // Add pending input data
+        response.extend_from_slice(pending_input);
+        
+        // Clear read operation after sending
+        self.read_opcode = 0;
+        self.display.lock_keyboard();
+        
+        Ok(response)
+    }
 
     /// SECURITY: Authenticate session with credentials
     pub fn authenticate(&mut self, username: &str, password: &str) -> Result<bool, String> {

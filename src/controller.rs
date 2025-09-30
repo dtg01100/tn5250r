@@ -62,6 +62,7 @@ pub struct TerminalController {
     use_ansi_mode: bool,
     field_manager: FieldManager,
     screen: crate::terminal::TerminalScreen, // Screen management moved to controller level
+    pending_input: Vec<u8>, // Buffer for queued input to be transmitted
 }
 
 impl TerminalController {
@@ -76,6 +77,7 @@ impl TerminalController {
             use_ansi_mode: false,
             field_manager: FieldManager::new(),
             screen: crate::terminal::TerminalScreen::new(),
+            pending_input: Vec::new(),
         }
     }
     
@@ -399,6 +401,9 @@ impl TerminalController {
             return Err("Not connected to AS/400".to_string());
         }
         
+        // Send any pending input first, then the function key
+        self.flush_pending_input()?;
+        
         // Convert function key to protocol bytes
         let key_bytes = func_key.to_bytes();
         self.send_input(&key_bytes)?;
@@ -515,17 +520,25 @@ impl TerminalController {
     
     /// Type character into active field
     pub fn type_char(&mut self, ch: char) -> Result<(), String> {
-        // For now, update field manager (local echo) until session input path is completed
+        // Get field ID before borrowing
         let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
             active_field.id
         } else {
             return Err("No active field".to_string());
         };
+        
+        // Update field manager (local echo)
         if let Some(field) = self.field_manager.get_active_field_mut() {
             let offset = field.content.len();
             match field.insert_char(ch, offset) {
                 Ok(_) => {
                     self.update_field_display(field_id);
+                    
+                    // Queue character for network transmission
+                    // Convert character to EBCDIC for 5250 protocol
+                    let ebcdic_byte = self.ascii_to_ebcdic(ch as u8);
+                    self.pending_input.push(ebcdic_byte);
+                    
                     Ok(())
                 }
                 Err(error) => Err(error.get_user_message().to_string()),
@@ -675,6 +688,56 @@ impl TerminalController {
             self.session.display_mut().set_cursor(row - 1, col - 1);
         }
         activated
+    }
+    
+    /// Flush pending input to network
+    fn flush_pending_input(&mut self) -> Result<(), String> {
+        if self.pending_input.is_empty() {
+            return Ok(());
+        }
+        
+        // Send pending input with field data encoding
+        let field_data = self.encode_field_data_for_transmission()?;
+        self.send_input(&field_data)?;
+        
+        // Clear pending input buffer
+        self.pending_input.clear();
+        
+        Ok(())
+    }
+    
+    /// Encode field data for transmission
+    fn encode_field_data_for_transmission(&self) -> Result<Vec<u8>, String> {
+        let mut data = Vec::new();
+        
+        // Add cursor position (1-based to 0-based conversion)
+        let (row, col) = self.session.cursor_position();
+        data.push(row as u8);
+        data.push(col as u8);
+        
+        // Add AID code (0x00 for no AID, field data only)
+        data.push(0x00);
+        
+        // Add pending input characters
+        data.extend_from_slice(&self.pending_input);
+        
+        Ok(data)
+    }
+    
+    /// Convert ASCII to EBCDIC (basic conversion)
+    fn ascii_to_ebcdic(&self, ascii: u8) -> u8 {
+        // Use the EBCDIC conversion from protocol_common
+        crate::protocol_common::ebcdic::ascii_to_ebcdic(ascii as char)
+    }
+    
+    /// Get pending input buffer (for testing)
+    pub fn get_pending_input(&self) -> &[u8] {
+        &self.pending_input
+    }
+    
+    /// Clear pending input buffer
+    pub fn clear_pending_input(&mut self) {
+        self.pending_input.clear();
     }
 }
 
@@ -1261,6 +1324,34 @@ impl AsyncTerminalController {
     pub fn send_enter(&self) -> Result<(), String> {
         // Send Enter key (usually mapped to a function key or newline)
         self.send_function_key(keyboard::FunctionKey::Enter)
+    }
+    
+    /// Flush pending input to network
+    pub fn flush_pending_input(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.flush_pending_input()
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    /// Get pending input buffer size
+    pub fn get_pending_input_size(&self) -> Result<usize, String> {
+        if let Ok(ctrl) = self.controller.lock() {
+            Ok(ctrl.get_pending_input().len())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
+    }
+    
+    /// Clear pending input buffer
+    pub fn clear_pending_input(&self) -> Result<(), String> {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.clear_pending_input();
+            Ok(())
+        } else {
+            Err("Controller lock failed".to_string())
+        }
     }
     
     pub fn backspace(&self) -> Result<(), String> {

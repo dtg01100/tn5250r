@@ -1,6 +1,7 @@
-//! Keyboard mapping for AS/400 function keys
+//! Keyboard mapping for AS/400 function keys and input handling
 //! 
-//! This module handles mapping of PC keyboard keys to AS/400 function keys.
+//! This module handles mapping of PC keyboard keys to AS/400 function keys
+//! and processes alphanumeric input for field entry.
 
 use eframe::egui;
 
@@ -66,6 +67,34 @@ impl FunctionKey {
     }
 }
 
+/// Keyboard input types
+#[derive(Debug, Clone, PartialEq)]
+pub enum KeyboardInput {
+    /// Regular character input
+    Character(char),
+    /// Function key press
+    FunctionKey(FunctionKey),
+    /// Special editing key
+    SpecialKey(SpecialKey),
+}
+
+/// Special editing keys
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SpecialKey {
+    Backspace,
+    Delete,
+    Tab,
+    ShiftTab,
+    Home,
+    End,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    ArrowDown,
+    Insert,
+    Escape,
+}
+
 // Map virtual keys to function keys
 pub fn map_virtual_key_to_function_key(key: egui::Key) -> Option<FunctionKey> {
     match key {
@@ -93,6 +122,64 @@ pub fn map_virtual_key_to_function_key(key: egui::Key) -> Option<FunctionKey> {
         egui::Key::F22 => Some(FunctionKey::F22),
         egui::Key::F23 => Some(FunctionKey::F23),
         egui::Key::F24 => Some(FunctionKey::F24),
+        egui::Key::Enter => Some(FunctionKey::Enter),
+        _ => None,
+    }
+}
+
+/// Map virtual keys to special keys
+pub fn map_virtual_key_to_special_key(key: egui::Key) -> Option<SpecialKey> {
+    match key {
+        egui::Key::Backspace => Some(SpecialKey::Backspace),
+        egui::Key::Delete => Some(SpecialKey::Delete),
+        egui::Key::Tab => Some(SpecialKey::Tab),
+        egui::Key::Home => Some(SpecialKey::Home),
+        egui::Key::End => Some(SpecialKey::End),
+        egui::Key::ArrowLeft => Some(SpecialKey::ArrowLeft),
+        egui::Key::ArrowRight => Some(SpecialKey::ArrowRight),
+        egui::Key::ArrowUp => Some(SpecialKey::ArrowUp),
+        egui::Key::ArrowDown => Some(SpecialKey::ArrowDown),
+        egui::Key::Insert => Some(SpecialKey::Insert),
+        egui::Key::Escape => Some(SpecialKey::Escape),
+        _ => None,
+    }
+}
+
+/// Process keyboard event and return appropriate input type
+pub fn process_keyboard_event(event: &egui::Event) -> Option<KeyboardInput> {
+    match event {
+        egui::Event::Key { key, pressed, modifiers, .. } => {
+            if !pressed {
+                return None;
+            }
+            
+            // Check for Shift+Tab
+            if *key == egui::Key::Tab && modifiers.shift {
+                return Some(KeyboardInput::SpecialKey(SpecialKey::ShiftTab));
+            }
+            
+            // Check for function keys
+            if let Some(func_key) = map_virtual_key_to_function_key(*key) {
+                return Some(KeyboardInput::FunctionKey(func_key));
+            }
+            
+            // Check for special keys
+            if let Some(special_key) = map_virtual_key_to_special_key(*key) {
+                return Some(KeyboardInput::SpecialKey(special_key));
+            }
+            
+            None
+        }
+        egui::Event::Text(text) => {
+            // Handle text input (alphanumeric and symbols)
+            if let Some(ch) = text.chars().next() {
+                // Filter out control characters
+                if !ch.is_control() {
+                    return Some(KeyboardInput::Character(ch));
+                }
+            }
+            None
+        }
         _ => None,
     }
 }
@@ -105,6 +192,13 @@ pub fn is_special_as400_key(key_event: &egui::Event) -> bool {
         },
         _ => false,
     }
+}
+
+/// Check if character is valid for input
+pub fn is_valid_input_char(ch: char) -> bool {
+    // Allow alphanumeric, common symbols, and space
+    ch.is_alphanumeric() || 
+    " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~".contains(ch)
 }
 
 #[cfg(test)]
@@ -124,5 +218,23 @@ mod tests {
     fn test_map_virtual_key() {
         assert_eq!(map_virtual_key_to_function_key(egui::Key::F1), Some(FunctionKey::F1));
         assert_eq!(map_virtual_key_to_function_key(egui::Key::A), None);
+    }
+    
+    #[test]
+    fn test_map_special_key() {
+        assert_eq!(map_virtual_key_to_special_key(egui::Key::Backspace), Some(SpecialKey::Backspace));
+        assert_eq!(map_virtual_key_to_special_key(egui::Key::Tab), Some(SpecialKey::Tab));
+        assert_eq!(map_virtual_key_to_special_key(egui::Key::A), None);
+    }
+    
+    #[test]
+    fn test_is_valid_input_char() {
+        assert!(is_valid_input_char('a'));
+        assert!(is_valid_input_char('Z'));
+        assert!(is_valid_input_char('5'));
+        assert!(is_valid_input_char(' '));
+        assert!(is_valid_input_char('@'));
+        assert!(!is_valid_input_char('\n'));
+        assert!(!is_valid_input_char('\0'));
     }
 }
