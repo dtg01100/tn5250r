@@ -339,9 +339,16 @@ impl TN5250RApp {
     fn update_terminal_content(&mut self) {
         // Update terminal content from controller
         if let Ok(content) = self.controller.get_terminal_content() {
+            println!("DEBUG: Retrieved terminal content ({} chars): '{}'", 
+                content.len(), 
+                content.chars().take(100).collect::<String>()
+            );
             // Only update if content has changed to avoid unnecessary UI updates
             if content != self.terminal_content {
+                println!("DEBUG: Terminal content changed, updating GUI");
                 self.terminal_content = content;
+            } else {
+                println!("DEBUG: Terminal content unchanged");
             }
         }
         

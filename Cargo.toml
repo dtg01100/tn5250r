@@ -21,6 +21,7 @@ native-tls = "0.2"
 base64 = "0.22"
 lazy_static = "1.4"
 hostname = "0.4"
+libc = "0.2"
 
 openssl-sys = { version = "0.9", features = ["vendored"] }
 once_cell = "1.21.3"

@@ -67,7 +67,7 @@ pub struct TerminalController {
 
 impl TerminalController {
     pub fn new() -> Self {
-        Self {
+        let mut controller = Self {
             session: Session::new(),
             network_connection: None,
             connected: false,
@@ -78,7 +78,12 @@ impl TerminalController {
             field_manager: FieldManager::new(),
             screen: crate::terminal::TerminalScreen::new(),
             pending_input: Vec::new(),
-        }
+        };
+        
+        // Initialize screen with welcome message
+        controller.screen.write_string("TN5250R - IBM AS/400 Terminal Emulator\nReady for connection...\n");
+        
+        controller
     }
     
     /// Connect with optional TLS override. When `tls_override` is Some, it forces TLS on/off.
@@ -109,6 +114,17 @@ impl TerminalController {
         // SECURITY: Use generic connection message without exposing sensitive details
         self.screen.clear();
         self.screen.write_string("Connecting to remote system...\n");
+
+        // Send initial Query command to begin 5250 handshake
+        if let Ok(query_data) = self.session.send_initial_5250_data() {
+            if let Some(ref mut conn) = self.network_connection {
+                if let Err(e) = conn.send_data(&query_data) {
+                    eprintln!("Failed to send Query command: {}", e);
+                } else {
+                    println!("DEBUG: Query command sent, waiting for Query Reply");
+                }
+            }
+        }
 
         // Record connection attempt in monitoring
         let monitoring = crate::monitoring::MonitoringSystem::global();
@@ -248,13 +264,22 @@ impl TerminalController {
     
     /// Request the login screen after negotiation is complete
     pub fn request_login_screen(&mut self) -> Result<(), String> {
+        println!("DEBUG: request_login_screen called");
         if !self.connected {
             return Err("Not connected to AS/400".to_string());
         }
         
-    // Send Read MDT Fields command to trigger screen display
-    let read_modified_cmd = vec![crate::lib5250::codes::CMD_READ_MDT_FIELDS];
-        self.send_input(&read_modified_cmd)?;
+        println!("DEBUG: Connected, preparing command");
+        // Send Read MDT Fields command to trigger screen display
+        let read_modified_cmd = vec![crate::lib5250::codes::CMD_READ_MDT_FIELDS];
+        println!("DEBUG: Command bytes: {:02x?}", read_modified_cmd);
+        
+        println!("DEBUG: Calling send_input");
+        let result = self.send_input(&read_modified_cmd);
+        println!("DEBUG: send_input result: {:?}", result);
+        
+        result?;
+        println!("DEBUG: request_login_screen completed successfully");
         
         Ok(())
     }
@@ -361,14 +386,18 @@ impl TerminalController {
     }
     
     pub fn send_input(&mut self, input: &[u8]) -> Result<(), String> {
+        println!("DEBUG: send_input called with {} bytes: {:02x?}", input.len(), input);
+        
         // CRITICAL FIX: Enhanced input validation and error handling
 
         if !self.connected {
+            println!("DEBUG: Not connected error");
             return Err("Not connected to remote system".to_string());
         }
 
         // CRITICAL FIX: Enhanced input validation with multiple checks
         if input.is_empty() {
+            println!("DEBUG: Empty input error");
             return Err("Cannot send empty input".to_string());
         }
 
@@ -380,15 +409,21 @@ impl TerminalController {
 
         // CRITICAL FIX: Validate input data content
         if input.iter().any(|&b| b == 0) {
+            println!("DEBUG: Input contains null bytes - rejecting");
             return Err("Input contains null bytes".to_string());
         }
 
+        println!("DEBUG: Input validation passed, sending to network");
         // Send to network with enhanced error handling
         if let Some(ref mut conn) = self.network_connection {
-            conn.send_data(input).map_err(|e| {
+            println!("DEBUG: Calling conn.send_data");
+            let result = conn.send_data(input).map_err(|e| {
                 eprintln!("SECURITY: Network send failed - suppressing detailed error information");
+                println!("DEBUG: Network send error: {:?}", e);
                 "Network operation failed".to_string()
-            })?;
+            });
+            println!("DEBUG: conn.send_data result: {:?}", result);
+            result?;
         } else {
             return Err("Network connection not available".to_string());
         }
@@ -429,6 +464,16 @@ impl TerminalController {
         (self.screen.cursor_y + 1, self.screen.cursor_x + 1)
     }
     
+    /// Check if screen initialization should be sent
+    pub fn should_send_screen_initialization(&self) -> bool {
+        self.session.should_send_screen_initialization()
+    }
+    
+    /// Mark screen initialization as sent
+    pub fn mark_screen_initialization_sent(&mut self) {
+        self.session.mark_screen_initialization_sent();
+    }
+
     // Process any incoming data from the network connection
     pub fn process_incoming_data(&mut self) -> Result<(), String> {
         if !self.connected {
@@ -438,26 +483,66 @@ impl TerminalController {
         // Check for incoming data from network
         if let Some(ref mut conn) = self.network_connection {
             if let Some(received_data) = conn.receive_data_channel() {
+                println!("DEBUG: Received {} bytes of data", received_data.len());
+                if received_data.len() > 0 {
+                    println!("DEBUG: First 50 bytes: {:02x?}", &received_data[..received_data.len().min(50)]);
+                }
+                
                 // Detect if this looks like ANSI escape sequences
                 if !self.use_ansi_mode && self.contains_ansi_sequences(&received_data) {
                     self.use_ansi_mode = true;
-                    // SECURITY: Remove debug message that could leak information about data processing
+                    println!("DEBUG: Switched to ANSI mode");
                 }
                 
                 if self.use_ansi_mode {
                     // Process as ANSI terminal data
                     self.ansi_processor.process_data(&received_data, &mut self.screen);
+                    println!("DEBUG: Processed data in ANSI mode");
 
                     // Detect fields after processing ANSI data
                     self.field_manager.detect_fields(&self.screen);
                 } else {
                     // Process through the 5250 session processor
-                    let _ = self.session.process_stream(&received_data);
+                    println!("DEBUG: Processing data through 5250 session");
+                    let result = self.session.process_stream(&received_data);
+                    println!("DEBUG: Session processing result: {:?}", result);
+                    
+                    // Send any response data back to the server
+                    if let Ok(response_data) = &result {
+                        if !response_data.is_empty() {
+                            println!("DEBUG: Sending {} bytes response to server", response_data.len());
+                            if let Err(e) = self.send_input(response_data) {
+                                eprintln!("Failed to send session response: {}", e);
+                            }
+                        }
+                    }
+                    
+                    // Debug: show current display content
+                    let display_content = self.session.display_string();
+                    println!("DEBUG: Current display content ({} chars): '{}'", 
+                        display_content.len(), 
+                        display_content.chars().take(100).collect::<String>()
+                    );
 
                     // Detect fields after processing 5250 data
                     // Use the session display's screen snapshot for field detection
                     let screen_ref = self.session.display().screen_ref();
                     self.field_manager.detect_fields(screen_ref);
+                }
+
+                // Check if we received a Query Reply and send screen initialization
+                if self.session.should_send_screen_initialization() {
+                    println!("DEBUG: Query Reply received, sending screen initialization");
+                    if let Ok(init_data) = self.session.send_screen_initialization() {
+                        if let Some(ref mut conn) = self.network_connection {
+                            if let Err(e) = conn.send_data(&init_data) {
+                                eprintln!("Failed to send screen initialization: {}", e);
+                            } else {
+                                println!("DEBUG: Screen initialization sent");
+                                self.session.mark_screen_initialization_sent();
+                            }
+                        }
+                    }
                 }
 
                 // SECURITY: Use generic success message without exposing connection details
@@ -1032,7 +1117,18 @@ impl AsyncTerminalController {
                         // Optional: update screen message
                         ctrl.screen.clear();
                         ctrl.screen.write_string(&connected_msg);
-                        
+
+                        // Send initial Query command to begin 5250 handshake
+                        if let Ok(query_data) = ctrl.session.send_initial_5250_data() {
+                            if let Some(ref mut conn) = ctrl.network_connection {
+                                if let Err(e) = conn.send_data(&query_data) {
+                                    eprintln!("Failed to send Query command: {}", e);
+                                } else {
+                                    println!("DEBUG: Query command sent, waiting for Query Reply");
+                                }
+                            }
+                        }
+
                         // Record successful connection in monitoring
                         let monitoring = crate::monitoring::MonitoringSystem::global();
                         monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
@@ -1045,7 +1141,7 @@ impl AsyncTerminalController {
                             duration_us: None,
                             success: true,
                         });
-                        
+
                         Ok(())
                     }
                     Err(std::sync::TryLockError::Poisoned(poisoned)) => {
@@ -1082,6 +1178,21 @@ impl AsyncTerminalController {
                                             eprintln!("SECURITY: Error processing incoming data: {}", e);
                                             // Continue processing but log the error
                                             processed = true;
+                                        }
+                                    }
+                                    
+                                    // Check if we received a Query Reply and send screen initialization
+                                    if ctrl.session.should_send_screen_initialization() {
+                                        println!("DEBUG: Query Reply received, sending screen initialization");
+                                        if let Ok(init_data) = ctrl.session.send_screen_initialization() {
+                                            if let Some(ref mut conn) = ctrl.network_connection {
+                                                if let Err(e) = conn.send_data(&init_data) {
+                                                    eprintln!("Failed to send screen initialization: {}", e);
+                                                } else {
+                                                    println!("DEBUG: Screen initialization sent");
+                                                    ctrl.session.mark_screen_initialization_sent();
+                                                }
+                                            }
                                         }
                                     }
                                 } else {

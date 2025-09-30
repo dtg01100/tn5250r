@@ -84,6 +84,70 @@ impl FieldAttribute {
     pub fn display_attr(&self) -> u8 {
         self.base_attr & ATTR_DISPLAY
     }
+    
+    /// Check if field has mandatory fill validation
+    pub fn is_mandatory_fill(&self) -> bool {
+        if let Some(validation) = self.extended_attrs.validation {
+            (validation & VALIDATION_MANDATORY_FILL) != 0
+        } else {
+            false
+        }
+    }
+    
+    /// Check if field has mandatory entry validation
+    pub fn is_mandatory_entry(&self) -> bool {
+        if let Some(validation) = self.extended_attrs.validation {
+            (validation & VALIDATION_MANDATORY_ENTRY) != 0
+        } else {
+            false
+        }
+    }
+    
+    /// Check if field has trigger validation
+    pub fn is_trigger(&self) -> bool {
+        if let Some(validation) = self.extended_attrs.validation {
+            (validation & VALIDATION_TRIGGER) != 0
+        } else {
+            false
+        }
+    }
+    
+    /// Validate field content against field attributes
+    /// Returns Ok(()) if valid, Err with message if validation fails
+    pub fn validate_content(&self, content: &[u8]) -> Result<(), String> {
+        // Check mandatory fill - all positions must be filled
+        if self.is_mandatory_fill() {
+            if content.len() < self.length {
+                return Err("Mandatory fill: field must be completely filled".to_string());
+            }
+            // Check for null or space characters
+            for ch in content {
+                if *ch == 0x00 || *ch == 0x40 {  // Null or EBCDIC space
+                    return Err("Mandatory fill: field must be completely filled".to_string());
+                }
+            }
+        }
+        
+        // Check mandatory entry - at least one character must be entered
+        if self.is_mandatory_entry() {
+            let has_content = content.iter().any(|&ch| ch != 0x00 && ch != 0x40);
+            if !has_content {
+                return Err("Mandatory entry: field must have at least one character".to_string());
+            }
+        }
+        
+        // Check numeric field - only digits allowed
+        if self.is_numeric() {
+            for ch in content {
+                // EBCDIC digits are 0xF0-0xF9
+                if *ch != 0x00 && *ch != 0x40 && !(*ch >= 0xF0 && *ch <= 0xF9) {
+                    return Err("Numeric field: only digits allowed".to_string());
+                }
+            }
+        }
+        
+        Ok(())
+    }
 }
 
 /// Extended Field Attributes
@@ -303,17 +367,47 @@ impl FieldManager {
     }
     
     /// Calculate field lengths based on next field positions
-    pub fn calculate_field_lengths(&mut self, buffer_size: usize) {
+    /// Returns an error if any field has invalid boundaries
+    pub fn calculate_field_lengths(&mut self, buffer_size: usize) -> Result<(), String> {
         let field_count = self.fields.len();
+        
         for i in 0..field_count {
             let start_addr = self.fields[i].address as usize;
+            
+            // Validate start address is within buffer
+            if start_addr >= buffer_size {
+                return Err(format!(
+                    "Field {} start address {} exceeds buffer size {}",
+                    i, start_addr, buffer_size
+                ));
+            }
+            
             let end_addr = if i + 1 < field_count {
                 self.fields[i + 1].address as usize
             } else {
                 buffer_size
             };
-            self.fields[i].length = end_addr.saturating_sub(start_addr);
+            
+            // Validate end address
+            if end_addr > buffer_size {
+                return Err(format!(
+                    "Field {} end address {} exceeds buffer size {}",
+                    i, end_addr, buffer_size
+                ));
+            }
+            
+            // Calculate length with validation
+            if end_addr < start_addr {
+                return Err(format!(
+                    "Field {} has invalid boundaries: start {} > end {}",
+                    i, start_addr, end_addr
+                ));
+            }
+            
+            self.fields[i].length = end_addr - start_addr;
         }
+        
+        Ok(())
     }
     
     /// Get all modified fields (MDT bit set)
@@ -327,6 +421,16 @@ impl FieldManager {
     pub fn reset_mdt(&mut self) {
         for field in &mut self.fields {
             field.set_modified(false);
+        }
+    }
+    
+    /// Validate a field's content at a given address
+    /// Returns Ok(()) if valid, Err with message if validation fails
+    pub fn validate_field_at(&self, address: u16, content: &[u8]) -> Result<(), String> {
+        if let Some(field) = self.find_field_at(address) {
+            field.validate_content(content)
+        } else {
+            Ok(())  // No field at this address, no validation needed
         }
     }
 }
@@ -415,10 +519,68 @@ mod tests {
         manager.add_field(FieldAttribute::new(100, 0));
         manager.add_field(FieldAttribute::new(200, 0));
         
-        manager.calculate_field_lengths(1920); // 24x80 buffer
+        let result = manager.calculate_field_lengths(1920); // 24x80 buffer
+        assert!(result.is_ok());
         
         assert_eq!(manager.fields()[0].length, 100);
         assert_eq!(manager.fields()[1].length, 100);
         assert_eq!(manager.fields()[2].length, 1720);
+    }
+    
+    #[test]
+    fn test_field_length_validation_errors() {
+        let mut manager = FieldManager::new();
+        
+        // Add field with address beyond buffer size
+        manager.add_field(FieldAttribute::new(2000, 0));
+        
+        let result = manager.calculate_field_lengths(1920);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("exceeds buffer size"));
+    }
+    
+    #[test]
+    fn test_field_validation_mandatory_fill() {
+        let mut attr = FieldAttribute::new(0, 0);
+        attr.extended_attrs.validation = Some(VALIDATION_MANDATORY_FILL);
+        attr.length = 5;
+        
+        // Empty content should fail
+        assert!(attr.validate_content(&[]).is_err());
+        
+        // Partial content should fail
+        assert!(attr.validate_content(&[0xC1, 0xC2]).is_err());
+        
+        // Full content should pass
+        assert!(attr.validate_content(&[0xC1, 0xC2, 0xC3, 0xC4, 0xC5]).is_ok());
+    }
+    
+    #[test]
+    fn test_field_validation_mandatory_entry() {
+        let mut attr = FieldAttribute::new(0, 0);
+        attr.extended_attrs.validation = Some(VALIDATION_MANDATORY_ENTRY);
+        
+        // Empty content should fail
+        assert!(attr.validate_content(&[]).is_err());
+        
+        // Spaces only should fail
+        assert!(attr.validate_content(&[0x40, 0x40]).is_err());
+        
+        // Any character should pass
+        assert!(attr.validate_content(&[0xC1]).is_ok());
+    }
+    
+    #[test]
+    fn test_field_validation_numeric() {
+        let attr = FieldAttribute::new(0, ATTR_NUMERIC);
+        
+        // Digits should pass
+        assert!(attr.validate_content(&[0xF1, 0xF2, 0xF3]).is_ok());
+        
+        // Letters should fail
+        assert!(attr.validate_content(&[0xC1, 0xC2]).is_err());
+        
+        // Mixed should fail
+        assert!(attr.validate_content(&[0xF1, 0xC1]).is_err());
     }
 }

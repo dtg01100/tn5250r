@@ -38,6 +38,36 @@ use std::fs;
 use crate::telnet_negotiation::TelnetNegotiator;
 use crate::error::{ProtocolError, TN5250Error};
 
+/// Session management configuration
+#[derive(Debug, Clone)]
+pub struct SessionConfig {
+    /// Session idle timeout in seconds (default: 900 = 15 minutes)
+    pub idle_timeout_secs: u64,
+    /// TCP keepalive interval in seconds (default: 60)
+    pub keepalive_interval_secs: u64,
+    /// Connection timeout for initial connect (default: 30)
+    pub connection_timeout_secs: u64,
+    /// Enable automatic reconnection on connection loss
+    pub auto_reconnect: bool,
+    /// Maximum reconnection attempts (default: 3)
+    pub max_reconnect_attempts: u32,
+    /// Reconnection backoff multiplier (default: 2)
+    pub reconnect_backoff_multiplier: u64,
+}
+
+impl Default for SessionConfig {
+    fn default() -> Self {
+        Self {
+            idle_timeout_secs: 900,  // 15 minutes
+            keepalive_interval_secs: 60,  // 1 minute
+            connection_timeout_secs: 30,
+            auto_reconnect: false,
+            max_reconnect_attempts: 3,
+            reconnect_backoff_multiplier: 2,
+        }
+    }
+}
+
 /// INTEGRATION: Protocol auto-detection and mode switching
 /// Resolves NVT Mode vs 5250 Protocol Confusion (Issue #1)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -71,7 +101,7 @@ struct ProtocolDetector {
 impl ProtocolDetector {
     fn new() -> Self {
         Self {
-            mode: ProtocolMode::AutoDetect,
+            mode: ProtocolMode::TN5250, // Default to TN5250 for AS/400 systems
             detection_buffer: Vec::new(),
             max_detection_bytes: 256, // Analyze first 256 bytes for protocol detection
             detection_start_time: None,
@@ -251,6 +281,10 @@ pub struct AS400Connection {
     // INTEGRATION: Protocol detection and mode switching
     protocol_detector: ProtocolDetector,
     detected_mode: ProtocolMode,
+    // SESSION MANAGEMENT: Timeout and keepalive tracking
+    session_config: SessionConfig,
+    last_activity: Option<Instant>,
+    reconnect_attempts: u32,
 }
 
 impl AS400Connection {
@@ -271,8 +305,42 @@ impl AS400Connection {
             tls_ca_bundle_path: None,
             // INTEGRATION: Initialize protocol detection
             protocol_detector: ProtocolDetector::new(),
-            detected_mode: ProtocolMode::AutoDetect,
+            detected_mode: ProtocolMode::TN5250, // Default to TN5250 for AS/400 systems
+            // SESSION MANAGEMENT: Initialize with defaults
+            session_config: SessionConfig::default(),
+            last_activity: None,
+            reconnect_attempts: 0,
         }
+    }
+
+    /// Set custom session configuration
+    pub fn set_session_config(&mut self, config: SessionConfig) {
+        self.session_config = config;
+    }
+
+    /// Get current session configuration
+    pub fn session_config(&self) -> &SessionConfig {
+        &self.session_config
+    }
+
+    /// Check if session has been idle too long
+    pub fn is_session_idle_timeout(&self) -> bool {
+        if let Some(last_activity) = self.last_activity {
+            let elapsed = last_activity.elapsed();
+            elapsed.as_secs() > self.session_config.idle_timeout_secs
+        } else {
+            false
+        }
+    }
+
+    /// Update last activity timestamp
+    fn update_last_activity(&mut self) {
+        self.last_activity = Some(Instant::now());
+    }
+
+    /// Get time since last activity
+    pub fn time_since_last_activity(&self) -> Option<Duration> {
+        self.last_activity.map(|t| t.elapsed())
     }
 
     /// Enable or disable TLS explicitly (overrides port-based default)
@@ -310,9 +378,12 @@ impl AS400Connection {
         let address = format!("{}:{}", self.host, self.port);
         let mut tcp = TcpStream::connect(&address)?;
         
+        // SESSION MANAGEMENT: Enable TCP keepalive
+        self.configure_tcp_keepalive(&tcp)?;
+        
         // Set read/write timeouts
-        tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
-        tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
+        tcp.set_read_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
+        tcp.set_write_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
 
         // Wrap with TLS if requested
         let mut rw: DynStream = if self.use_tls {
@@ -359,9 +430,101 @@ impl AS400Connection {
         self.stream = Some(Arc::new(Mutex::new(rw)));
         self.running = true;
         
+        // SESSION MANAGEMENT: Initialize activity tracking
+        self.update_last_activity();
+        self.reconnect_attempts = 0;
+        
         // Start a background thread to receive data
         self.start_receive_thread();
         
+        Ok(())
+    }
+
+    /// Configure TCP keepalive for connection health monitoring
+    fn configure_tcp_keepalive(&self, tcp: &TcpStream) -> IoResult<()> {
+        use std::net::TcpStream as StdTcpStream;
+        
+        // Enable TCP keepalive with platform-specific settings
+        #[cfg(unix)]
+        {
+            use std::os::unix::io::AsRawFd;
+            let fd = tcp.as_raw_fd();
+            
+            // Enable SO_KEEPALIVE
+            unsafe {
+                let optval: libc::c_int = 1;
+                if libc::setsockopt(
+                    fd,
+                    libc::SOL_SOCKET,
+                    libc::SO_KEEPALIVE,
+                    &optval as *const _ as *const libc::c_void,
+                    std::mem::size_of_val(&optval) as libc::socklen_t,
+                ) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                
+                // Set TCP_KEEPIDLE (time before first keepalive probe)
+                #[cfg(target_os = "linux")]
+                {
+                    let keepidle = self.session_config.keepalive_interval_secs as libc::c_int;
+                    libc::setsockopt(
+                        fd,
+                        libc::IPPROTO_TCP,
+                        libc::TCP_KEEPIDLE,
+                        &keepidle as *const _ as *const libc::c_void,
+                        std::mem::size_of_val(&keepidle) as libc::socklen_t,
+                    );
+                }
+                
+                // Set TCP_KEEPINTVL (interval between keepalive probes)
+                #[cfg(target_os = "linux")]
+                {
+                    let keepintvl = 10 as libc::c_int; // 10 seconds between probes
+                    libc::setsockopt(
+                        fd,
+                        libc::IPPROTO_TCP,
+                        libc::TCP_KEEPINTVL,
+                        &keepintvl as *const _ as *const libc::c_void,
+                        std::mem::size_of_val(&keepintvl) as libc::socklen_t,
+                    );
+                }
+                
+                // Set TCP_KEEPCNT (number of keepalive probes)
+                #[cfg(target_os = "linux")]
+                {
+                    let keepcnt = 3 as libc::c_int; // 3 probes before declaring dead
+                    libc::setsockopt(
+                        fd,
+                        libc::IPPROTO_TCP,
+                        libc::TCP_KEEPCNT,
+                        &keepcnt as *const _ as *const libc::c_void,
+                        std::mem::size_of_val(&keepcnt) as libc::socklen_t,
+                    );
+                }
+            }
+        }
+        
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawSocket;
+            let socket = tcp.as_raw_socket();
+            
+            // Enable SO_KEEPALIVE on Windows
+            unsafe {
+                let optval: u32 = 1;
+                if libc::setsockopt(
+                    socket as libc::SOCKET,
+                    libc::SOL_SOCKET,
+                    libc::SO_KEEPALIVE,
+                    &optval as *const _ as *const libc::c_char,
+                    std::mem::size_of_val(&optval) as libc::c_int,
+                ) != 0 {
+                    return Err(std::io::Error::last_os_error());
+                }
+            }
+        }
+        
+        eprintln!("SESSION: TCP keepalive enabled with {}s interval", self.session_config.keepalive_interval_secs);
         Ok(())
     }
 
@@ -378,9 +541,12 @@ impl AS400Connection {
         // Use connect_timeout for the initial TCP connect
         let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
 
+        // SESSION MANAGEMENT: Enable TCP keepalive
+        self.configure_tcp_keepalive(&tcp)?;
+
         // Set read/write timeouts
-        tcp.set_read_timeout(Some(Duration::from_secs(30)))?;
-        tcp.set_write_timeout(Some(Duration::from_secs(30)))?;
+        tcp.set_read_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
+        tcp.set_write_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
 
         // Wrap with TLS if requested
         let mut rw: DynStream = if self.use_tls {
@@ -429,6 +595,10 @@ impl AS400Connection {
         self.stream = Some(Arc::new(Mutex::new(rw)));
         self.running = true;
 
+        // SESSION MANAGEMENT: Initialize activity tracking
+        self.update_last_activity();
+        self.reconnect_attempts = 0;
+
         // Start a background thread to receive data
         self.start_receive_thread();
 
@@ -439,7 +609,7 @@ impl AS400Connection {
             event_type: crate::monitoring::IntegrationEventType::IntegrationSuccess,
             source_component: "network".to_string(),
             target_component: Some("telnet_negotiator".to_string()),
-            description: format!("Network connection established to {}:{}", self.host, self.port),
+            description: format!("Network connection established to {}:{} with keepalive", self.host, self.port),
             details: std::collections::HashMap::new(),
             duration_us: None,
             success: true,
@@ -870,6 +1040,7 @@ impl AS400Connection {
     /// Disconnects from the AS/400 system
     /// SECURITY: Enhanced with secure resource cleanup to prevent resource leaks
     /// INTEGRATION: Reset protocol detection state
+    /// SESSION MANAGEMENT: Reset session tracking
     pub fn disconnect(&mut self) {
         // CRITICAL FIX: Enhanced cleanup with proper resource management
         self.running = false;
@@ -894,6 +1065,10 @@ impl AS400Connection {
         self.protocol_detector.reset();
         self.detected_mode = ProtocolMode::AutoDetect;
 
+        // SESSION MANAGEMENT: Reset session tracking
+        self.last_activity = None;
+        self.reconnect_attempts = 0;
+
         // CRITICAL FIX: Clear sensitive connection data
         self.host.clear();
         self.tls_ca_bundle_path = None;
@@ -913,9 +1088,11 @@ impl AS400Connection {
 
         println!("SECURITY: Network connection and resources cleaned up securely");
         println!("INTEGRATION: Protocol detection state reset");
+        println!("SESSION: Session tracking reset");
     }
 
     /// Sends data to the AS/400 system
+    /// SESSION MANAGEMENT: Updates activity timestamp on send
     pub fn send_data(&mut self, data: &[u8]) -> IoResult<usize> {
         // CRITICAL FIX: Enhanced validation and error handling for data transmission
 
@@ -935,14 +1112,14 @@ impl AS400Connection {
             ));
         }
 
-        if let Some(ref shared) = self.stream {
+        let result = if let Some(ref shared) = self.stream {
             let mut guard = shared.lock().map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Stream lock poisoned"))?;
 
             // CRITICAL FIX: Validate data before sending
             if AS400Connection::validate_network_data(data) {
-                let result = guard.write(data);
+                let send_result = guard.write(data);
                 // PERFORMANCE MONITORING: Track bytes sent
-                if let Ok(bytes) = &result {
+                if let Ok(bytes) = &send_result {
                     // TODO: Re-enable performance metrics once import issues are resolved
                     // crate::PerformanceMetrics::global()
                     //     .network_metrics
@@ -953,7 +1130,7 @@ impl AS400Connection {
                     //     .packets_sent
                     //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
-                result
+                send_result
             } else {
                 Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
@@ -965,17 +1142,37 @@ impl AS400Connection {
                 std::io::ErrorKind::NotConnected,
                 "Not connected to AS/400 system"
             ))
+        };
+
+        // SESSION MANAGEMENT: Update activity on successful send (after guard is dropped)
+        if result.is_ok() {
+            self.update_last_activity();
         }
+
+        result
     }
 
     /// Receives data from the AS/400 system through the channel
     /// INTEGRATION: Enhanced with protocol auto-detection and mode switching
+    /// SESSION MANAGEMENT: Updates activity timestamp and checks for idle timeout
     pub fn receive_data_channel(&mut self) -> Option<Vec<u8>> {
+        // SESSION MANAGEMENT: Check for idle timeout
+        if self.is_session_idle_timeout() {
+            eprintln!("SESSION: Idle timeout exceeded - disconnecting");
+            self.disconnect();
+            return None;
+        }
+
         if let Some(ref receiver) = self.receiver {
             // Try to receive data without blocking
             match receiver.try_recv() {
                 Ok(data) => {
-                    // INTEGRATION: Perform protocol detection if not yet determined
+                    // SESSION MANAGEMENT: Update activity timestamp on data receipt
+                    self.update_last_activity();
+                    println!("DEBUG: Received data from network: {} bytes", data.len());
+                    if data.len() > 0 {
+                        println!("DEBUG: Raw data: {:02x?}", &data[..data.len().min(50)]);
+                    }
                     if !self.protocol_detector.is_detection_complete() {
                         match self.protocol_detector.detect_protocol(&data) {
                             Ok(mode) => {
@@ -1020,7 +1217,9 @@ impl AS400Connection {
                         ProtocolMode::TN5250 => {
                             // Filter out telnet negotiation from the data and return clean 5250 data
                             let clean_data = self.extract_5250_data(&data);
-                            if !clean_data.is_empty() {
+                            println!("DEBUG: TN5250 mode - extracted {} bytes from {} bytes", clean_data.len(), data.len());
+                            if clean_data.len() > 0 {
+                                println!("DEBUG: Clean 5250 data first 20 bytes: {:02x?}", &clean_data[..clean_data.len().min(20)]);
                                 Some(clean_data)
                             } else {
                                 None // No 5250 data in this packet, just negotiation
@@ -1072,11 +1271,20 @@ impl AS400Connection {
         }
 
         // Check for excessive control characters that might indicate attacks
-        let control_char_count = data.iter().filter(|&&b| b < 32 && b != 9 && b != 10 && b != 13).count();
+        // Allow 5250 protocol data (starts with ESC) and other legitimate protocol bytes
+        let is_5250_protocol = data.len() >= 2 && data[0] == 0x04; // ESC prefix indicates 5250 protocol
+        let control_char_count = if is_5250_protocol {
+            // For 5250 protocol data, be more permissive - allow null bytes and other protocol control chars
+            data.iter().filter(|&&b| b < 32 && b != 9 && b != 10 && b != 13 && b != 0x04 && b != 0x00 && b != 0x06).count()
+        } else {
+            // For other data, use strict validation
+            data.iter().filter(|&&b| b < 32 && b != 9 && b != 10 && b != 13).count()
+        };
+        
         let control_ratio = control_char_count as f32 / data.len() as f32;
 
         if control_ratio > 0.3 { // More than 30% control characters
-            eprintln!("SECURITY: Excessive control characters in network data");
+            eprintln!("SECURITY: Excessive control characters in network data (ratio: {:.2}, 5250: {})", control_ratio, is_5250_protocol);
             return false;
         }
 

@@ -23,6 +23,7 @@ pub mod lib3270;
 pub mod ansi_processor;
 pub mod config;
 pub mod controller;
+pub mod error_handling;
 pub mod error;
 pub mod field_manager;
 pub mod keyboard;

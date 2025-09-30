@@ -211,11 +211,103 @@ impl Display {
         self.cursor_col
     }
 
-    /// Get screen data as bytes (placeholder implementation)
+    /// Get screen data as bytes for 5250 protocol transmission
     pub fn get_screen_data(&self) -> Vec<u8> {
-        // TODO: Implement actual screen data extraction
-        // For now, return empty data
-        Vec::new()
+        let mut data = Vec::new();
+
+        // Convert screen buffer to 5250 format
+        for row in 0..self.height {
+            for col in 0..self.width {
+                let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                let ch = self.screen.buffer[index].character;
+
+                // Convert ASCII to EBCDIC for 5250 protocol
+                let ebcdic_byte = self.ascii_to_ebcdic(ch as u8);
+                data.push(ebcdic_byte);
+            }
+        }
+
+        data
+    }
+
+    /// Convert ASCII character to EBCDIC for 5250 protocol
+    fn ascii_to_ebcdic(&self, ascii: u8) -> u8 {
+        match ascii {
+            32 => 0x40, // Space
+            b'!' => 0x5A,
+            b'"' => 0x7F,
+            b'#' => 0x7B,
+            b'$' => 0x5B,
+            b'%' => 0x6C,
+            b'&' => 0x50,
+            b'\'' => 0x7D,
+            b'(' => 0x4D,
+            b')' => 0x5D,
+            b'*' => 0x5C,
+            b'+' => 0x4E,
+            b',' => 0x6B,
+            b'-' => 0x60,
+            b'.' => 0x4B,
+            b'/' => 0x61,
+            b'0'..=b'9' => 0xF0 + (ascii - b'0'), // 0-9
+            b':' => 0x7A,
+            b';' => 0x5E,
+            b'<' => 0x4C,
+            b'=' => 0x7E,
+            b'>' => 0x6E,
+            b'?' => 0x6F,
+            b'@' => 0x7C,
+            b'A'..=b'I' => 0xC1 + (ascii - b'A'), // A-I
+            b'J'..=b'R' => 0xD1 + (ascii - b'J'), // J-R
+            b'S'..=b'Z' => 0xE2 + (ascii - b'S'), // S-Z
+            b'[' => 0xAD,
+            b'\\' => 0xE0,
+            b']' => 0xBD,
+            b'^' => 0x5F,
+            b'_' => 0x6D,
+            b'`' => 0x79,
+            b'a'..=b'i' => 0x81 + (ascii - b'a'), // a-i
+            b'j'..=b'r' => 0x91 + (ascii - b'j'), // j-r
+            b's'..=b'z' => 0xA2 + (ascii - b's'), // s-z
+            b'{' => 0xC0,
+            b'|' => 0x4F,
+            b'}' => 0xD0,
+            b'~' => 0xA1,
+            _ => 0x40, // Default to space for unknown characters
+        }
+    }
+
+    /// Initialize 24x80 screen buffer for 5250 protocol
+    pub fn initialize_5250_screen(&mut self) {
+        self.width = 80;
+        self.height = 24;
+        self.screen.clear();
+        self.set_cursor(0, 0);
+        self.unlock_keyboard();
+    }
+
+    /// Add 5250 protocol data to screen buffer
+    pub fn add_5250_data(&mut self, data: &[u8]) -> Result<(), String> {
+        for &byte in data {
+            let ascii_char = self.ebcdic_to_ascii(byte);
+            if self.cursor_row < self.height && self.cursor_col < self.width {
+                let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+                self.screen.buffer[index] = crate::terminal::TerminalChar {
+                    character: ascii_char,
+                    attribute: crate::terminal::CharAttribute::Normal,
+                };
+                self.cursor_col += 1;
+                if self.cursor_col >= self.width {
+                    self.cursor_col = 0;
+                    self.cursor_row += 1;
+                    if self.cursor_row >= self.height {
+                        self.cursor_row = self.height - 1;
+                    }
+                }
+            }
+        }
+        self.screen.set_cursor(self.cursor_row, self.cursor_col);
+        Ok(())
     }
 
     /// Sound the terminal bell/beep

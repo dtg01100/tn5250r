@@ -181,19 +181,36 @@ impl Display3270 {
     }
     
     /// Write a character at the current cursor position
+    /// This also marks the field as modified if writing to an unprotected field
     pub fn write_char(&mut self, ch: u8) {
         let addr = self.cursor_address as usize;
         if addr < self.buffer.len() {
             self.buffer[addr].char_data = ch;
+            
+            // Mark the field as modified if this is user input in an unprotected field
+            if let Some(field) = self.field_manager.find_field_at_mut(self.cursor_address) {
+                if !field.is_protected() {
+                    field.set_modified(true);
+                }
+            }
+            
             self.cursor_address = ((addr + 1) % self.buffer.len()) as u16;
         }
     }
     
     /// Write a character at a specific buffer address
+    /// This also marks the field as modified if writing to an unprotected field
     pub fn write_char_at(&mut self, address: u16, ch: u8) {
         let addr = address as usize;
         if addr < self.buffer.len() {
             self.buffer[addr].char_data = ch;
+            
+            // Mark the field as modified if this is user input in an unprotected field
+            if let Some(field) = self.field_manager.find_field_at_mut(address) {
+                if !field.is_protected() {
+                    field.set_modified(true);
+                }
+            }
         }
     }
     
@@ -225,6 +242,41 @@ impl Display3270 {
     /// Get mutable field manager
     pub fn field_manager_mut(&mut self) -> &mut FieldManager {
         &mut self.field_manager
+    }
+    
+    /// Find the next unprotected field after the current cursor position
+    /// Returns the address of the first position after the field attribute
+    pub fn find_next_unprotected_field(&self) -> Option<u16> {
+        let current_addr = self.cursor_address;
+        let buffer_size = self.buffer_size() as u16;
+        
+        // Search for next unprotected field, wrapping around if necessary
+        for offset in 1..buffer_size {
+            let test_addr = (current_addr + offset) % buffer_size;
+            
+            // Check if this address has a field attribute
+            if self.buffer[test_addr as usize].is_field_attr {
+                // Check if field is unprotected
+                if let Some(field) = self.field_manager.find_field_at(test_addr) {
+                    if !field.is_protected() {
+                        // Return position after field attribute
+                        return Some((test_addr + 1) % buffer_size);
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+    
+    /// Tab to the next unprotected field (Program Tab behavior)
+    pub fn tab_to_next_field(&mut self) -> bool {
+        if let Some(next_addr) = self.find_next_unprotected_field() {
+            self.cursor_address = next_addr;
+            true
+        } else {
+            false
+        }
     }
     
     /// Repeat a character to a target address

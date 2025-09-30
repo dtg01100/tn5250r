@@ -234,10 +234,10 @@ impl Packet {
         // Add sequence number
         result.push(self.sequence_number);
 
-        // Calculate total packet length (command + sequence + length + flags + data)
-        // Length field represents the total packet size
-        let total_length = 1 + 1 + 2 + 1 + self.data.len(); // cmd + seq + len + flags + data
-        result.extend_from_slice(&(total_length as u16).to_be_bytes());
+        // Calculate data payload length
+        // Length field represents the data payload length
+        let data_length = self.data.len();
+        result.extend_from_slice(&(data_length as u16).to_be_bytes());
 
         // Add flags
         result.push(self.flags);
@@ -248,9 +248,22 @@ impl Packet {
         result
     }
 
-    /// Parse a packet from bytes
+    /// Parse a packet from bytes according to RFC 2877 Section 4
+    ///
+    /// Packet format:
+    /// - Byte 0: Command code
+    /// - Byte 1: Sequence number
+    /// - Bytes 2-3: Length (16-bit big-endian) - represents DATA PAYLOAD length
+    /// - Byte 4: Flags
+    /// - Bytes 5+: Data
+    ///
+    /// The length field represents the size of the data payload only
+    /// Minimum valid length is 0 (no data)
+    /// Maximum reasonable length is 65530 (u16 max - 5 for header)
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        // Diagnostic: Log packet parsing attempt
         if bytes.len() < 5 {
+            eprintln!("[PACKET] Rejected: Packet too small ({} bytes, minimum 5 required)", bytes.len());
             return None;
         }
 
@@ -259,26 +272,58 @@ impl Packet {
         let length_bytes = [bytes[2], bytes[3]];
         let length = u16::from_be_bytes(length_bytes) as usize;
 
-        // Length includes the entire packet, so validate it
-        if length > bytes.len() {
+        // Diagnostic: Log length field value
+        eprintln!("[PACKET] Parsing packet: cmd=0x{:02X}, seq={}, length={}, buffer_size={}",
+                  command_byte, sequence_number, length, bytes.len());
+
+        // CRITICAL FIX: Length field represents data payload length, must be >= 0
+        // According to RFC 2877, the length is the data payload size only
+        // (usize is always >= 0, so no explicit check needed)
+
+        // CRITICAL FIX: Total packet size (5 + length) must not exceed buffer size
+        // This prevents buffer overflow attacks
+        if 5 + length > bytes.len() {
+            eprintln!("[PACKET] Rejected: Total packet size {} exceeds buffer size {}", 5 + length, bytes.len());
+            return None;
+        }
+
+        // CRITICAL FIX: Validate length is within reasonable bounds
+        // Reject impossibly large data payloads (> 65530 bytes to account for header)
+        if length > 65530 {
+            eprintln!("[PACKET] Rejected: Data length {} exceeds maximum (65530)", length);
             return None;
         }
 
         let flags = bytes[4];
-        
-        // Data starts at byte 5 and goes to the end of the packet
+
+        // Data starts at byte 5 and extends for 'length' bytes
+        // Length represents data payload length
         let data_start = 5;
-        let data_end = length;
-        
+        let data_end = 5 + length;
+
+        // Additional bounds check (should be redundant but ensures safety)
         if data_end > bytes.len() {
+            eprintln!("[PACKET] Rejected: Data end position {} exceeds buffer size {}", data_end, bytes.len());
             return None;
         }
-        
-        let data = bytes[data_start..data_end].to_vec();
 
+        // CRITICAL FIX: Ensure data_start <= data_end to prevent slice panic
+        if data_start > data_end {
+            eprintln!("[PACKET] Rejected: Invalid data range [{}..{}]", data_start, data_end);
+            return None;
+        }
+
+        // Extract data payload
+        let data = bytes[data_start..data_end].to_vec();
+        let data_len = data.len();
+
+        // Verify command code is valid
         if let Some(command) = CommandCode::from_u8(command_byte) {
+            eprintln!("[PACKET] Successfully parsed: cmd={:?}, seq={}, flags=0x{:02X}, data_len={}",
+                      command, sequence_number, flags, data_len);
             Some(Packet::new_with_flags(command, sequence_number, data, flags))
         } else {
+            eprintln!("[PACKET] Rejected: Invalid command code 0x{:02X}", command_byte);
             None
         }
     }

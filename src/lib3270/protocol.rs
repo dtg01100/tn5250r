@@ -105,9 +105,10 @@ impl ProtocolProcessor3270 {
         response.push(b1);
         response.push(b2);
         
-        // Add modified field data
-        // TODO: Implement proper Read Modified logic
-        // For now, return empty modified data
+        // Get modified fields and encode them
+        let modified_fields = self.get_modified_fields(display);
+        let field_data = self.encode_field_data(&modified_fields);
+        response.extend_from_slice(&field_data);
         
         response
     }
@@ -191,11 +192,33 @@ impl ProtocolProcessor3270 {
     
     /// Get modified fields from display for transmission
     /// Returns list of (address, content) tuples for modified fields
-    pub fn get_modified_fields(&self, _display: &Display3270) -> Vec<(u16, String)> {
-        let modified_fields = Vec::new();
+    pub fn get_modified_fields(&self, display: &Display3270) -> Vec<(u16, String)> {
+        let mut modified_fields = Vec::new();
         
-        // TODO: Implement proper field tracking with MDT (Modified Data Tag)
-        // This requires integration with field_manager
+        // Get all fields with MDT bit set
+        let fields = display.field_manager().modified_fields();
+        
+        for field in fields {
+            let start_addr = field.address + 1; // Skip field attribute byte
+            let end_addr = start_addr + field.length as u16;
+            
+            // Extract field content
+            let mut content = String::new();
+            for addr in start_addr..end_addr.min(display.buffer_size() as u16) {
+                if let Some(ch) = display.read_char_at(addr) {
+                    // Convert EBCDIC to ASCII for transmission
+                    let ascii_ch = crate::protocol_common::ebcdic::ebcdic_to_ascii(ch);
+                    if ascii_ch != '\0' {  // Skip null characters
+                        content.push(ascii_ch);
+                    }
+                }
+            }
+            
+            // Only include fields with actual content
+            if !content.trim().is_empty() {
+                modified_fields.push((field.address, content));
+            }
+        }
         
         modified_fields
     }
@@ -256,6 +279,10 @@ impl<'a> DataStreamParser<'a> {
     
     /// Process Write, Erase/Write, or Erase/Write Alternate command
     fn process_write(&mut self, display: &mut Display3270, erase: bool, alternate: bool) -> Result<(), String> {
+        // KEYBOARD LOCK STATE MACHINE: Lock keyboard at start of Write command
+        // The keyboard will remain locked until WCC_RESTORE bit unlocks it
+        display.lock_keyboard();
+        
         // Read WCC (Write Control Character)
         if self.pos >= self.data.len() {
             return Err("Missing WCC byte".to_string());
@@ -278,6 +305,8 @@ impl<'a> DataStreamParser<'a> {
             display.set_alarm(true);
         }
         
+        // KEYBOARD LOCK STATE MACHINE: Unlock keyboard if WCC_RESTORE bit is set
+        // This is the proper 3270 behavior - keyboard locks on Write, unlocks on WCC restore
         if (wcc & WCC_RESTORE) != 0 {
             display.unlock_keyboard();
         }
@@ -438,10 +467,11 @@ impl<'a> DataStreamParser<'a> {
     
     /// Process Program Tab (PT) order
     fn process_program_tab(&mut self, display: &mut Display3270) -> Result<(), String> {
-        // TODO: Implement tab to next unprotected field
-        // For now, just advance cursor
-        let current = display.cursor_address();
-        display.set_cursor(current + 1);
+        // Tab to the next unprotected field
+        if !display.tab_to_next_field() {
+            // If no unprotected field found, stay at current position
+            // This is the standard 3270 behavior
+        }
         Ok(())
     }
     

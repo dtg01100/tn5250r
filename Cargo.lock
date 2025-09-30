@@ -3122,6 +3122,7 @@ dependencies = [
  "env_logger",
  "hostname",
  "lazy_static",
+ "libc",
  "native-tls",
  "once_cell",
  "openssl-sys",

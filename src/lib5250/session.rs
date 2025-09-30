@@ -41,14 +41,26 @@ use crate::network::ProtocolMode;
 use crate::telnet_negotiation::TelnetNegotiator;
 use super::protocol::{ProtocolProcessor, Packet};
 
+// 5250 Protocol Constants
+const ESC: u8 = 0x04;
+
 /// Maximum number of input fields supported
 const MAX_INPUT_FIELDS: usize = 65535;
 
 /// Default device identification string
-const DEFAULT_DEVICE_ID: &str = "IBM-3179-2";
+const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
 
 // Note: Command dispatch table removed due to complexity - keeping original match-based approach
 // for maintainability. The match statement is efficient enough for the current use case.
+
+#[derive(Debug, PartialEq)]
+pub enum HandshakeState {
+    Initial,
+    QuerySent,
+    QueryReplyReceived,
+    ScreenInitialized,
+    Complete,
+}
 
 /// Session state for 5250 protocol processing
 #[derive(Debug)]
@@ -58,6 +70,9 @@ pub struct Session {
 
     /// Current read operation command code (if any)
     pub read_opcode: u8,
+
+    /// Current sequence number for 5250 protocol packets
+    sequence_number: u8,
 
     /// PERFORMANCE OPTIMIZATION: Pre-allocated buffer with capacity hint
     /// Reduces allocations during data processing
@@ -101,6 +116,9 @@ pub struct Session {
 
     /// INTEGRATION: Fallback buffer for when components are unavailable
     fallback_buffer: Vec<u8>,
+
+    /// Handshake state tracking for proper protocol initialization
+    handshake_state: HandshakeState,
 }
 
 impl Session {
@@ -110,6 +128,7 @@ impl Session {
         let mut session = Self {
             invited: false,
             read_opcode: 0,
+            sequence_number: 0,
             // PERFORMANCE OPTIMIZATION: Pre-allocate buffer with reasonable capacity
             // Reduces allocations during data processing
             data_buffer: Vec::with_capacity(8192), // 8KB initial capacity
@@ -127,6 +146,7 @@ impl Session {
             telnet_negotiator: Some(TelnetNegotiator::new()),
             protocol_processor: Some(ProtocolProcessor::new()),
             fallback_buffer: Vec::new(),
+            handshake_state: HandshakeState::Initial,
         };
 
         // SECURITY: Generate a unique session token for validation
@@ -172,6 +192,11 @@ impl Session {
     /// Process incoming 5250 data stream
     /// SECURITY: Enhanced with authentication validation and rate limiting
     pub fn process_stream(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        println!("DEBUG: Session.process_stream called with {} bytes", data.len());
+        if data.len() > 0 {
+            println!("DEBUG: First 20 bytes: {:02x?}", &data[..data.len().min(20)]);
+        }
+        
         // SECURITY: Validate input data size to prevent memory exhaustion
         if data.len() > self.max_command_size {
             return Err("Command size exceeds maximum allowed".to_string());
@@ -638,7 +663,8 @@ impl Session {
         
         match sf_type {
             SF_5250_QUERY | SF_5250_QUERY_STATION_STATE => {
-                // Send Query Reply
+                // Mark Query Reply as received and send Query Reply
+                self.handshake_state = HandshakeState::QueryReplyReceived;
                 self.create_query_reply()
             }
             SF_QUERY_COMMAND => {
@@ -741,9 +767,9 @@ impl Session {
         // Device type
         response.push(0x01); // Display emulation
         
-        // Device model (IBM-3179-2 = 3179 model 2)
-        response.extend(b"3179"); // Device type in EBCDIC
-        response.extend(b"02");   // Model in EBCDIC
+        // Device model (IBM-5555-C01 = 5555 model C01)
+        response.extend(b"5555"); // Device type in EBCDIC
+        response.extend(b"C01");  // Model in EBCDIC
         
         // Keyboard ID
         response.push(0x02); // Standard keyboard
@@ -1070,6 +1096,208 @@ impl Session {
         Ok(responses)
     }
 
+    /// Send initial 5250 protocol data after telnet negotiation
+    /// This implements the proper handshake sequence: Query -> Query Reply -> WriteToDisplay -> ReadInputFields
+    pub fn send_initial_5250_data(&mut self) -> Result<Vec<u8>, String> {
+        println!("DEBUG: Session.send_initial_5250_data called");
+
+        // Initialize the display for 5250 protocol
+        self.display.initialize_5250_screen();
+
+        // Set handshake state to QuerySent
+        self.handshake_state = HandshakeState::QuerySent;
+
+        // PHASE 1: Send Query command to request device capabilities
+        let query_packet = self.create_query_packet();
+
+        println!("DEBUG: Sending Query packet: {:02x?}", query_packet);
+
+        Ok(query_packet)
+    }
+    
+    /// Send screen initialization data after Query Reply is received
+    /// This should be called by the controller after processing the Query Reply
+    pub fn send_screen_initialization(&mut self) -> Result<Vec<u8>, String> {
+        println!("DEBUG: Session.send_screen_initialization called");
+        
+        // PHASE 2: Send WriteToDisplay with proper screen initialization
+        let wtd_packet = self.create_write_to_display_packet_with_fields();
+        
+        // PHASE 3: Send ReadInputFields to indicate we're ready for input
+        let rif_packet = self.create_read_input_fields_packet();
+        
+        // Combine both packets
+        let mut data = Vec::new();
+        data.extend_from_slice(&wtd_packet);
+        data.extend_from_slice(&rif_packet);
+        
+        println!("DEBUG: Sending screen initialization packets: {:02x?}", data);
+        
+        Ok(data)
+    }
+    
+    /// Create a Query packet (WriteStructuredField with Query command)
+    fn create_query_packet(&mut self) -> Vec<u8> {
+        let mut data = Vec::new();
+        
+        // ESC (0x04)
+        data.push(ESC);
+        
+        // WriteStructuredField command (0xF3)
+        data.push(CMD_WRITE_STRUCTURED_FIELD);
+        
+        // Sequence number
+        data.push(self.sequence_number);
+        self.sequence_number = self.sequence_number.wrapping_add(1);
+        
+        // Length (2 bytes) - will be calculated
+        let length_pos = data.len();
+        data.extend_from_slice(&[0x00, 0x00]);
+        
+        // Flags (0x00)
+        data.push(0x00);
+        
+        // Structured field header length (2 bytes)
+        data.extend_from_slice(&[0x00, 0x06]); // 6 bytes for the SF header
+        
+        // Structured field class (0xD9)
+        data.push(0xD9);
+        
+        // Query command type (0x70)
+        data.push(SF_5250_QUERY);
+        
+        // Query flag (0x80 = request device capabilities)
+        data.push(0x80);
+        
+        // Calculate and set length
+        let length = (data.len() - length_pos - 2) as u16;
+        data[length_pos] = (length >> 8) as u8;
+        data[length_pos + 1] = (length & 0xFF) as u8;
+        
+        data
+    }
+    
+    /// Create a WriteToDisplay packet with proper screen initialization data
+    fn create_write_to_display_packet_with_fields(&mut self) -> Vec<u8> {
+        let mut data = Vec::new();
+
+        // ESC (0x04)
+        data.push(ESC);
+
+        // WriteToDisplay command (0x11)
+        data.push(CMD_WRITE_TO_DISPLAY);
+
+        // Sequence number
+        data.push(self.sequence_number);
+        self.sequence_number = self.sequence_number.wrapping_add(1);
+
+        // Length (2 bytes) - will be calculated
+        let length_pos = data.len();
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        // Flags (0x00)
+        data.push(0x00);
+
+        // Control Character 1 (CC1) - Lock keyboard, reset MDT
+        data.push(0xC0); // Lock keyboard
+        
+        // Control Character 2 (CC2) - Unlock keyboard after processing
+        data.push(0x02); // Unlock keyboard
+
+        // Set Buffer Address order (SBA) - position at 1,1
+        data.push(SBA);
+        data.push(0x01); // Row 1
+        data.push(0x01); // Col 1
+
+        // Calculate and set length
+        let length = (data.len() - length_pos - 2) as u16;
+        data[length_pos] = (length >> 8) as u8;
+        data[length_pos + 1] = (length & 0xFF) as u8;
+
+        data
+    }
+
+    /// Send 5250 protocol handshake to maintain connection
+    /// This sends the necessary packets to keep the AS/400 connection alive
+    pub fn send_5250_handshake(&mut self) -> Result<Vec<u8>, String> {
+        let mut responses = Vec::new();
+
+        // Send a WriteToDisplay command to establish 5250 protocol presence
+        let wtd_packet = self.create_write_to_display_packet();
+        responses.extend_from_slice(&wtd_packet);
+
+        // Send a ReadInputFields command to indicate we're ready for input
+        let rif_packet = self.create_read_input_fields_packet();
+        responses.extend_from_slice(&rif_packet);
+
+        Ok(responses)
+    }
+
+    /// Create a WriteToDisplay packet for 5250 protocol establishment
+    fn create_write_to_display_packet(&mut self) -> Vec<u8> {
+        let mut data = Vec::new();
+
+        // ESC (0x04)
+        data.push(ESC);
+
+        // WriteToDisplay command (0x11)
+        data.push(CMD_WRITE_TO_DISPLAY);
+
+        // Sequence number
+        data.push(self.sequence_number);
+        self.sequence_number = self.sequence_number.wrapping_add(1);
+
+        // Length (2 bytes) - will be calculated
+        let length_pos = data.len();
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        // Flags (0x00)
+        data.push(0x00);
+
+        // For initial handshake, we send minimal data
+        // Real implementation would include screen initialization
+
+        // Calculate and set length
+        let length = (data.len() - length_pos - 2) as u16;
+        data[length_pos] = (length >> 8) as u8;
+        data[length_pos + 1] = (length & 0xFF) as u8;
+
+        data
+    }
+
+    /// Create a ReadInputFields packet for 5250 protocol
+    fn create_read_input_fields_packet(&mut self) -> Vec<u8> {
+        let mut data = Vec::new();
+
+        // ESC (0x04)
+        data.push(ESC);
+
+        // ReadInputFields command (0x42)
+        data.push(CMD_READ_INPUT_FIELDS);
+
+        // Sequence number
+        data.push(self.sequence_number);
+        self.sequence_number = self.sequence_number.wrapping_add(1);
+
+        // Length (2 bytes) - will be calculated
+        let length_pos = data.len();
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        // Flags (0x00)
+        data.push(0x00);
+
+        // Control bytes for ReadInputFields
+        data.push(0x00); // CC1
+        data.push(0x00); // CC2
+
+        // Calculate and set length
+        let length = (data.len() - length_pos - 2) as u16;
+        data[length_pos] = (length >> 8) as u8;
+        data[length_pos + 1] = (length & 0xFF) as u8;
+
+        data
+    }
+
     /// INTEGRATION: Process 5250 data with integrated components
     fn process_5250_data_integrated(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
         let mut responses = Vec::new();
@@ -1235,6 +1463,18 @@ impl Session {
             display: display_ok,
             session: session_ok,
             overall_healthy: telnet_ok && protocol_ok && display_ok && session_ok,
+        }
+    }
+
+    /// Check if screen initialization should be sent
+    pub fn should_send_screen_initialization(&self) -> bool {
+        matches!(self.handshake_state, HandshakeState::QueryReplyReceived)
+    }
+
+    /// Mark screen initialization as sent
+    pub fn mark_screen_initialization_sent(&mut self) {
+        if matches!(self.handshake_state, HandshakeState::QueryReplyReceived) {
+            self.handshake_state = HandshakeState::ScreenInitialized;
         }
     }
 }

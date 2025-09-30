@@ -200,8 +200,8 @@ impl TelnetNegotiator {
 
     /// Process incoming telnet command and return response bytes
     pub fn process_command(&mut self, command: u8, option: u8) -> Result<Option<Vec<u8>>, TelnetError> {
-        let telnet_option = TelnetOption::from_u8(option).ok_or(TelnetError::InvalidOption(option))?;
-        let telnet_command = TelnetCommand::from_u8(command).ok_or(TelnetError::InvalidCommand(command))?;
+        let Some(telnet_option) = TelnetOption::from_u8(option) else { return Ok(None); };
+        let Some(telnet_command) = TelnetCommand::from_u8(command) else { return Ok(None); };
 
         match telnet_command {
             TelnetCommand::Will => {
@@ -240,12 +240,12 @@ impl TelnetNegotiator {
 
     /// Process subnegotiation data with enhanced device support
     pub fn process_subnegotiation(&mut self, option: u8, data: &[u8]) -> Result<Option<Vec<u8>>, TelnetError> {
-        let telnet_option = TelnetOption::from_u8(option).ok_or(TelnetError::InvalidOption(option))?;
+        let Some(telnet_option) = TelnetOption::from_u8(option) else { return Ok(None); };
 
         match telnet_option {
             TelnetOption::TerminalType => {
                 if data.is_empty() {
-                    return Err(TelnetError::MalformedSubnegotiation);
+                    return Ok(None);
                 }
                 match data[0] {
                     1 => {
@@ -262,7 +262,7 @@ impl TelnetNegotiator {
             }
             TelnetOption::NewEnviron => {
                 if data.is_empty() {
-                    return Err(TelnetError::MalformedSubnegotiation);
+                    return Ok(None);
                 }
                 match data[0] {
                     1 => {
@@ -285,7 +285,7 @@ impl TelnetNegotiator {
                     self.window_size = Some((cols, rows));
                     Ok(None)
                 } else {
-                    Err(TelnetError::MalformedSubnegotiation)
+                    Ok(None)
                 }
             }
             TelnetOption::Charset => {
@@ -640,24 +640,24 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_command_error() {
+    fn test_invalid_command_ignored() {
         let mut negotiator = TelnetNegotiator::new();
         let result = negotiator.process_command(255, TelnetOption::Binary as u8);
-        assert!(matches!(result, Err(TelnetError::InvalidCommand(255))));
+        assert!(result.is_ok() && result.unwrap().is_none());
     }
 
     #[test]
-    fn test_invalid_option_error() {
+    fn test_invalid_option_ignored() {
         let mut negotiator = TelnetNegotiator::new();
         let result = negotiator.process_command(TelnetCommand::Will as u8, 255);
-        assert!(matches!(result, Err(TelnetError::InvalidOption(255))));
+        assert!(result.is_ok() && result.unwrap().is_none());
     }
 
     #[test]
-    fn test_malformed_subnegotiation_error() {
+    fn test_malformed_subnegotiation_ignored() {
         let mut negotiator = TelnetNegotiator::new();
         let result = negotiator.process_subnegotiation(TelnetOption::TerminalType as u8, &[]);
-        assert!(matches!(result, Err(TelnetError::MalformedSubnegotiation)));
+        assert!(result.is_ok() && result.unwrap().is_none());
     }
 
     #[test]
