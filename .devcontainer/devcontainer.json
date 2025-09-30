@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/rust
 {
-	"name": "Rust with GUI Support",
+	"name": "Rust",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/rust:1-1-bullseye",
 
@@ -12,25 +12,23 @@
 			"target": "/usr/local/cargo",
 			"type": "volume"
 		},
-		// X11 socket for GUI support
+		// Mount X11 socket for GUI support
 		{
 			"source": "/tmp/.X11-unix",
 			"target": "/tmp/.X11-unix",
+			"type": "bind"
+		},
+		// Mount Wayland socket for GUI support (if available)
+		{
+			"source": "${localEnv:XDG_RUNTIME_DIR}",
+			"target": "/tmp/runtime-vscode",
 			"type": "bind"
 		}
 	],
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
-	"features": {
-		"ghcr.io/devcontainers/features/desktop-lite:1": {
-			"password": "vscode",
-			"webPort": "6080",
-			"vncPort": "5901"
-		}
-	},
+	"features": {},
 
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	"forwardPorts": [6080, 5901],
 
 	// Use 'onCreateCommand' to run commands after the container is created but before VS Code starts.
 	"onCreateCommand": [
@@ -41,7 +39,7 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": [
 		"bash", "-c",
-		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libgl1-mesa-glx mesa-utils libglu1-mesa-dev libasound2-dev pkg-config xvfb && rustc --version"
+		"sudo apt-get update && sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libgl1-mesa-glx mesa-utils libglu1-mesa-dev libasound2-dev pkg-config xvfb libwayland-dev libwayland-client0 libwayland-cursor0 libwayland-egl1 libxkbcommon-dev libxkbcommon-x11-0 xkb-data libfontconfig1-dev libfreetype6-dev libxext-dev libxss-dev libnss3-dev libxcomposite-dev libxdamage-dev libxfixes-dev libxtst6 libgtk-3-dev libxft-dev build-essential cmake git curl wget unzip && echo 'Libraries installed successfully' && rustc --version && cargo --version"
 	],
 
 	// Use 'postStartCommand' to run commands after VS Code starts but before the user connects.
@@ -55,23 +53,39 @@
 		"vscode": {
 			"extensions": [
 				"rust-lang.rust-analyzer",
-				"vadimcn.vscode-lldb"
-			]
+				"vadimcn.vscode-lldb",
+				"fill-labs.dependi",
+				"tamasfe.even-better-toml",
+				"usernamehw.errorlens",
+				"ms-vscode.hexeditor",
+				"ms-vscode.cmake-tools"
+			],
+			"settings": {
+				"rust-analyzer.check.command": "clippy",
+				"rust-analyzer.cargo.features": "all"
+			}
 		}
 	},
 
-	// Environment variables for GUI support
+	// Environment variables
 	"containerEnv": {
-		"DISPLAY": ":1",
+		"DISPLAY": "${localEnv:DISPLAY}",
+		"WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
 		"XDG_RUNTIME_DIR": "/tmp/runtime-vscode",
-		"WINIT_UNIX_BACKEND": "x11",
-		"LIBGL_ALWAYS_SOFTWARE": "1",
-		"GALLIUM_DRIVER": "softpipe"
+		"XDG_SESSION_TYPE": "${localEnv:XDG_SESSION_TYPE}",
+		"WINIT_UNIX_BACKEND": "${localEnv:XDG_SESSION_TYPE}",
+		"XKB_DEFAULT_LAYOUT": "us",
+		"XKB_DEFAULT_MODEL": "pc105",
+		"RUST_LOG": "info",
+		"LIBGL_ALWAYS_SOFTWARE": "1"
 	},
 
-	// Run arguments for GUI support
+	// Run arguments
 	"runArgs": [
-		"--privileged"
+		"--network=host",
+		"--ipc=host",
+		"--device=/dev/dri",
+		"--security-opt=seccomp=unconfined"
 	]
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
