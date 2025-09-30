@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
+use crate::error::{ProtocolError, ConfigError, TN5250Error};
 
 /// Configuration change event
 #[derive(Debug, Clone)]
@@ -152,9 +153,10 @@ impl SessionConfig {
         self.properties.insert("connection.port".to_string(), 23i64.into());
         self.properties.insert("connection.ssl".to_string(), false.into());
         self.properties.insert("connection.deviceName".to_string(), "IBM-3179-2".into());
-    // TLS sub-options
-    self.properties.insert("connection.tls.insecure".to_string(), false.into());
-    self.properties.insert("connection.tls.caBundlePath".to_string(), "".into());
+        self.properties.insert("connection.protocol".to_string(), "auto".into());
+        // TLS sub-options
+        self.properties.insert("connection.tls.insecure".to_string(), false.into());
+        self.properties.insert("connection.tls.caBundlePath".to_string(), "".into());
         
         // Session settings
         self.properties.insert("session.autoConnect".to_string(), false.into());
@@ -165,6 +167,7 @@ impl SessionConfig {
         self.properties.insert("terminal.cursorBlink".to_string(), true.into());
         self.properties.insert("terminal.insertMode".to_string(), false.into());
         self.properties.insert("terminal.mouseSupport".to_string(), true.into());
+        self.properties.insert("terminal.type".to_string(), "IBM-3179-2".into());
         
         // Field settings
         self.properties.insert("fields.validateInput".to_string(), true.into());
@@ -307,6 +310,137 @@ impl SessionConfig {
             None
         }
     }
+
+    /// Get protocol mode from configuration
+    /// Returns "auto", "tn5250", or "tn3270"
+    pub fn get_protocol_mode(&self) -> String {
+        self.get_string_property_or("connection.protocol", "auto")
+    }
+    
+    /// Set protocol mode in configuration
+    /// Valid values: "auto", "tn5250", "tn3270"
+    pub fn set_protocol_mode(&mut self, mode: &str) -> Result<(), TN5250Error> {
+        match mode {
+            "auto" | "tn5250" | "tn3270" => {
+                self.set_property("connection.protocol", mode);
+                Ok(())
+            }
+            _ => Err(TN5250Error::Protocol(ProtocolError::InvalidProtocolConfiguration {
+                parameter: "connection.protocol".to_string(),
+                value: mode.to_string(),
+                reason: "Must be 'auto', 'tn5250', or 'tn3270'".to_string(),
+            }))
+        }
+    }
+    
+    /// Get terminal type from configuration
+    pub fn get_terminal_type(&self) -> String {
+        self.get_string_property_or("terminal.type", "IBM-3179-2")
+    }
+    
+    /// Set terminal type in configuration
+    /// Valid 5250 types: IBM-3179-2, IBM-3196-A1, IBM-5251-11, IBM-5291-1, IBM-5292-2
+    /// Valid 3270 types: IBM-3278-2, IBM-3279-2, IBM-3279-3, IBM-3278-3, IBM-3278-4, IBM-3278-5
+    pub fn set_terminal_type(&mut self, terminal_type: &str) -> Result<(), TN5250Error> {
+        // Validate terminal type
+        let valid_5250_types = ["IBM-3179-2", "IBM-3196-A1", "IBM-5251-11", "IBM-5291-1", "IBM-5292-2"];
+        let valid_3270_types = ["IBM-3278-2", "IBM-3279-2", "IBM-3279-3", "IBM-3278-3", "IBM-3278-4", "IBM-3278-5"];
+        
+        if valid_5250_types.contains(&terminal_type) || valid_3270_types.contains(&terminal_type) {
+            self.set_property("terminal.type", terminal_type);
+            Ok(())
+        } else {
+            Err(TN5250Error::Config(ConfigError::InvalidParameter {
+                parameter: "terminal.type".to_string(),
+                value: terminal_type.to_string(),
+                reason: "Must be a valid 5250 or 3270 terminal type".to_string(),
+            }))
+        }
+    }
+    
+    /// Validate protocol and terminal type combination
+    pub fn validate_protocol_terminal_combination(&self) -> Result<(), TN5250Error> {
+        let protocol = self.get_protocol_mode();
+        let terminal_type = self.get_terminal_type();
+        
+        // Auto mode accepts any terminal type
+        if protocol == "auto" {
+            return Ok(());
+        }
+        
+        let valid_5250_types = ["IBM-3179-2", "IBM-3196-A1", "IBM-5251-11", "IBM-5291-1", "IBM-5292-2"];
+        let valid_3270_types = ["IBM-3278-2", "IBM-3279-2", "IBM-3279-3", "IBM-3278-3", "IBM-3278-4", "IBM-3278-5"];
+        
+        match protocol.as_str() {
+            "tn5250" => {
+                if !valid_5250_types.contains(&terminal_type.as_str()) {
+                    return Err(TN5250Error::Protocol(ProtocolError::ProtocolMismatch {
+                        configured: format!("TN5250 with terminal type '{}'", terminal_type),
+                        detected: format!("Terminal type incompatible with TN5250. Valid types: {:?}", valid_5250_types),
+                    }));
+                }
+            }
+            "tn3270" => {
+                if !valid_3270_types.contains(&terminal_type.as_str()) {
+                    return Err(TN5250Error::Protocol(ProtocolError::ProtocolMismatch {
+                        configured: format!("TN3270 with terminal type '{}'", terminal_type),
+                        detected: format!("Terminal type incompatible with TN3270. Valid types: {:?}", valid_3270_types),
+                    }));
+                }
+            }
+            _ => {}
+        }
+        
+        Ok(())
+    }
+}
+
+/// Parse protocol string to network ProtocolMode
+pub fn parse_protocol_string(protocol: &str) -> Result<crate::network::ProtocolMode, TN5250Error> {
+    match protocol.to_lowercase().as_str() {
+        "auto" => Ok(crate::network::ProtocolMode::AutoDetect),
+        "tn5250" | "5250" => Ok(crate::network::ProtocolMode::TN5250),
+        "tn3270" | "3270" => Ok(crate::network::ProtocolMode::TN3270),
+        "nvt" => Ok(crate::network::ProtocolMode::NVT),
+        _ => Err(TN5250Error::Protocol(ProtocolError::UnsupportedProtocol {
+            protocol: protocol.to_string(),
+            reason: "Must be 'auto', 'tn5250', 'tn3270', or 'nvt'".to_string(),
+        }))
+    }
+}
+
+/// Convert network ProtocolMode to string
+pub fn protocol_mode_to_string(mode: crate::network::ProtocolMode) -> String {
+    match mode {
+        crate::network::ProtocolMode::AutoDetect => "auto".to_string(),
+        crate::network::ProtocolMode::TN5250 => "tn5250".to_string(),
+        crate::network::ProtocolMode::TN3270 => "tn3270".to_string(),
+        crate::network::ProtocolMode::NVT => "nvt".to_string(),
+    }
+}
+
+/// Get protocol mode from configuration and parse it
+pub fn get_protocol_mode_from_config(config: &SessionConfig) -> Result<crate::network::ProtocolMode, TN5250Error> {
+    let protocol_str = config.get_protocol_mode();
+    parse_protocol_string(&protocol_str)
+}
+
+/// Apply protocol configuration to a network connection
+pub fn apply_protocol_config_to_connection(
+    config: &SessionConfig,
+    connection: &mut crate::network::AS400Connection
+) -> Result<(), TN5250Error> {
+    let protocol_mode = get_protocol_mode_from_config(config)?;
+    
+    // Validate protocol and terminal type combination before applying
+    config.validate_protocol_terminal_combination()?;
+    
+    // Only set protocol mode if not auto-detect
+    if protocol_mode != crate::network::ProtocolMode::AutoDetect {
+        connection.set_protocol_mode(protocol_mode);
+    }
+    
+    Ok(())
 }
 
 /// Thread-safe configuration wrapper
@@ -443,6 +577,110 @@ mod tests {
         assert_eq!(config.get_int_property_or("connection.port", 0), 23);
         assert_eq!(config.get_boolean_property_or("keypad.enabled", false), true);
         assert_eq!(config.get_float_property_or("keypad.fontSize", 0.0), 12.0);
+    }
+
+    #[test]
+    fn test_protocol_mode_configuration() {
+        let mut config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
+        
+        // Test default protocol mode
+        assert_eq!(config.get_protocol_mode(), "auto");
+        
+        // Test setting valid protocol modes
+        assert!(config.set_protocol_mode("tn5250").is_ok());
+        assert_eq!(config.get_protocol_mode(), "tn5250");
+        
+        assert!(config.set_protocol_mode("tn3270").is_ok());
+        assert_eq!(config.get_protocol_mode(), "tn3270");
+        
+        assert!(config.set_protocol_mode("auto").is_ok());
+        assert_eq!(config.get_protocol_mode(), "auto");
+        
+        // Test invalid protocol mode
+        assert!(config.set_protocol_mode("invalid").is_err());
+    }
+    
+    #[test]
+    fn test_terminal_type_configuration() {
+        let mut config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
+        
+        // Test default terminal type
+        assert_eq!(config.get_terminal_type(), "IBM-3179-2");
+        
+        // Test setting valid 5250 terminal types
+        assert!(config.set_terminal_type("IBM-3196-A1").is_ok());
+        assert_eq!(config.get_terminal_type(), "IBM-3196-A1");
+        
+        // Test setting valid 3270 terminal types
+        assert!(config.set_terminal_type("IBM-3278-2").is_ok());
+        assert_eq!(config.get_terminal_type(), "IBM-3278-2");
+        
+        // Test invalid terminal type
+        assert!(config.set_terminal_type("INVALID-TYPE").is_err());
+    }
+    
+    #[test]
+    fn test_protocol_terminal_validation() {
+        let mut config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
+        
+        // Auto mode should accept any terminal type
+        config.set_protocol_mode("auto").unwrap();
+        config.set_terminal_type("IBM-3179-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_ok());
+        
+        config.set_terminal_type("IBM-3278-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_ok());
+        
+        // TN5250 should only accept 5250 terminal types
+        config.set_protocol_mode("tn5250").unwrap();
+        config.set_terminal_type("IBM-3179-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_ok());
+        
+        config.set_terminal_type("IBM-3278-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_err());
+        
+        // TN3270 should only accept 3270 terminal types
+        config.set_protocol_mode("tn3270").unwrap();
+        config.set_terminal_type("IBM-3278-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_ok());
+        
+        config.set_terminal_type("IBM-3179-2").unwrap();
+        assert!(config.validate_protocol_terminal_combination().is_err());
+    }
+    
+    #[test]
+    fn test_parse_protocol_string() {
+        assert_eq!(parse_protocol_string("auto").unwrap(), crate::network::ProtocolMode::AutoDetect);
+        assert_eq!(parse_protocol_string("tn5250").unwrap(), crate::network::ProtocolMode::TN5250);
+        assert_eq!(parse_protocol_string("5250").unwrap(), crate::network::ProtocolMode::TN5250);
+        assert_eq!(parse_protocol_string("tn3270").unwrap(), crate::network::ProtocolMode::TN3270);
+        assert_eq!(parse_protocol_string("3270").unwrap(), crate::network::ProtocolMode::TN3270);
+        assert_eq!(parse_protocol_string("nvt").unwrap(), crate::network::ProtocolMode::NVT);
+        assert!(parse_protocol_string("invalid").is_err());
+    }
+    
+    #[test]
+    fn test_protocol_mode_to_string() {
+        assert_eq!(protocol_mode_to_string(crate::network::ProtocolMode::AutoDetect), "auto");
+        assert_eq!(protocol_mode_to_string(crate::network::ProtocolMode::TN5250), "tn5250");
+        assert_eq!(protocol_mode_to_string(crate::network::ProtocolMode::TN3270), "tn3270");
+        assert_eq!(protocol_mode_to_string(crate::network::ProtocolMode::NVT), "nvt");
+    }
+    
+    #[test]
+    fn test_get_protocol_mode_from_config() {
+        let mut config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
+        
+        // Default should be auto
+        assert_eq!(get_protocol_mode_from_config(&config).unwrap(), crate::network::ProtocolMode::AutoDetect);
+        
+        // Set to tn5250
+        config.set_protocol_mode("tn5250").unwrap();
+        assert_eq!(get_protocol_mode_from_config(&config).unwrap(), crate::network::ProtocolMode::TN5250);
+        
+        // Set to tn3270
+        config.set_protocol_mode("tn3270").unwrap();
+        assert_eq!(get_protocol_mode_from_config(&config).unwrap(), crate::network::ProtocolMode::TN3270);
     }
 
     #[test]

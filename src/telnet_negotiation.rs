@@ -647,7 +647,7 @@ impl TelnetNegotiator {
     }
     
     /// Handle environment variable negotiation
-    fn handle_environment_negotiation(&mut self, data: &[u8]) {
+    pub fn handle_environment_negotiation(&mut self, data: &[u8]) {
         if data.is_empty() {
             return;
         }
@@ -984,7 +984,7 @@ impl TelnetNegotiator {
     }
 
     /// SECURITY: Validate environment variable names
-    fn validate_variable_name(&self, name: &[u8]) -> bool {
+    pub fn validate_variable_name(&self, name: &[u8]) -> bool {
         // Length constraints
         if name.is_empty() || name.len() > 64 {
             return false;
@@ -1092,7 +1092,7 @@ impl TelnetNegotiator {
 
     /// INTEGRATION: Handle terminal type subnegotiation with full IBM type support
     /// Processes SEND and IS commands according to RFC 1091
-    fn handle_terminal_type_subnegotiation(&mut self, data: &[u8]) -> Result<(), String> {
+    pub fn handle_terminal_type_subnegotiation(&mut self, data: &[u8]) -> Result<(), String> {
         if data.is_empty() {
             return Err("Terminal type subnegotiation data is empty".to_string());
         }
@@ -1126,7 +1126,7 @@ impl TelnetNegotiator {
     }
 
     /// INTEGRATION: Validate terminal type against known IBM types
-    fn validate_terminal_type(&self, terminal_type: &[u8]) -> bool {
+    pub fn validate_terminal_type(&self, terminal_type: &[u8]) -> bool {
         let type_str = String::from_utf8_lossy(terminal_type).to_uppercase();
 
         // INTEGRATION: Comprehensive list of supported IBM terminal types

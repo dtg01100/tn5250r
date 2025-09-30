@@ -977,6 +977,11 @@ impl Session {
             ProtocolMode::AutoDetect => {
                 // INTEGRATION: Auto-detect and switch mode
                 responses = self.process_auto_detect_data(data)?;
+            },
+            ProtocolMode::TN3270 => {
+                // TN3270 protocol is not supported in this session type
+                // This should be handled by a separate 3270 session processor
+                return Err("TN3270 protocol not supported in TN5250 session".to_string());
             }
         }
 

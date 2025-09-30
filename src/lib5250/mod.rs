@@ -13,9 +13,12 @@ pub use codes::*;
 pub use display::Display;
 pub use field::*;
 pub use protocol::{
-	ProtocolProcessor, Packet, ebcdic_to_ascii, ascii_to_ebcdic, FieldAttribute,
+	ProtocolProcessor, Packet, FieldAttribute,
 };
 pub use session::Session;
 pub use telnet::*;
+
+// Re-export EBCDIC functions from protocol_common for backward compatibility
+pub use crate::protocol_common::ebcdic::{ebcdic_to_ascii, ascii_to_ebcdic};
 
 // Entry point for lib5250 functionality

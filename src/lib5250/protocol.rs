@@ -26,88 +26,8 @@
 //!    allowing flexible integration with different display backends while
 //!    maintaining protocol compliance.
 
-// Remove unused import - using pub use CommandCode instead
-
-// Enhanced EBCDIC to ASCII translation table (CP037) with comprehensive mapping
-const EBCDIC_CP037_TO_ASCII: [char; 256] = [
-    '\x00', '\x01', '\x02', '\x03', '\x37', '\x2D', '\x2E', '\x2F',
-    '\x16', '\x05', '\x25', '\x0B', '\x0C', '\r',   '\x0E', '\x0F',
-    '\x10', '\x11', '\x12', '\x13', '\x3C', '\x3D', '\x32', '\x26',
-    '\x18', '\x19', '\x3F', '\x27', '\x1C', '\x1D', '\x1E', '\x1F',
-    '\x40', '\x5A', '\x7F', '\x7B', '\x5B', '\n',   '\x17', '\x1B',
-    '\x60', '\x61', '\x62', '\x63', '\x64', '\x65', '\x66', '\x67',
-    '\x68', '\x69', '\x70', '\x71', '\x72', '\x73', '\x74', '\x75',
-    '\x76', '\x77', '\x78', '\x79', '\x7A', '\x7B', '\x7C', '\x7D',
-    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '[',    '.',    '<',    '(',    '+',    '|',
-    '&',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '!',    '$',    '*',    ')',    ';',    ' ',
-    '-',    '/',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '|',    ',',    '%',    '_',    '>',    '?',
-    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    '`',    ':',    '#',    '@',    '\'',   '=',    '"',
-    ' ',    'a',    'b',    'c',    'd',    'e',    'f',    'g',
-    'h',    'i',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    'j',    'k',    'l',    'm',    'n',    'o',    'p',
-    'q',    'r',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    '~',    's',    't',    'u',    'v',    'w',    'x',
-    'y',    'z',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '^',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '[',    ']',    ' ',    ' ',    ' ',    ' ',
-    '{',    'A',    'B',    'C',    'D',    'E',    'F',    'G',
-    'H',    'I',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '}',    'J',    'K',    'L',    'M',    'N',    'O',    'P',
-    'Q',    'R',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '\\',   ' ',    'S',    'T',    'U',    'V',    'W',    'X',
-    'Y',    'Z',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '0',    '1',    '2',    '3',    '4',    '5',    '6',    '7',
-    '8',    '9',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-];
-
-/// Convert EBCDIC byte to ASCII character
-pub fn ebcdic_to_ascii(byte: u8) -> char {
-    EBCDIC_CP037_TO_ASCII[byte as usize]
-}
-
-/// Convert ASCII character to EBCDIC byte
-pub fn ascii_to_ebcdic(ch: char) -> u8 {
-    // Simple mapping for common characters - could be enhanced with full table
-    match ch {
-        ' ' => 0x40,
-        'a'..='i' => 0x81 + (ch as u8 - b'a'),
-        'j'..='r' => 0x91 + (ch as u8 - b'j'),
-        's'..='z' => 0xA2 + (ch as u8 - b's'),
-        'A'..='I' => 0xC1 + (ch as u8 - b'A'),
-        'J'..='R' => 0xD1 + (ch as u8 - b'J'),
-        'S'..='Z' => 0xE2 + (ch as u8 - b'S'),
-        '0'..='9' => 0xF0 + (ch as u8 - b'0'),
-        '.' => 0x4B,
-        '<' => 0x4C,
-        '(' => 0x4D,
-        '+' => 0x4E,
-        '|' => 0x4F,
-        '&' => 0x50,
-        '!' => 0x5A,
-        '$' => 0x5B,
-        '*' => 0x5C,
-        ')' => 0x5D,
-        ';' => 0x5E,
-        '-' => 0x60,
-        '/' => 0x61,
-        ',' => 0x6B,
-        '%' => 0x6C,
-        '_' => 0x6D,
-        '>' => 0x6E,
-        '?' => 0x6F,
-        ':' => 0x7A,
-        '#' => 0x7B,
-        '@' => 0x7C,
-        '\'' => 0x7D,
-        '=' => 0x7E,
-        '"' => 0x7F,
-        _ => 0x40, // Default to space
-    }
-}
+// Import EBCDIC conversion functions from the shared protocol_common module
+use crate::protocol_common::ebcdic::ebcdic_to_ascii;
 
 // Re-export CommandCode from codes module to avoid duplication
 pub use super::codes::CommandCode;
@@ -314,11 +234,12 @@ impl Packet {
         // Add sequence number
         result.push(self.sequence_number);
 
-        // Add length (big-endian 16-bit)
-        let length = (self.data.len() + 6) as u16; // +6 for command, sequence, length fields, and flags
-        result.extend_from_slice(&length.to_be_bytes());
+        // Calculate total packet length (command + sequence + length + flags + data)
+        // Length field represents the total packet size
+        let total_length = 1 + 1 + 2 + 1 + self.data.len(); // cmd + seq + len + flags + data
+        result.extend_from_slice(&(total_length as u16).to_be_bytes());
 
-        // Add flags if any
+        // Add flags
         result.push(self.flags);
 
         // Add data
@@ -329,22 +250,31 @@ impl Packet {
 
     /// Parse a packet from bytes
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() < 4 {
+        if bytes.len() < 5 {
             return None;
         }
 
         let command_byte = bytes[0];
         let sequence_number = bytes[1];
         let length_bytes = [bytes[2], bytes[3]];
-        let length = u16::from_be_bytes(length_bytes);
+        let length = u16::from_be_bytes(length_bytes) as usize;
 
-        if length as usize > bytes.len() {
+        // Length includes the entire packet, so validate it
+        if length > bytes.len() {
             return None;
         }
 
-        let flags = if bytes.len() > 4 { bytes[4] } else { 0 };
-        let data_start = if bytes.len() > 5 { 5 } else { 4 };
-        let data = bytes[data_start..length as usize].to_vec();
+        let flags = bytes[4];
+        
+        // Data starts at byte 5 and goes to the end of the packet
+        let data_start = 5;
+        let data_end = length;
+        
+        if data_end > bytes.len() {
+            return None;
+        }
+        
+        let data = bytes[data_start..data_end].to_vec();
 
         if let Some(command) = CommandCode::from_u8(command_byte) {
             Some(Packet::new_with_flags(command, sequence_number, data, flags))

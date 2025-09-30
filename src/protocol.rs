@@ -727,7 +727,8 @@ impl ProtocolProcessor {
                         },
                         _ => {
                             if self.cursor.y < TERMINAL_HEIGHT && self.cursor.x < TERMINAL_WIDTH {
-                                self.screen.buffer[self.cursor.y][self.cursor.x] = crate::terminal::TerminalChar {
+                                let index = crate::terminal::TerminalScreen::buffer_index(self.cursor.x, self.cursor.y);
+                                self.screen.buffer[index] = crate::terminal::TerminalChar {
                                     character: ch,
                                     attribute: crate::terminal::CharAttribute::Normal,
                                 };
@@ -994,7 +995,8 @@ impl ProtocolProcessor {
         // Copy the current screen buffer
         for y in 0..TERMINAL_HEIGHT {
             for x in 0..TERMINAL_WIDTH {
-                saved_buffer[y][x] = self.screen.buffer[y][x];
+                let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+                saved_buffer[y][x] = self.screen.buffer[index];
             }
         }
 
@@ -1017,7 +1019,8 @@ impl ProtocolProcessor {
             // Restore the screen buffer
             for y in 0..TERMINAL_HEIGHT {
                 for x in 0..TERMINAL_WIDTH {
-                    self.screen.buffer[y][x] = saved_state.buffer[y][x];
+                    let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+                    self.screen.buffer[index] = saved_state.buffer[y][x];
                 }
             }
 
@@ -1081,7 +1084,8 @@ impl ProtocolProcessor {
         let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
         for y in 0..TERMINAL_HEIGHT {
             for x in 0..TERMINAL_WIDTH {
-                saved_buffer[y][x] = self.screen.buffer[y][x];
+                let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+                saved_buffer[y][x] = self.screen.buffer[index];
             }
         }
 
@@ -1159,7 +1163,8 @@ impl ProtocolProcessor {
             for y in start_row..safe_end_row {
                 for x in start_col..safe_end_col {
                     if y < TERMINAL_HEIGHT && x < TERMINAL_WIDTH {
-                        self.screen.buffer[y][x] = saved_state.buffer[y][x];
+                        let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+                        self.screen.buffer[index] = saved_state.buffer[y][x];
                     }
                 }
             }
@@ -1225,7 +1230,8 @@ Ready...
         
         for row in 0..TERMINAL_HEIGHT {
             for col in 0..TERMINAL_WIDTH {
-                let ch = self.screen.buffer[row][col].character as u8;
+                let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                let ch = self.screen.buffer[index].character as u8;
                 if ch != 0 && ch != b' ' {
                     buffer.push(ch);
                 }

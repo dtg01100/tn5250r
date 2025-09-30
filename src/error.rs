@@ -85,6 +85,14 @@ pub enum ProtocolError {
     InvalidFieldAttribute { attribute: u8 },
     /// Device identification error
     DeviceIdError { message: String },
+    /// Unsupported protocol requested
+    UnsupportedProtocol { protocol: String, reason: String },
+    /// Protocol mismatch between configured and detected
+    ProtocolMismatch { configured: String, detected: String },
+    /// Protocol switch operation failed
+    ProtocolSwitchFailed { from: String, to: String, reason: String },
+    /// Invalid protocol configuration
+    InvalidProtocolConfiguration { parameter: String, value: String, reason: String },
 }
 
 /// Terminal emulation errors
@@ -227,22 +235,30 @@ impl fmt::Display for TelnetError {
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProtocolError::InvalidCommandCode { code } => 
+            ProtocolError::InvalidCommandCode { code } =>
                 write!(f, "Invalid 5250 command code: 0x{:02X}", code),
-            ProtocolError::IncompleteData { expected, received } => 
+            ProtocolError::IncompleteData { expected, received } =>
                 write!(f, "Incomplete data: expected {} bytes, received {}", expected, received),
-            ProtocolError::EbcdicConversion { byte, context } => 
+            ProtocolError::EbcdicConversion { byte, context } =>
                 write!(f, "EBCDIC conversion error for byte 0x{:02X} in context: {}", byte, context),
-            ProtocolError::InvalidStructuredField { field_id, reason } => 
+            ProtocolError::InvalidStructuredField { field_id, reason } =>
                 write!(f, "Invalid structured field 0x{:02X}: {}", field_id, reason),
-            ProtocolError::InvalidCursorPosition { row, col } => 
+            ProtocolError::InvalidCursorPosition { row, col } =>
                 write!(f, "Invalid cursor position: row {}, col {}", row, col),
-            ProtocolError::ScreenBufferOverflow { position, buffer_size } => 
+            ProtocolError::ScreenBufferOverflow { position, buffer_size } =>
                 write!(f, "Screen buffer overflow: position {} exceeds buffer size {}", position, buffer_size),
-            ProtocolError::InvalidFieldAttribute { attribute } => 
+            ProtocolError::InvalidFieldAttribute { attribute } =>
                 write!(f, "Invalid field attribute: 0x{:02X}", attribute),
-            ProtocolError::DeviceIdError { message } => 
+            ProtocolError::DeviceIdError { message } =>
                 write!(f, "Device identification error: {}", message),
+            ProtocolError::UnsupportedProtocol { protocol, reason } =>
+                write!(f, "Unsupported protocol '{}': {}", protocol, reason),
+            ProtocolError::ProtocolMismatch { configured, detected } =>
+                write!(f, "Protocol mismatch: configured for '{}' but detected '{}'", configured, detected),
+            ProtocolError::ProtocolSwitchFailed { from, to, reason } =>
+                write!(f, "Failed to switch protocol from '{}' to '{}': {}", from, to, reason),
+            ProtocolError::InvalidProtocolConfiguration { parameter, value, reason } =>
+                write!(f, "Invalid protocol configuration: parameter '{}' = '{}': {}", parameter, value, reason),
         }
     }
 }

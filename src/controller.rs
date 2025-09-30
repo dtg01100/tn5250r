@@ -1,5 +1,5 @@
 //! Controller module for handling terminal emulation and network communication
-//! 
+//!
 //! This module orchestrates the terminal emulator, protocol processor, and network connection.
 
 use std::sync::{Arc, Mutex};
@@ -12,6 +12,43 @@ use crate::field_manager::FieldManager;
 use crate::network;
 use crate::lib5250::session::Session;
 use crate::keyboard;
+use crate::error::TN5250Error;
+
+/// Protocol type for terminal connections
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ProtocolType {
+    /// TN5250 protocol for AS/400 systems
+    TN5250,
+    /// TN3270 protocol for mainframe systems
+    TN3270,
+}
+
+impl ProtocolType {
+    /// Parse protocol type from string
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "tn5250" | "5250" => Ok(ProtocolType::TN5250),
+            "tn3270" | "3270" => Ok(ProtocolType::TN3270),
+            _ => Err(format!("Invalid protocol type: {}. Must be 'tn5250' or 'tn3270'", s))
+        }
+    }
+    
+    /// Convert protocol type to string
+    pub fn to_str(&self) -> &str {
+        match self {
+            ProtocolType::TN5250 => "tn5250",
+            ProtocolType::TN3270 => "tn3270",
+        }
+    }
+    
+    /// Convert to network ProtocolMode
+    pub fn to_protocol_mode(&self) -> network::ProtocolMode {
+        match self {
+            ProtocolType::TN5250 => network::ProtocolMode::TN5250,
+            ProtocolType::TN3270 => network::ProtocolMode::TN3270,
+        }
+    }
+}
 use crate::terminal::{TerminalChar, CharAttribute};
 
 /// Core terminal controller responsible for managing the connection and protocol
@@ -89,6 +126,122 @@ impl TerminalController {
 
     pub fn connect(&mut self, host: String, port: u16) -> Result<(), String> {
         self.connect_with_tls(host, port, None)
+    }
+    
+    /// Connect with a specific protocol type
+    /// This forces the connection to use the specified protocol instead of auto-detection
+    /// Enhanced with protocol validation and error handling
+    pub fn connect_with_protocol(&mut self, host: String, port: u16, protocol: ProtocolType, tls_override: Option<bool>) -> Result<(), String> {
+        // Validate protocol availability before attempting connection
+        if !Self::is_protocol_available(protocol) {
+            return Err(format!(
+                "Protocol {} is not available. Please ensure required protocol modules are loaded.",
+                protocol.to_str()
+            ));
+        }
+
+        // Update internal state
+        self.host = host.clone();
+        self.port = port;
+
+        // Create network connection
+        let mut conn = network::AS400Connection::new(host.clone(), port);
+        if let Some(tls) = tls_override {
+            conn.set_tls(tls);
+        }
+
+        // SECURITY: Handle connection errors securely without exposing internal details
+        conn.connect().map_err(|e| {
+            eprintln!("SECURITY: Connection failed - suppressing detailed error information");
+            
+            // Record connection failure in monitoring
+            let monitoring = crate::monitoring::MonitoringSystem::global();
+            let alert = crate::monitoring::Alert {
+                id: uuid::Uuid::new_v4().to_string(),
+                timestamp: std::time::Instant::now(),
+                level: crate::monitoring::AlertLevel::Critical,
+                component: "controller".to_string(),
+                message: format!("Connection failed to {}:{} using {} protocol", host, port, protocol.to_str()),
+                details: std::collections::HashMap::new(),
+                acknowledged: false,
+                acknowledged_at: None,
+                resolved: false,
+                resolved_at: None,
+                occurrence_count: 1,
+                last_occurrence: std::time::Instant::now(),
+            };
+            monitoring.alerting_system.trigger_alert(alert);
+            
+            "Connection failed".to_string()
+        })?;
+
+        // Validate protocol mode before setting
+        let protocol_mode = protocol.to_protocol_mode();
+        if !Self::validate_protocol_mode(protocol_mode) {
+            return Err(format!(
+                "Protocol mode {:?} validation failed. Network may not support this protocol.",
+                protocol_mode
+            ));
+        }
+
+        // Force the protocol mode
+        conn.set_protocol_mode(protocol_mode);
+
+        // Initialize session
+        // Session is already initialized in new()
+
+        self.network_connection = Some(conn);
+        self.connected = true;
+
+        // SECURITY: Use generic connection message without exposing sensitive details
+        self.screen.clear();
+        self.screen.write_string(&format!("Connecting to remote system using {} protocol...\n", protocol.to_str()));
+
+        // Record successful connection attempt in monitoring
+        let monitoring = crate::monitoring::MonitoringSystem::global();
+        monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
+            timestamp: std::time::Instant::now(),
+            event_type: crate::monitoring::IntegrationEventType::ComponentInteraction,
+            source_component: "controller".to_string(),
+            target_component: Some("network".to_string()),
+            description: format!("Connection established to {}:{} using {} protocol", host, port, protocol.to_str()),
+            details: std::collections::HashMap::new(),
+            duration_us: None,
+            success: true,
+        });
+
+        Ok(())
+    }
+    
+    /// Validate if a protocol is available for use
+    fn is_protocol_available(protocol: ProtocolType) -> bool {
+        // Check if required protocol modules are available
+        match protocol {
+            ProtocolType::TN5250 => {
+                // TN5250 is always available as it's the primary protocol
+                true
+            }
+            ProtocolType::TN3270 => {
+                // TN3270 support is available
+                true
+            }
+        }
+    }
+    
+    /// Validate protocol mode configuration
+    fn validate_protocol_mode(mode: network::ProtocolMode) -> bool {
+        // Validate that the protocol mode is supported
+        match mode {
+            network::ProtocolMode::AutoDetect => true,
+            network::ProtocolMode::TN5250 => true,
+            network::ProtocolMode::TN3270 => true,
+            network::ProtocolMode::NVT => true,
+        }
+    }
+    
+    /// Get the detected or configured protocol mode
+    pub fn get_protocol_mode(&self) -> Option<network::ProtocolMode> {
+        self.network_connection.as_ref().map(|conn| conn.get_detected_protocol_mode())
     }
     
     /// Request the login screen after negotiation is complete
@@ -688,21 +841,230 @@ impl AsyncTerminalController {
                             break;
                         }
 
+                       if !processed {
+                           thread::sleep(Duration::from_millis(50));
+                       } else {
+                           thread::sleep(Duration::from_millis(50));
+                       }
+                   }
+               }
+               Err(e) => {
+                   if let Ok(mut err) = err_ref.lock() {
+                       *err = Some(e);
+                   }
+               }
+           }
+       });
+
+       // Store handle so we can manage lifecycle if needed
+       self.handle = Some(handle);
+       Ok(())
+   }
+
+   /// TLS-aware blocking connect wrapper for symmetry with sync controller
+   pub fn connect_with_tls(&mut self, host: String, port: u16, tls_override: Option<bool>) -> Result<(), String> {
+       if self.running {
+           self.disconnect();
+       }
+       {
+           let mut ctrl = self.controller.lock().unwrap();
+           ctrl.connect_with_tls(host, port, tls_override)?;
+       }
+       self.running = true;
+       self.start_network_thread();
+       Ok(())
+   }
+
+   /// Connect with a specific protocol type (blocking)
+   pub fn connect_with_protocol(&mut self, host: String, port: u16, protocol: ProtocolType, tls_override: Option<bool>) -> Result<(), String> {
+        if self.running {
+            self.disconnect();
+        }
+        
+        {
+            let mut ctrl = self.controller.lock().unwrap();
+            ctrl.connect_with_protocol(host, port, protocol, tls_override)?;
+        }
+        
+        self.running = true;
+        self.start_network_thread();
+        
+        Ok(())
+    }
+    
+    /// Connect with a specific protocol type (async)
+    /// Enhanced with protocol validation and error handling
+    pub fn connect_async_with_protocol(&mut self, host: String, port: u16, protocol: ProtocolType, tls_override: Option<bool>) -> Result<(), String> {
+        // Validate protocol availability before attempting connection
+        if !TerminalController::is_protocol_available(protocol) {
+            return Err(format!(
+                "Protocol {} is not available. Please ensure required protocol modules are loaded.",
+                protocol.to_str()
+            ));
+        }
+
+        // If already processing, restart cleanly
+        if self.running {
+            self.disconnect();
+        }
+        self.connect_in_progress.store(true, Ordering::SeqCst);
+        self.cancel_connect_flag.store(false, Ordering::SeqCst);
+        if let Ok(mut err) = self.last_connect_error.lock() {
+            *err = None;
+        }
+
+        let controller_ref = Arc::clone(&self.controller);
+        let connect_flag = Arc::clone(&self.connect_in_progress);
+        let err_ref = Arc::clone(&self.last_connect_error);
+        let cancel_flag = Arc::clone(&self.cancel_connect_flag);
+
+        // Spawn a single thread that performs connect then enters the processing loop
+        let handle = thread::spawn(move || {
+            // Do the blocking network connect without holding the controller lock
+            let connect_result = (|| {
+                // Early cancel check
+                if cancel_flag.load(Ordering::SeqCst) {
+                    return Err("Connection canceled by user".to_string());
+                }
+
+                let mut conn = network::AS400Connection::new(host.clone(), port);
+                if let Some(tls) = tls_override {
+                    conn.set_tls(tls);
+                }
+                
+                // Use a bounded timeout for TCP connect + then telnet negotiation handles its own timeouts
+                let timeout = Duration::from_secs(10);
+                conn.connect_with_timeout(timeout).map_err(|e| {
+                    format!("Connection failed: {}", e)
+                })?;
+                
+                // Validate protocol mode before setting
+                let protocol_mode = protocol.to_protocol_mode();
+                if !TerminalController::validate_protocol_mode(protocol_mode) {
+                    return Err(format!(
+                        "Protocol mode {:?} validation failed. Network may not support this protocol.",
+                        protocol_mode
+                    ));
+                }
+
+                // Force the protocol mode
+                conn.set_protocol_mode(protocol_mode);
+
+                // SECURITY: Use generic connection message without exposing sensitive details
+                let connected_msg = format!("Connected to remote system using {} protocol\nReady...\n", protocol.to_str());
+
+                // CRITICAL FIX: Enhanced cancellation and error handling
+                if cancel_flag.load(Ordering::SeqCst) {
+                    return Err("Connection canceled by user".to_string());
+                }
+
+                // CRITICAL FIX: Safer state update with timeout and better error handling
+                match controller_ref.try_lock() {
+                    Ok(mut ctrl) => {
+                        // Update controller state with established connection
+                        ctrl.host = host.clone();
+                        ctrl.port = port;
+                        ctrl.network_connection = Some(conn);
+                        ctrl.connected = true;
+                        // Optional: update screen message
+                        ctrl.screen.clear();
+                        ctrl.screen.write_string(&connected_msg);
+                        
+                        // Record successful connection in monitoring
+                        let monitoring = crate::monitoring::MonitoringSystem::global();
+                        monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
+                            timestamp: std::time::Instant::now(),
+                            event_type: crate::monitoring::IntegrationEventType::ComponentInteraction,
+                            source_component: "controller".to_string(),
+                            target_component: Some("network".to_string()),
+                            description: format!("Async connection established to {}:{} using {} protocol", host, port, protocol.to_str()),
+                            details: std::collections::HashMap::new(),
+                            duration_us: None,
+                            success: true,
+                        });
+                        
+                        Ok(())
+                    }
+                    Err(std::sync::TryLockError::Poisoned(poisoned)) => {
+                        eprintln!("SECURITY: Controller mutex poisoned during connection");
+                        Err("Controller lock poisoned".to_string())
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => {
+                        eprintln!("SECURITY: Controller lock blocked during connection");
+                        Err("Controller busy".to_string())
+                    }
+                }
+            })();
+
+            // Mark connection attempt finished (success or error)
+            connect_flag.store(false, Ordering::SeqCst);
+
+            match connect_result {
+                Ok(()) => {
+                    // Enter processing loop similar to start_network_thread
+                    loop {
+                        // CRITICAL FIX: Enhanced thread safety with better error handling
+                        let mut processed = false;
+                        let mut should_break = false;
+
+                        match controller_ref.try_lock() {
+                            Ok(mut ctrl) => {
+                                if ctrl.is_connected() {
+                                    // CRITICAL FIX: Handle processing errors gracefully
+                                    match ctrl.process_incoming_data() {
+                                        Ok(_) => {
+                                            processed = true;
+                                        }
+                                        Err(e) => {
+                                            eprintln!("SECURITY: Error processing incoming data: {}", e);
+                                            // Continue processing but log the error
+                                            processed = true;
+                                        }
+                                    }
+                                } else {
+                                    should_break = true;
+                                }
+                            }
+                            Err(std::sync::TryLockError::Poisoned(_)) => {
+                                eprintln!("SECURITY: Controller mutex poisoned in processing thread");
+                                should_break = true;
+                            }
+                            Err(std::sync::TryLockError::WouldBlock) => {
+                                // Could not lock; fall through to sleep
+                            }
+                        }
+
+                        // Check cancellation flag
+                        if cancel_flag.load(Ordering::SeqCst) || should_break {
+                            break;
+                        }
+
                         if !processed {
-                            // CRITICAL FIX: Exponential backoff to reduce busy waiting
-                            static SLEEP_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-                            let current_count = SLEEP_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                            let capped_count = current_count.min(10); // Cap the sleep time
-                            thread::sleep(Duration::from_millis(5 * capped_count as u64));
+                            thread::sleep(Duration::from_millis(50));
                         } else {
-                            // Reset sleep counter on successful processing
-                            static SLEEP_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-                            SLEEP_COUNT.store(0, std::sync::atomic::Ordering::Relaxed);
                             thread::sleep(Duration::from_millis(50));
                         }
                     }
                 }
                 Err(e) => {
+                    // Record connection failure in monitoring
+                    let monitoring = crate::monitoring::MonitoringSystem::global();
+                    let alert = crate::monitoring::Alert {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        timestamp: std::time::Instant::now(),
+                        level: crate::monitoring::AlertLevel::Critical,
+                        component: "controller".to_string(),
+                        message: format!("Async connection failed to {}:{} using {} protocol", host, port, protocol.to_str()),
+                        details: std::collections::HashMap::new(),
+                        acknowledged: false,
+                        acknowledged_at: None,
+                        resolved: false,
+                        resolved_at: None,
+                        occurrence_count: 1,
+                        last_occurrence: std::time::Instant::now(),
+                    };
+                    monitoring.alerting_system.trigger_alert(alert);
+                    
                     if let Ok(mut err) = err_ref.lock() {
                         *err = Some(e);
                     }
@@ -714,19 +1076,14 @@ impl AsyncTerminalController {
         self.handle = Some(handle);
         Ok(())
     }
-
-    /// TLS-aware blocking connect wrapper for symmetry with sync controller
-    pub fn connect_with_tls(&mut self, host: String, port: u16, tls_override: Option<bool>) -> Result<(), String> {
-        if self.running {
-            self.disconnect();
+    
+    /// Get the detected or configured protocol mode
+    pub fn get_protocol_mode(&self) -> Result<Option<network::ProtocolMode>, String> {
+        if let Ok(ctrl) = self.controller.lock() {
+            Ok(ctrl.get_protocol_mode())
+        } else {
+            Err("Controller lock failed".to_string())
         }
-        {
-            let mut ctrl = self.controller.lock().unwrap();
-            ctrl.connect_with_tls(host, port, tls_override)?;
-        }
-        self.running = true;
-        self.start_network_thread();
-        Ok(())
     }
 
     /// Cancel an in-progress async connection attempt

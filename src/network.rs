@@ -27,7 +27,7 @@
 
 use std::net::{TcpStream, ToSocketAddrs, SocketAddr};
 use std::io::{Read, Write, Result as IoResult};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::collections::VecDeque;
@@ -36,6 +36,7 @@ use native_tls::{TlsConnector, Certificate};
 use std::fs;
 
 use crate::telnet_negotiation::TelnetNegotiator;
+use crate::error::{ProtocolError, TN5250Error};
 
 /// INTEGRATION: Protocol auto-detection and mode switching
 /// Resolves NVT Mode vs 5250 Protocol Confusion (Issue #1)
@@ -47,6 +48,8 @@ pub enum ProtocolMode {
     NVT,
     /// 5250 protocol mode - IBM AS/400 terminal protocol
     TN5250,
+    /// 3270 protocol mode - IBM mainframe terminal protocol
+    TN3270,
 }
 
 impl Default for ProtocolMode {
@@ -61,6 +64,8 @@ struct ProtocolDetector {
     mode: ProtocolMode,
     detection_buffer: Vec<u8>,
     max_detection_bytes: usize,
+    detection_start_time: Option<Instant>,
+    detection_timeout: Duration,
 }
 
 impl ProtocolDetector {
@@ -69,25 +74,67 @@ impl ProtocolDetector {
             mode: ProtocolMode::AutoDetect,
             detection_buffer: Vec::new(),
             max_detection_bytes: 256, // Analyze first 256 bytes for protocol detection
+            detection_start_time: None,
+            detection_timeout: Duration::from_secs(5), // 5 second timeout for detection
         }
     }
 
-    /// INTEGRATION: Detect protocol from data patterns
-    /// 5250 starts with ESC (0x04) sequences, NVT is plain text
-    fn detect_protocol(&mut self, data: &[u8]) -> ProtocolMode {
+    /// INTEGRATION: Detect protocol from data patterns with timeout handling
+    /// 5250 starts with ESC (0x04) sequences, 3270 uses command codes (0x01-0x11), NVT is plain text
+    /// Returns Result to handle detection failures and timeouts
+    fn detect_protocol(&mut self, data: &[u8]) -> Result<ProtocolMode, TN5250Error> {
         if self.mode != ProtocolMode::AutoDetect {
-            return self.mode;
+            return Ok(self.mode);
+        }
+
+        // Start detection timer on first data
+        if self.detection_start_time.is_none() {
+            self.detection_start_time = Some(Instant::now());
+        }
+
+        // Check for detection timeout
+        if let Some(start_time) = self.detection_start_time {
+            if start_time.elapsed() > self.detection_timeout {
+                // Timeout - fall back to NVT mode for safety
+                self.mode = ProtocolMode::NVT;
+                eprintln!("Protocol detection timeout - falling back to NVT mode");
+                return Ok(self.mode);
+            }
+        }
+
+        // Validate input data
+        if data.is_empty() {
+            return Ok(ProtocolMode::AutoDetect); // Need more data
         }
 
         // Accumulate data for detection
         self.detection_buffer.extend_from_slice(data);
         if self.detection_buffer.len() < 4 {
-            return ProtocolMode::AutoDetect; // Need more data
+            return Ok(ProtocolMode::AutoDetect); // Need more data
         }
 
-        // Limit detection buffer size
+        // Limit detection buffer size to prevent memory exhaustion
         if self.detection_buffer.len() > self.max_detection_bytes {
             self.detection_buffer.truncate(self.max_detection_bytes);
+        }
+
+        // Check for 3270 protocol patterns first (more specific)
+        // 3270 data streams start with command codes in range 0x01-0x11
+        if self.detection_buffer.len() >= 2 {
+            let first_byte = self.detection_buffer[0];
+            // Check for 3270 command codes
+            if matches!(first_byte, 0x01 | 0x02 | 0x05 | 0x06 | 0x0D | 0x0E | 0x0F | 0x11) {
+                // Verify with WCC byte or order codes
+                if self.detection_buffer.len() >= 3 {
+                    let second_byte = self.detection_buffer[1];
+                    // WCC byte or order codes indicate 3270
+                    if second_byte <= 0x7F || matches!(second_byte, 0x11 | 0x1D | 0x29 | 0x28 | 0x2C | 0x13 | 0x05 | 0x3C | 0x12 | 0x08) {
+                        self.mode = ProtocolMode::TN3270;
+                        println!("INTEGRATION: Auto-detected 3270 protocol (command: 0x{:02X})", first_byte);
+                        return Ok(self.mode);
+                    }
+                }
+            }
         }
 
         // Check for 5250 protocol patterns
@@ -101,7 +148,7 @@ impl ProtocolDetector {
                     if matches!(next_byte, 0xF1..=0xFF) { // 5250 command range
                         self.mode = ProtocolMode::TN5250;
                         println!("INTEGRATION: Auto-detected 5250 protocol (ESC + command: 0x04, 0x{:02X})", next_byte);
-                        return self.mode;
+                        return Ok(self.mode);
                     }
                 }
             }
@@ -115,17 +162,18 @@ impl ProtocolDetector {
             // Looks like plain ASCII text - likely NVT
             self.mode = ProtocolMode::NVT;
             println!("INTEGRATION: Auto-detected NVT protocol (plain text)");
-            return self.mode;
+            return Ok(self.mode);
         }
 
-        // If we have enough data and still can't determine, default to 5250
-        // Most AS/400 connections will be 5250 protocol
+        // If we have enough data and still can't determine, default to NVT for safety
+        // NVT is the safest fallback as it doesn't require specific protocol handling
         if self.detection_buffer.len() >= self.max_detection_bytes {
-            self.mode = ProtocolMode::TN5250;
-            println!("INTEGRATION: Defaulting to 5250 protocol after analysis");
+            self.mode = ProtocolMode::NVT;
+            println!("INTEGRATION: Defaulting to NVT protocol after analysis (safest fallback)");
+            return Ok(self.mode);
         }
 
-        self.mode
+        Ok(ProtocolMode::AutoDetect)
     }
 
     fn is_detection_complete(&self) -> bool {
@@ -135,6 +183,7 @@ impl ProtocolDetector {
     fn reset(&mut self) {
         self.mode = ProtocolMode::AutoDetect;
         self.detection_buffer.clear();
+        self.detection_start_time = None;
     }
 }
 
@@ -928,9 +977,18 @@ impl AS400Connection {
                 Ok(data) => {
                     // INTEGRATION: Perform protocol detection if not yet determined
                     if !self.protocol_detector.is_detection_complete() {
-                        self.detected_mode = self.protocol_detector.detect_protocol(&data);
-                        if self.protocol_detector.is_detection_complete() {
-                            println!("INTEGRATION: Protocol detection complete - operating in {:?} mode", self.detected_mode);
+                        match self.protocol_detector.detect_protocol(&data) {
+                            Ok(mode) => {
+                                self.detected_mode = mode;
+                                if self.protocol_detector.is_detection_complete() {
+                                    println!("INTEGRATION: Protocol detection complete - operating in {:?} mode", self.detected_mode);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Protocol detection error: {} - falling back to NVT mode", e);
+                                self.detected_mode = ProtocolMode::NVT;
+                                self.protocol_detector.mode = ProtocolMode::NVT;
+                            }
                         }
                     }
 
@@ -966,6 +1024,15 @@ impl AS400Connection {
                                 Some(clean_data)
                             } else {
                                 None // No 5250 data in this packet, just negotiation
+                            }
+                        },
+                        ProtocolMode::TN3270 => {
+                            // Filter out telnet negotiation from the data and return clean 3270 data
+                            let clean_data = self.extract_5250_data(&data); // Same filtering logic works for 3270
+                            if !clean_data.is_empty() {
+                                Some(clean_data)
+                            } else {
+                                None // No 3270 data in this packet, just negotiation
                             }
                         },
                         ProtocolMode::NVT => {

@@ -16,6 +16,11 @@ mod controller;
 mod field_manager;
 mod config;
 mod monitoring;
+mod error;
+mod protocol_state;
+mod protocol_common;
+mod lib3270;
+mod protocol;
 
 use controller::AsyncTerminalController;
 use field_manager::FieldDisplayInfo;

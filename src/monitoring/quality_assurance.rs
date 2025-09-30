@@ -579,7 +579,7 @@ mod tests {
             let unit_suite = suites.get("unit_tests").unwrap();
             assert_eq!(unit_suite.test_cases.len(), 2);
             assert!(!unit_suite.is_regression_suite);
-        }
+        };
     }
 
     #[test]

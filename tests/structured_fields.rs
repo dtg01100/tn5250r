@@ -4,6 +4,7 @@ use tn5250r::lib5250::codes::*;
 #[test]
 fn session_write_structured_field_5250_query() {
     let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
     
     // Create proper 5250 data stream: ESC + CMD_WRITE_STRUCTURED_FIELD + structured field data
     let mut data = Vec::new();
@@ -24,6 +25,7 @@ fn session_write_structured_field_5250_query() {
 #[test]
 fn session_write_structured_field_query_command() {
     let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
     
     // Create proper 5250 data stream with QueryCommand (0x84)
     let mut data = Vec::new();
@@ -48,6 +50,7 @@ fn session_write_structured_field_query_command() {
 #[test]
 fn session_write_structured_field_unknown_sf() {
     let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
     
     // Create proper 5250 data stream with unknown SF type
     let mut data = Vec::new();
@@ -66,6 +69,7 @@ fn session_write_structured_field_unknown_sf() {
 #[test]
 fn session_write_structured_field_invalid_class() {
     let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
     
     // Create proper 5250 data stream with invalid class
     let mut data = Vec::new();
@@ -85,6 +89,7 @@ fn session_write_structured_field_invalid_class() {
 #[test]
 fn session_handles_multiple_commands() {
     let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
     
     // Create data stream with multiple commands
     let mut data = Vec::new();

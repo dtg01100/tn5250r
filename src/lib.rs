@@ -9,7 +9,17 @@ pub use performance_metrics::PerformanceMetrics;
 /// Provides platform-independent operations for file I/O, networking, and system calls
 pub mod platform;
 
+/// PROTOCOL COMMON: Shared protocol functionality for TN5250 and TN3270
+/// Provides EBCDIC conversion, protocol traits, and common telnet handling
+pub mod protocol_common;
+
+/// LIB5250: IBM 5250 protocol implementation
+/// Complete TN5250 protocol support for AS/400 systems
 pub mod lib5250;
+
+/// LIB3270: IBM 3270 protocol implementation
+/// Complete TN3270 protocol support for mainframe systems
+pub mod lib3270;
 pub mod ansi_processor;
 pub mod config;
 pub mod controller;

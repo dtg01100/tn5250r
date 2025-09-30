@@ -5,7 +5,7 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Global performance metrics instance
 static GLOBAL_METRICS: once_cell::sync::Lazy<Arc<PerformanceMetrics>> =
