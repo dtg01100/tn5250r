@@ -42,6 +42,7 @@ pub struct TN5250RApp {
     connecting: bool,
     show_monitoring_dashboard: bool,  // Show monitoring dashboard
     monitoring_reports: HashMap<String, String>,  // Cached monitoring reports
+    show_advanced_settings: bool,  // Show advanced settings dialog
 }
 
 impl TN5250RApp {
@@ -142,6 +143,7 @@ impl TN5250RApp {
             connecting: false,
             show_monitoring_dashboard: false,
             monitoring_reports: HashMap::new(),
+            show_advanced_settings: false,
         }
     }
     
@@ -802,6 +804,74 @@ impl TN5250RApp {
 
         println!("MONITORING: Full system report generated and cached");
     }
+
+    /// Show the advanced settings dialog
+    fn show_advanced_settings_dialog(&mut self, ctx: &egui::Context) {
+        egui::Window::new("Advanced Connection Settings")
+            .collapsible(false)
+            .resizable(true)
+            .default_size([400.0, 300.0])
+            .show(ctx, |ui| {
+                ui.heading("Advanced TLS/SSL Settings");
+                ui.separator();
+
+                egui::Grid::new("advanced_settings_grid")
+                    .num_columns(2)
+                    .spacing([40.0, 8.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label("Use TLS (SSL):");
+                        let mut ssl_enabled = {
+                            let cfg = self.config.lock().unwrap();
+                            cfg.get_boolean_property_or("connection.ssl", self.port == 992)
+                        };
+                        let checkbox = ui.checkbox(&mut ssl_enabled, "Enable TLS encryption");
+                        if checkbox.changed() {
+                            if let Ok(mut cfg) = self.config.lock() {
+                                cfg.set_property("connection.ssl", ssl_enabled);
+                            }
+                            let _ = config::save_shared_config(&self.config);
+                        }
+                        ui.end_row();
+
+                        ui.label("TLS Options:");
+                        let mut insecure = {
+                            let cfg = self.config.lock().unwrap();
+                            cfg.get_boolean_property_or("connection.tls.insecure", false)
+                        };
+                        if ui.checkbox(&mut insecure, "Accept invalid certificates (insecure)").changed() {
+                            if let Ok(mut cfg) = self.config.lock() {
+                                cfg.set_property("connection.tls.insecure", insecure);
+                            }
+                            let _ = config::save_shared_config(&self.config);
+                        }
+                        ui.end_row();
+
+                        ui.label("CA bundle path:");
+                        let mut ca_path = {
+                            let cfg = self.config.lock().unwrap();
+                            cfg.get_string_property_or("connection.tls.caBundlePath", "")
+                        };
+                        if ui.text_edit_singleline(&mut ca_path).lost_focus() {
+                            if let Ok(mut cfg) = self.config.lock() {
+                                cfg.set_property("connection.tls.caBundlePath", ca_path.as_str());
+                            }
+                            let _ = config::save_shared_config(&self.config);
+                        }
+                        ui.end_row();
+                    });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        self.show_advanced_settings = false;
+                    }
+                });
+
+                ui.small("Note: These settings will be saved automatically when changed.");
+            });
+    }
 }
 
 impl eframe::App for TN5250RApp {
@@ -922,6 +992,11 @@ impl eframe::App for TN5250RApp {
                 });
                 
                 ui.menu_button("Settings", |ui| {
+                    if ui.button("Advanced Connection Settings").clicked() {
+                        self.show_advanced_settings = true;
+                        ui.close_menu();
+                    }
+                    ui.separator();
                     ui.label("Terminal Settings");
                     // Add more settings here in the future
                 });
@@ -939,81 +1014,41 @@ impl eframe::App for TN5250RApp {
             ui.heading("TN5250R - IBM AS/400 Terminal Emulator");
             ui.separator();
 
-            egui::Grid::new("connection_grid")
-                .num_columns(2)
-                .spacing([40.0, 4.0])
-                .striped(true)
-                .show(ui, |ui| {
-                    ui.label("Host:");
-                    if ui.text_edit_singleline(&mut self.connection_string).changed() {
-                        // Update host and port when connection string changes
-                        let (host, port) = self.parse_connection_string();
-                        self.host = host;
-                        self.port = port;
-                        // Sync to configuration; do NOT auto-toggle TLS, keep user's persisted choice
-                        if let Ok(mut cfg) = self.config.lock() {
-                            cfg.set_property("connection.host", self.host.as_str());
-                            cfg.set_property("connection.port", self.port as i64);
-                        }
-                        // Persist change
-                        let _ = config::save_shared_config(&self.config);
+            ui.horizontal(|ui| {
+                ui.label("Host:");
+                if ui.text_edit_singleline(&mut self.connection_string).changed() {
+                    // Update host and port when connection string changes
+                    let (host, port) = self.parse_connection_string();
+                    self.host = host;
+                    self.port = port;
+                    // Sync to configuration; do NOT auto-toggle TLS, keep user's persisted choice
+                    if let Ok(mut cfg) = self.config.lock() {
+                        cfg.set_property("connection.host", self.host.as_str());
+                        cfg.set_property("connection.port", self.port as i64);
                     }
-                    // TLS toggle
-                    let mut ssl_enabled = {
-                        let cfg = self.config.lock().unwrap();
-                        cfg.get_boolean_property_or("connection.ssl", self.port == 992)
-                    };
-                    let checkbox = ui.checkbox(&mut ssl_enabled, "Use TLS (SSL)");
-                    if checkbox.changed() {
-                        if let Ok(mut cfg) = self.config.lock() {
-                            cfg.set_property("connection.ssl", ssl_enabled);
-                        }
-                        // Persist change
-                        let _ = config::save_shared_config(&self.config);
-                    }
-                    ui.end_row();
+                    // Persist change
+                    let _ = config::save_shared_config(&self.config);
+                }
 
-                    ui.label("TLS Options:");
-                    let mut insecure = {
-                        let cfg = self.config.lock().unwrap();
-                        cfg.get_boolean_property_or("connection.tls.insecure", false)
-                    };
-                    if ui.checkbox(&mut insecure, "Accept invalid certificates (insecure)").changed() {
-                        if let Ok(mut cfg) = self.config.lock() {
-                            cfg.set_property("connection.tls.insecure", insecure);
-                        }
-                        let _ = config::save_shared_config(&self.config);
-                    }
-                    ui.end_row();
+                if ui.button("Connect").clicked() {
+                    self.do_connect();
+                }
 
-                    ui.label("CA bundle path:");
-                    let mut ca_path = {
-                        let cfg = self.config.lock().unwrap();
-                        cfg.get_string_property_or("connection.tls.caBundlePath", "")
-                    };
-                    if ui.text_edit_singleline(&mut ca_path).lost_focus() {
-                        if let Ok(mut cfg) = self.config.lock() {
-                            cfg.set_property("connection.tls.caBundlePath", ca_path.as_str());
-                        }
-                        let _ = config::save_shared_config(&self.config);
+                if self.connecting {
+                    if ui.button("Cancel").clicked() {
+                        self.controller.cancel_connect();
+                        self.connecting = false;
+                        self.connection_time = None;
+                        self.terminal_content.push_str("\nConnection canceled by user.\n");
                     }
-                    ui.end_row();
+                }
 
-                    ui.horizontal(|ui| {
-                        if ui.button("Connect").clicked() {
-                            self.do_connect();
-                        }
-                        if self.connecting {
-                            if ui.button("Cancel").clicked() {
-                                self.controller.cancel_connect();
-                                self.connecting = false;
-                                self.connection_time = None;
-                                self.terminal_content.push_str("\nConnection canceled by user.\n");
-                            }
-                        }
-                    });
-                    ui.end_row();
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("⚙ Advanced").on_hover_text("Advanced connection settings").clicked() {
+                        self.show_advanced_settings = true;
+                    }
                 });
+            });
 
             ui.separator();
 
@@ -1151,7 +1186,12 @@ impl eframe::App for TN5250RApp {
 
         // Process incoming data and update terminal content
         self.update_terminal_content();
-        
+
+        // Show advanced settings dialog if requested
+        if self.show_advanced_settings {
+            self.show_advanced_settings_dialog(ctx);
+        }
+
         ctx.request_repaint();
     }
 }
