@@ -93,3 +93,8 @@ credentials.json
 # Generated status and report files (from our testing)
 GUI_STATUS_REPORT.md
 EXECUTION_RESULTS.md
+
+# Binary executables (should not be committed)
+debug_connection_test
+enhanced_debug_test
+login_screen_test
