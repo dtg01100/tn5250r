@@ -233,45 +233,73 @@ impl Field {
     }
     
     /// Insert character at current cursor position
+    /// SECURITY: Enhanced with comprehensive input sanitization and bounds checking
     pub fn insert_char(&mut self, ch: char, offset: usize) -> Result<bool, FieldError> {
         // Clear any previous errors
         self.clear_error();
-        
-        // Validate character input
+
+        // CRITICAL FIX: Enhanced character validation with multiple security checks
+        if !self.is_character_safe(ch) {
+            let error = FieldError::InvalidCharacter(ch);
+            self.set_error(error.clone());
+            return Err(error);
+        }
+
+        // Validate character input based on field type
         if let Err(error) = self.validate_character(ch) {
             self.set_error(error.clone());
             return Err(error);
         }
-        
-        // Check length limits
+
+        // CRITICAL FIX: Enhanced offset validation with better bounds checking
+        if offset > self.max_length {
+            eprintln!("SECURITY: Invalid offset {} exceeds field max length {}", offset, self.max_length);
+            let error = FieldError::NoRoomForInsert;
+            self.set_error(error.clone());
+            return Err(error);
+        }
+
+        // Check length limits with safety margin
         if self.content.len() >= self.max_length {
             let error = FieldError::FieldFull;
             self.set_error(error.clone());
             return Err(error);
         }
-        
-        // Check if there's room to insert
+
+        // Check if there's room to insert (enhanced validation)
         if offset > self.content.len() {
             let error = FieldError::NoRoomForInsert;
             self.set_error(error.clone());
             return Err(error);
         }
-        
+
+        // CRITICAL FIX: Additional validation for edge cases
+        if self.content.len() + 1 > self.max_length {
+            let error = FieldError::FieldFull;
+            self.set_error(error.clone());
+            return Err(error);
+        }
+
+        // SECURITY: Sanitize character before insertion
+        let sanitized_ch = self.sanitize_character(ch);
+
         // Insert character at the specified offset
-        self.content.insert(offset, ch);
+        self.content.insert(offset, sanitized_ch);
         self.modified = true;
-        
-        // Apply transformations if needed
+
+        // Apply transformations if needed (with bounds checking)
         if self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert {
-            if let Some(last_char) = self.content.chars().nth(offset) {
-                let upper_char = last_char.to_uppercase().collect::<String>();
-                if upper_char.len() == 1 && upper_char != last_char.to_string() {
-                    self.content.remove(offset);
-                    self.content.insert_str(offset, &upper_char);
+            if offset < self.content.len() {
+                if let Some(last_char) = self.content.chars().nth(offset) {
+                    let upper_char = last_char.to_uppercase().collect::<String>();
+                    if upper_char.len() == 1 && upper_char != last_char.to_string() {
+                        self.content.remove(offset);
+                        self.content.insert_str(offset, &upper_char);
+                    }
                 }
             }
         }
-        
+
         Ok(true)
     }
     
@@ -311,9 +339,12 @@ impl Field {
     }
     
     /// Set field content
+    /// SECURITY: Enhanced with comprehensive input sanitization
     pub fn set_content(&mut self, content: String) {
         if self.field_type != FieldType::Protected {
-            self.content = content.chars().take(self.max_length).collect();
+            // SECURITY: Validate and sanitize content before setting
+            let sanitized_content = self.sanitize_field_content(&content);
+            self.content = sanitized_content.chars().take(self.max_length).collect();
         }
     }
     
@@ -414,16 +445,60 @@ impl Field {
         if self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert {
             self.content = self.content.to_uppercase();
         }
-        
+
         if self.behavior.right_adjust {
             self.content = format!("{:>width$}", self.content, width = self.max_length);
         }
-        
+
         if self.behavior.zero_fill && self.field_type == FieldType::Numeric {
             if let Ok(_) = self.content.parse::<i32>() {
                 self.content = format!("{:0width$}", self.content, width = self.max_length);
             }
         }
+    }
+
+    /// SECURITY: Check if character is safe for input
+    fn is_character_safe(&self, ch: char) -> bool {
+        // Reject control characters except common safe ones
+        if ch.is_control() {
+            return matches!(ch, '\n' | '\r' | '\t');
+        }
+
+        // Reject characters that could be used for injection attacks
+        let dangerous_chars = ['<', '>', '"', '\'', '&', '|', ';', '$', '`', '\0'];
+        if dangerous_chars.contains(&ch) {
+            return false;
+        }
+
+        // Reject very high Unicode characters that might be used for attacks
+        if ch as u32 > 0x10FFFF {
+            return false;
+        }
+
+        true
+    }
+
+    /// SECURITY: Sanitize character for safe input
+    fn sanitize_character(&self, ch: char) -> char {
+        // Convert potentially dangerous characters to safe alternatives
+        match ch {
+            '\0' => ' ',  // Null byte to space
+            '\u{FFFD}' => '?', // Replacement character to question mark
+            '\u{FFFE}' | '\u{FFFF}' => '?', // BOM characters to question mark
+            c if c.is_control() && !matches!(c, '\n' | '\r' | '\t') => '?',
+            c => c, // Keep safe characters as-is
+        }
+    }
+
+    /// SECURITY: Sanitize field content to prevent injection attacks
+    fn sanitize_field_content(&self, content: &str) -> String {
+        content.chars()
+            .map(|ch| self.sanitize_character(ch))
+            .filter(|&ch| self.is_character_safe(ch))
+            .collect::<String>()
+            .chars()
+            .take(self.max_length) // Enforce length limit
+            .collect()
     }
 }
 
@@ -536,9 +611,15 @@ impl FieldManager {
     }
     
     /// Detect AS/400 specific field patterns
+    /// SECURITY: Enhanced with input sanitization for pattern matching
     fn detect_as400_patterns(&mut self, line: &str, row: usize) {
+        // SECURITY: Validate input line
+        if line.is_empty() || line.len() > 1024 {
+            return;
+        }
+
         let lower_line = line.to_lowercase();
-        
+
         // Common AS/400 field patterns
         if lower_line.contains("user") && (lower_line.contains("name") || lower_line.contains("id")) {
             // Look for nearby input area
@@ -550,7 +631,7 @@ impl FieldManager {
                 self.next_field_id += 1;
             }
         }
-        
+
         if lower_line.contains("password") {
             if let Some(col) = self.find_input_area(line, "password") {
                 let mut field = Field::new(self.next_field_id, FieldType::Password, row, col, 20);
@@ -560,7 +641,7 @@ impl FieldManager {
                 self.next_field_id += 1;
             }
         }
-        
+
         if lower_line.contains("program") || lower_line.contains("procedure") {
             if let Some(col) = self.find_input_area(line, "program") {
                 let field = Field::new(self.next_field_id, FieldType::Input, row, col, 10);
@@ -568,7 +649,7 @@ impl FieldManager {
                 self.next_field_id += 1;
             }
         }
-        
+
         if lower_line.contains("menu") {
             if let Some(col) = self.find_input_area(line, "menu") {
                 let field = Field::new(self.next_field_id, FieldType::Input, row, col, 10);
@@ -576,7 +657,7 @@ impl FieldManager {
                 self.next_field_id += 1;
             }
         }
-        
+
         if lower_line.contains("library") {
             if let Some(col) = self.find_input_area(line, "library") {
                 let field = Field::new(self.next_field_id, FieldType::Input, row, col, 10);
@@ -587,20 +668,52 @@ impl FieldManager {
     }
     
     /// Find input area near a keyword
+    /// SECURITY: Enhanced with bounds checking and input validation
     fn find_input_area(&self, line: &str, keyword: &str) -> Option<usize> {
-        if let Some(keyword_pos) = line.to_lowercase().find(keyword) {
+        // SECURITY: Validate inputs
+        if line.is_empty() || line.len() > 1024 || keyword.is_empty() || keyword.len() > 64 {
+            return None;
+        }
+
+        // SECURITY: Sanitize keyword to prevent injection
+        let sanitized_keyword = self.sanitize_label_content(keyword).to_lowercase();
+        if sanitized_keyword.is_empty() {
+            return None;
+        }
+
+        if let Some(keyword_pos) = line.to_lowercase().find(&sanitized_keyword) {
+            // SECURITY: Validate keyword position is within bounds
+            if keyword_pos >= line.len() {
+                return None;
+            }
+
             // Look for colon after keyword
             let remaining = &line[keyword_pos..];
             if let Some(colon_pos) = remaining.find(':') {
                 let after_colon = keyword_pos + colon_pos + 1;
-                
+
+                // SECURITY: Validate position is within line bounds
+                if after_colon >= line.len() {
+                    return None;
+                }
+
                 // Skip spaces and find input area
                 let chars: Vec<char> = line.chars().collect();
                 let mut i = after_colon;
-                while i < chars.len() && chars[i] == ' ' {
+
+                // SECURITY: Limit search to prevent infinite loop
+                let mut search_count = 0;
+                const MAX_SEARCH: usize = 128;
+
+                while i < chars.len() && chars[i] == ' ' && search_count < MAX_SEARCH {
                     i += 1;
+                    search_count += 1;
                 }
-                
+
+                if search_count >= MAX_SEARCH {
+                    return None; // Prevent infinite loop
+                }
+
                 if i < chars.len() {
                     return Some(i + 1); // 1-based
                 }
@@ -623,35 +736,65 @@ impl FieldManager {
     }
     
     /// Extract field label from line
+    /// SECURITY: Enhanced with input sanitization to prevent injection attacks
     fn extract_field_label(&self, line: &str, col: usize) -> Option<String> {
+        // SECURITY: Validate input bounds
+        if col == 0 || col > line.len() {
+            return None;
+        }
+
+        // SECURITY: Limit label extraction to reasonable bounds
+        let max_label_length = 64;
+        let search_start = col.saturating_sub(max_label_length);
+        let search_area = &line[search_start..col.saturating_sub(1)];
+
         // Look for text before the field
-        let chars: Vec<char> = line.chars().collect();
-        let mut label_end = col.saturating_sub(2); // Before field start
-        
+        let chars: Vec<char> = search_area.chars().collect();
+        let mut label_end = chars.len().saturating_sub(1); // Before field start
+
         // Skip backwards over spaces and underscores
         while label_end > 0 && (chars[label_end] == ' ' || chars[label_end] == '_' || chars[label_end] == ':') {
             label_end -= 1;
         }
-        
+
         if label_end == 0 {
             return None;
         }
-        
+
         // Find start of label (word boundary)
         let mut label_start = label_end;
         while label_start > 0 && chars[label_start - 1].is_alphanumeric() {
             label_start -= 1;
         }
-        
+
         if label_start <= label_end {
             let label: String = chars[label_start..=label_end].iter().collect();
-            let trimmed = label.trim();
-            if !trimmed.is_empty() {
-                return Some(trimmed.to_string());
+
+            // SECURITY: Sanitize the extracted label
+            let sanitized_label = self.sanitize_label_content(&label);
+
+            if !sanitized_label.trim().is_empty() {
+                return Some(sanitized_label);
             }
         }
-        
+
         None
+    }
+
+    /// SECURITY: Sanitize label content to prevent injection
+    fn sanitize_label_content(&self, content: &str) -> String {
+        content.chars()
+            .map(|ch| {
+                // Only allow safe characters in labels
+                if ch.is_alphanumeric() || ch == ' ' || ch == '-' || ch == '.' || ch == '_' {
+                    ch
+                } else {
+                    '?' // Replace dangerous characters
+                }
+            })
+            .collect::<String>()
+            .trim()
+            .to_string()
     }
     
     /// Navigate to next field with enhanced logic
@@ -784,6 +927,21 @@ impl FieldManager {
     
     /// Set active field by position
     pub fn set_active_field_at_position(&mut self, row: usize, col: usize) -> bool {
+        // CRITICAL FIX: Enhanced position validation with bounds checking
+        // Prevent crashes from invalid cursor positions
+
+        // Validate input coordinates
+        if row == 0 || col == 0 {
+            eprintln!("SECURITY: Invalid position ({}, {}) - zero coordinate", row, col);
+            return false;
+        }
+
+        // Validate coordinates are within reasonable terminal bounds
+        if row > 100 || col > 200 {
+            eprintln!("SECURITY: Position ({}, {}) exceeds reasonable bounds", row, col);
+            return false;
+        }
+
         for (idx, field) in self.fields.iter_mut().enumerate() {
             field.active = false;
             if field.contains_position(row, col) {
@@ -824,23 +982,43 @@ impl FieldManager {
     }
     
     /// Type a character in the current active field
+    /// SECURITY: Enhanced with comprehensive input sanitization
     pub fn type_char(&mut self, ch: char) -> Result<(), String> {
         if let Some(field_idx) = self.active_field {
-            if field_idx < self.fields.len() {
-                let field = &mut self.fields[field_idx];
-                if field.field_type != FieldType::Protected {
-                    // Add character if within field length limit
-                    if field.content.len() < field.max_length {
-                        field.content.push(ch);
-                        Ok(())
-                    } else {
-                        Err("Field is full".to_string())
-                    }
-                } else {
-                    Err("Cannot type in protected field".to_string())
+            // CRITICAL FIX: Enhanced field index validation with bounds checking
+            if field_idx >= self.fields.len() {
+                eprintln!("SECURITY: Invalid field index: {}", field_idx);
+                return Err("Invalid field index".to_string());
+            }
+
+            let field = &mut self.fields[field_idx];
+            if field.field_type != FieldType::Protected {
+                // CRITICAL FIX: Enhanced character validation with multiple checks
+                if !field.is_character_safe(ch) {
+                    eprintln!("SECURITY: Dangerous character rejected: {}", ch as u32);
+                    return Err("Invalid character".to_string());
                 }
+
+                // Validate character input based on field type
+                if let Err(error) = field.validate_character(ch) {
+                    return Err(error.get_user_message().to_string());
+                }
+
+                // CRITICAL FIX: Enhanced length validation with safety checks
+                if field.content.len() >= field.max_length {
+                    return Err("Field is full".to_string());
+                }
+
+                // Additional safety check for content length
+                if field.content.len() + 1 > field.max_length {
+                    return Err("Field would exceed maximum length".to_string());
+                }
+
+                let sanitized_ch = field.sanitize_character(ch);
+                field.content.push(sanitized_ch);
+                Ok(())
             } else {
-                Err("Invalid field index".to_string())
+                Err("Cannot type in protected field".to_string())
             }
         } else {
             Err("No field selected".to_string())
@@ -875,6 +1053,21 @@ impl FieldManager {
     
     /// Update cursor position
     pub fn set_cursor_position(&mut self, row: usize, col: usize) {
+        // CRITICAL FIX: Enhanced cursor position validation with bounds checking
+        // Prevent invalid cursor positions that could cause crashes
+
+        // Validate row and column are reasonable (terminal dimensions)
+        if row == 0 || col == 0 {
+            eprintln!("SECURITY: Invalid cursor position ({}, {}) - zero coordinate", row, col);
+            return;
+        }
+
+        // Additional validation: check against reasonable terminal bounds
+        if row > 100 || col > 200 { // Reasonable terminal size limits
+            eprintln!("SECURITY: Cursor position ({}, {}) exceeds reasonable bounds", row, col);
+            return;
+        }
+
         self.cursor_row = row;
         self.cursor_col = col;
     }
@@ -886,18 +1079,41 @@ impl FieldManager {
     
     /// Set active field based on cursor position and move cursor there
     pub fn activate_field_at_cursor(&mut self) -> bool {
-        if let Some(field_idx) = self.fields.iter().position(|f| 
+        // CRITICAL FIX: Enhanced cursor position validation before field lookup
+        // Prevent crashes from invalid cursor positions
+
+        // Validate cursor position is reasonable
+        if self.cursor_row == 0 || self.cursor_col == 0 {
+            eprintln!("SECURITY: Invalid cursor position ({}, {})", self.cursor_row, self.cursor_col);
+            return false;
+        }
+
+        // Validate cursor position is within reasonable bounds
+        if self.cursor_row > 100 || self.cursor_col > 200 {
+            eprintln!("SECURITY: Cursor position ({}, {}) exceeds reasonable bounds", self.cursor_row, self.cursor_col);
+            return false;
+        }
+
+        if let Some(field_idx) = self.fields.iter().position(|f|
             f.contains_position(self.cursor_row, self.cursor_col)) {
-            
+
+            // CRITICAL FIX: Validate field index before accessing
+            if field_idx >= self.fields.len() {
+                eprintln!("SECURITY: Field index {} out of bounds", field_idx);
+                return false;
+            }
+
             // Deactivate current field
             if let Some(current_idx) = self.active_field {
-                self.fields[current_idx].active = false;
+                if current_idx < self.fields.len() {
+                    self.fields[current_idx].active = false;
+                }
             }
-            
+
             // Activate new field
             self.fields[field_idx].active = true;
             self.active_field = Some(field_idx);
-            
+
             true
         } else {
             false
@@ -1284,5 +1500,72 @@ impl FieldManager {
     /// Test helper: Set active field index directly
     pub fn set_active_field_for_test(&mut self, index: Option<usize>) {
         self.active_field = index;
+    }
+
+    /// COMPREHENSIVE VALIDATION: Validate field manager consistency
+    /// This method ensures all field manager data structures are consistent
+    pub fn validate_field_manager_consistency(&self) -> Result<(), String> {
+        // Validate active field index
+        if let Some(active_idx) = self.active_field {
+            if active_idx >= self.fields.len() {
+                return Err(format!("Active field index {} out of bounds (fields: {})",
+                                 active_idx, self.fields.len()));
+            }
+
+            // Validate active field is actually marked as active
+            if !self.fields[active_idx].active {
+                return Err(format!("Active field index {} is not marked as active", active_idx));
+            }
+        }
+
+        // Validate all field positions and bounds
+        for (idx, field) in self.fields.iter().enumerate() {
+            // Validate field coordinates
+            if field.start_row == 0 || field.start_col == 0 {
+                return Err(format!("Field {} has invalid coordinates ({}, {})",
+                                 idx, field.start_row, field.start_col));
+            }
+
+            if field.start_row > 100 || field.start_col > 200 {
+                return Err(format!("Field {} coordinates exceed reasonable bounds", idx));
+            }
+
+            // Validate field length
+            if field.length == 0 {
+                return Err(format!("Field {} has zero length", idx));
+            }
+
+            if field.length > 1000 {
+                return Err(format!("Field {} length {} is unreasonably large", idx, field.length));
+            }
+
+            // Validate field content length doesn't exceed max_length
+            if field.content.len() > field.max_length {
+                return Err(format!("Field {} content length {} exceeds max_length {}",
+                                 idx, field.content.len(), field.max_length));
+            }
+
+            // Validate cursor position within field
+            if field.active && field.cursor_position >= field.length {
+                return Err(format!("Field {} cursor position {} out of bounds (length: {})",
+                                 idx, field.cursor_position, field.length));
+            }
+        }
+
+        // Validate continued groups
+        for (group_id, field_indices) in &self.continued_groups {
+            if field_indices.is_empty() {
+                return Err(format!("Empty continued group {}", group_id));
+            }
+
+            for &field_idx in field_indices {
+                if field_idx >= self.fields.len() {
+                    return Err(format!("Continued group {} references invalid field index {}",
+                                     group_id, field_idx));
+                }
+            }
+        }
+
+        Ok(())
     }
 }

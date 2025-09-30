@@ -336,27 +336,58 @@ impl Packet {
     }
     
     /// Parse a packet from bytes
+    /// SECURITY: Enhanced with comprehensive bounds checking to prevent buffer overflows
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        // SECURITY: Validate minimum packet size
         if bytes.len() < 4 {
             return None;
         }
-        
+
+        // SECURITY: Prevent oversized packets that could cause memory exhaustion
+        if bytes.len() > 65535 { // 64KB limit for reasonable packet sizes
+            eprintln!("SECURITY: Packet size too large: {} bytes", bytes.len());
+            return None;
+        }
+
         let command_byte = bytes[0];
         let sequence_number = bytes[1];
         let length_bytes = [bytes[2], bytes[3]];
-        let length = u16::from_be_bytes(length_bytes);
-        
-        if length as usize > bytes.len() {
+        let length = u16::from_be_bytes(length_bytes) as usize;
+
+        // SECURITY: Validate length against actual buffer size
+        if length > bytes.len() {
+            eprintln!("SECURITY: Packet length {} exceeds buffer size {}", length, bytes.len());
             return None;
         }
-        
+
+        // SECURITY: Prevent integer overflow in length calculation
+        let expected_total = 4 + length; // header + data
+        if expected_total > bytes.len() {
+            eprintln!("SECURITY: Packet length calculation overflow");
+            return None;
+        }
+
         let flags = if bytes.len() > 4 { bytes[4] } else { 0 };
         let data_start = if bytes.len() > 5 { 5 } else { 4 };
-        let data = bytes[data_start..length as usize].to_vec();
-        
-        if let Some(command) = CommandCode::from_u8(command_byte) {
-            Some(Packet::new_with_flags(command, sequence_number, data, flags))
+
+        // SECURITY: Validate data bounds before slicing
+        if data_start > bytes.len() || length > bytes.len() - data_start {
+            eprintln!("SECURITY: Invalid data bounds in packet parsing");
+            return None;
+        }
+
+        let data = bytes[data_start..data_start + length].to_vec();
+
+        // SECURITY: Validate command byte is within valid range
+        if command_byte >= 0x80 && command_byte <= 0xFF {
+            if let Some(command) = CommandCode::from_u8(command_byte) {
+                Some(Packet::new_with_flags(command, sequence_number, data, flags))
+            } else {
+                eprintln!("SECURITY: Unknown command byte: 0x{:02x}", command_byte);
+                None
+            }
         } else {
+            eprintln!("SECURITY: Invalid command byte range: 0x{:02x}", command_byte);
             None
         }
     }
@@ -690,87 +721,110 @@ impl ProtocolProcessor {
     }
     
     // Process structured fields (SF) according to RFC 2877
+    /// SECURITY: Enhanced with comprehensive bounds checking and input validation
     fn process_structured_field(&mut self, data: &[u8]) -> Result<(), String> {
         // 5250 structured fields have a specific format:
         // [Flags][SFID][Length][Data]
         // Flags (1 byte), SFID (1 byte), Length (2 bytes big-endian), Data
-        
+
+        // SECURITY: Validate minimum length for structured field header
         if data.len() < 4 {
-            return Ok(());
+            return Err("Structured field too short - missing header".to_string());
         }
-        
+
+        // SECURITY: Prevent oversized structured fields that could cause memory exhaustion
+        if data.len() > 65535 { // 64KB limit
+            return Err("Structured field too large - possible DoS attempt".to_string());
+        }
+
         let _flags = data[0];
         let sfid = data[1];
         let length_bytes = [data[2], data[3]]; // Length is in big-endian format
         let length_u16 = u16::from_be_bytes(length_bytes);
 
-        // Bounds check before casting to prevent overflow on 32-bit systems
+        // SECURITY: Bounds check before casting to prevent overflow on 32-bit systems
         let length = if length_u16 > usize::MAX as u16 {
             return Err("Structured field length too large for platform".to_string());
         } else {
             length_u16 as usize
         };
 
-        // Validate length
-        if length > data.len() {
-            return Err("Invalid structured field length".to_string());
+        // SECURITY: Validate length against actual data size
+        if length > data.len() - 4 {
+            return Err("Invalid structured field length - exceeds data bounds".to_string());
         }
-        
-        // Extract data (skip header)
-        let sf_data = if data.len() > 4 { &data[4..length.min(data.len())] } else { &[] };
-        
-        // Process based on SFID
-        if let Some(sf_id) = StructuredFieldID::from_u8(sfid) {
-            match sf_id {
-                StructuredFieldID::CreateChangeExtendedAttribute => {
-                    self.process_create_change_extended_attribute(sf_data)?;
-                },
-                StructuredFieldID::SetExtendedAttributeList => {
-                    self.process_set_extended_attribute_list(sf_data)?;
-                },
-                StructuredFieldID::EraseReset => {
-                    self.screen.clear();
-                    self.cursor = CursorPosition::new();
-                },
-                StructuredFieldID::ReadText => {
-                    // Prepare text for reading
-                },
-                StructuredFieldID::DefineExtendedAttribute => {
-                    // Define extended attribute
-                },
-                StructuredFieldID::DefineNamedLogicalUnit => {
-                    // Define named logical unit
-                },
-                StructuredFieldID::DefinePendingOperations => {
-                    // Define pending operations
-                },
-                StructuredFieldID::DisableCommandRecognition => {
-                    // Disable command recognition
-                },
-                StructuredFieldID::EnableCommandRecognition => {
-                    // Enable command recognition
-                },
-                StructuredFieldID::RequestMinimumTimestampInterval => {
-                    // Request minimum timestamp interval
-                },
-                StructuredFieldID::QueryCommand => {
-                    // Query command
-                },
-                StructuredFieldID::SetReplyMode => {
-                    // Set reply mode
-                },
-                StructuredFieldID::DefineRollDirection => {
-                    // Define roll direction
-                },
-                StructuredFieldID::SetMonitorMode => {
-                    // Set monitor mode
-                },
-                StructuredFieldID::CancelRecovery => {
-                    // Cancel recovery
-                },
+
+        // SECURITY: Validate total structured field size
+        let total_sf_size = 4 + length;
+        if total_sf_size > data.len() {
+            return Err("Structured field extends beyond data bounds".to_string());
+        }
+
+        // SECURITY: Extract data with bounds validation (skip header)
+        let sf_data = if total_sf_size <= data.len() {
+            &data[4..total_sf_size]
+        } else {
+            return Err("Structured field data extends beyond buffer".to_string());
+        };
+
+        // SECURITY: Validate SFID byte range
+        if sfid >= 0x80 && sfid <= 0xFF {
+            if let Some(sf_id) = StructuredFieldID::from_u8(sfid) {
+                match sf_id {
+                    StructuredFieldID::CreateChangeExtendedAttribute => {
+                        self.process_create_change_extended_attribute(sf_data)?;
+                    },
+                    StructuredFieldID::SetExtendedAttributeList => {
+                        self.process_set_extended_attribute_list(sf_data)?;
+                    },
+                    StructuredFieldID::EraseReset => {
+                        self.screen.clear();
+                        self.cursor = CursorPosition::new();
+                    },
+                    StructuredFieldID::ReadText => {
+                        // Prepare text for reading
+                    },
+                    StructuredFieldID::DefineExtendedAttribute => {
+                        // Define extended attribute
+                    },
+                    StructuredFieldID::DefineNamedLogicalUnit => {
+                        // Define named logical unit
+                    },
+                    StructuredFieldID::DefinePendingOperations => {
+                        // Define pending operations
+                    },
+                    StructuredFieldID::DisableCommandRecognition => {
+                        // Disable command recognition
+                    },
+                    StructuredFieldID::EnableCommandRecognition => {
+                        // Enable command recognition
+                    },
+                    StructuredFieldID::RequestMinimumTimestampInterval => {
+                        // Request minimum timestamp interval
+                    },
+                    StructuredFieldID::QueryCommand => {
+                        // Query command
+                    },
+                    StructuredFieldID::SetReplyMode => {
+                        // Set reply mode
+                    },
+                    StructuredFieldID::DefineRollDirection => {
+                        // Define roll direction
+                    },
+                    StructuredFieldID::SetMonitorMode => {
+                        // Set monitor mode
+                    },
+                    StructuredFieldID::CancelRecovery => {
+                        // Cancel recovery
+                    },
+                }
+            } else {
+                eprintln!("SECURITY: Unknown structured field ID: 0x{:02x}", sfid);
             }
+        } else {
+            eprintln!("SECURITY: Invalid structured field ID range: 0x{:02x}", sfid);
         }
-        
+
         Ok(())
     }
     
@@ -952,72 +1006,140 @@ impl ProtocolProcessor {
     }
     
     // Save partial screen state
+    /// SECURITY: Enhanced with comprehensive bounds checking and input validation
     fn save_partial_screen_state(&mut self, data: &[u8]) {
         // Parse partial save data according to 5250 protocol
         // Format: [start_row][start_col][end_row][end_col]
-        if data.len() >= 4 {
-            let start_row = data[0] as usize;
-            let start_col = data[1] as usize;
-            let end_row = data[2] as usize;
-            let end_col = data[3] as usize;
 
-            // Ensure coordinates are within bounds
-            let _start_row = start_row.min(TERMINAL_HEIGHT - 1);
-            let start_col = start_col.min(TERMINAL_WIDTH - 1);
-            let _end_row = (end_row + 1).min(TERMINAL_HEIGHT);
-            let end_col = (end_col + 1).min(TERMINAL_WIDTH);
-
-            // Create a new saved state with current full screen
-            let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
-            for y in 0..TERMINAL_HEIGHT {
-                for x in 0..TERMINAL_WIDTH {
-                    saved_buffer[y][x] = self.screen.buffer[y][x];
-                }
-            }
-
-            // Mark the partial region as saved (we'll track this in the saved state)
-            let mut saved_state = SavedScreenState {
-                buffer: saved_buffer,
-                cursor_x: self.screen.cursor_x,
-                cursor_y: self.screen.cursor_y,
-            };
-
-            // Store region information in the saved state (using cursor position as metadata)
-            saved_state.cursor_x = start_col; // Store start column
-            saved_state.cursor_y = end_col;   // Store end column
-
-            self.saved_state = Some(saved_state);
+        // SECURITY: Validate input data length
+        if data.len() < 4 {
+            eprintln!("SECURITY: Insufficient data for partial screen save");
+            return;
         }
+
+        // SECURITY: Prevent oversized coordinate data
+        if data.len() > 1024 {
+            eprintln!("SECURITY: Partial screen save data too large");
+            return;
+        }
+
+        let start_row = data[0] as usize;
+        let start_col = data[1] as usize;
+        let end_row = data[2] as usize;
+        let end_col = data[3] as usize;
+
+        // SECURITY: Validate coordinates are within terminal bounds
+        if start_row >= TERMINAL_HEIGHT || start_col >= TERMINAL_WIDTH ||
+           end_row >= TERMINAL_HEIGHT || end_col >= TERMINAL_WIDTH {
+            eprintln!("SECURITY: Invalid coordinates for partial screen save: start=({},{}), end=({},{})",
+                     start_row, start_col, end_row, end_col);
+            return;
+        }
+
+        // SECURITY: Validate coordinate ranges make sense (end >= start)
+        if end_row < start_row || end_col < start_col {
+            eprintln!("SECURITY: Invalid coordinate range for partial screen save");
+            return;
+        }
+
+        // SECURITY: Limit region size to prevent memory exhaustion
+        let region_width = end_col - start_col + 1;
+        let region_height = end_row - start_row + 1;
+        if region_width > TERMINAL_WIDTH || region_height > TERMINAL_HEIGHT ||
+           region_width * region_height > 8192 { // Max 8K characters
+            eprintln!("SECURITY: Partial screen save region too large");
+            return;
+        }
+
+        // Create a new saved state with current full screen
+        let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
+        for y in 0..TERMINAL_HEIGHT {
+            for x in 0..TERMINAL_WIDTH {
+                saved_buffer[y][x] = self.screen.buffer[y][x];
+            }
+        }
+
+        // Save cursor position
+        let saved_cursor_x = self.screen.cursor_x;
+        let saved_cursor_y = self.screen.cursor_y;
+
+        // Store the saved state
+        self.saved_state = Some(SavedScreenState {
+            buffer: saved_buffer,
+            cursor_x: saved_cursor_x,
+            cursor_y: saved_cursor_y,
+        });
     }
     
     // Restore partial screen state
+    /// SECURITY: Enhanced with comprehensive bounds checking and input validation
     fn restore_partial_screen_state(&mut self, data: &[u8]) {
         // Parse partial restore data according to 5250 protocol
         // Format: [start_row][start_col][end_row][end_col]
-        if data.len() >= 4 && self.saved_state.is_some() {
-            let start_row = data[0] as usize;
-            let start_col = data[1] as usize;
-            let end_row = data[2] as usize;
-            let end_col = data[3] as usize;
 
-            // Ensure coordinates are within bounds
-            let start_row = start_row.min(TERMINAL_HEIGHT - 1);
-            let start_col = start_col.min(TERMINAL_WIDTH - 1);
-            let end_row = (end_row + 1).min(TERMINAL_HEIGHT);
-            let end_col = (end_col + 1).min(TERMINAL_WIDTH);
+        // SECURITY: Validate input data length
+        if data.len() < 4 {
+            eprintln!("SECURITY: Insufficient data for partial screen restore");
+            return;
+        }
 
-            // Get the saved state
-            if let Some(saved_state) = &self.saved_state {
-                // Restore only the specified region
-                for y in start_row..end_row {
-                    for x in start_col..end_col {
+        // SECURITY: Prevent oversized coordinate data
+        if data.len() > 1024 {
+            eprintln!("SECURITY: Partial screen restore data too large");
+            return;
+        }
+
+        // SECURITY: Check if we have saved state to restore from
+        if self.saved_state.is_none() {
+            eprintln!("SECURITY: No saved state available for partial restore");
+            return;
+        }
+
+        let start_row = data[0] as usize;
+        let start_col = data[1] as usize;
+        let end_row = data[2] as usize;
+        let end_col = data[3] as usize;
+
+        // SECURITY: Validate coordinates are within terminal bounds
+        if start_row >= TERMINAL_HEIGHT || start_col >= TERMINAL_WIDTH ||
+           end_row >= TERMINAL_HEIGHT || end_col >= TERMINAL_WIDTH {
+            eprintln!("SECURITY: Invalid coordinates for partial screen restore: start=({},{}), end=({},{})",
+                     start_row, start_col, end_row, end_col);
+            return;
+        }
+
+        // SECURITY: Validate coordinate ranges make sense (end >= start)
+        if end_row < start_row || end_col < start_col {
+            eprintln!("SECURITY: Invalid coordinate range for partial screen restore");
+            return;
+        }
+
+        // SECURITY: Limit region size to prevent memory exhaustion
+        let region_width = end_col - start_col + 1;
+        let region_height = end_row - start_row + 1;
+        if region_width > TERMINAL_WIDTH || region_height > TERMINAL_HEIGHT ||
+           region_width * region_height > 8192 { // Max 8K characters
+            eprintln!("SECURITY: Partial screen restore region too large");
+            return;
+        }
+
+        // Get the saved state
+        if let Some(saved_state) = &self.saved_state {
+            // SECURITY: Validate loop bounds to prevent buffer overflow
+            let safe_end_row = (end_row + 1).min(TERMINAL_HEIGHT);
+            let safe_end_col = (end_col + 1).min(TERMINAL_WIDTH);
+
+            // Restore only the specified region with bounds checking
+            for y in start_row..safe_end_row {
+                for x in start_col..safe_end_col {
+                    if y < TERMINAL_HEIGHT && x < TERMINAL_WIDTH {
                         self.screen.buffer[y][x] = saved_state.buffer[y][x];
                     }
                 }
-
-                // Mark screen as dirty to trigger redraw
-                self.screen.dirty = true;
             }
+
+            // Mark screen as dirty to trigger redraw
+            self.screen.dirty = true;
         }
     }
     

@@ -581,11 +581,20 @@ impl TelnetNegotiator {
     }
     
     /// Handle subnegotiation (like terminal type or environment variables)
+    /// SECURITY: Comprehensive input validation to prevent command injection
     fn handle_subnegotiation(&mut self, data: &[u8]) {
-        if data.is_empty() {
+        // CRITICAL SECURITY FIX: Validate input bounds and prevent command injection
+        if data.is_empty() || data.len() > 4096 { // Prevent oversized subnegotiations
+            eprintln!("SECURITY: Invalid subnegotiation data length: {}", data.len());
             return;
         }
-        
+
+        // Validate option byte bounds
+        if data[0] >= 250 { // Prevent invalid telnet command bytes
+            eprintln!("SECURITY: Invalid telnet option byte: {}", data[0]);
+            return;
+        }
+
         if let Some(option) = TelnetOption::from_u8(data[0]) {
             match option {
                 TelnetOption::TerminalType => {
@@ -596,27 +605,40 @@ impl TelnetNegotiator {
                             },
                             0 => { // IS terminal type (they're telling us their type)
                                 if data.len() > 2 {
-                                    let terminal_type = String::from_utf8_lossy(&data[2..]);
-                                    println!("Remote terminal type: {}", terminal_type);
+                                    // SECURITY: Validate and sanitize terminal type input
+                                    let terminal_data = &data[2..];
+                                    if self.validate_terminal_type_data(terminal_data) {
+                                        let terminal_type = String::from_utf8_lossy(terminal_data);
+                                        // Sanitize output to prevent log injection
+                                        let sanitized_type = self.sanitize_string_output(&terminal_type);
+                                        println!("Remote terminal type: {}", sanitized_type);
+                                    } else {
+                                        eprintln!("SECURITY: Invalid terminal type data rejected");
+                                    }
                                 }
                             },
                             _ => {
-                                println!("Unknown terminal type subnegotiation command: {}", data[1]);
+                                eprintln!("SECURITY: Unknown terminal type subnegotiation command: {}", data[1]);
                             }
                         }
                     }
                 },
                 TelnetOption::NewEnvironment => {
                     if data.len() >= 2 {
-                        self.handle_environment_negotiation(&data[1..]);
+                        // SECURITY: Validate environment negotiation data
+                        if self.validate_environment_data(&data[1..]) {
+                            self.handle_environment_negotiation(&data[1..]);
+                        } else {
+                            eprintln!("SECURITY: Invalid environment negotiation data rejected");
+                        }
                     }
                 },
                 _ => {
-                    println!("Unhandled subnegotiation for option: {:?}", option);
+                    eprintln!("SECURITY: Unhandled subnegotiation for option: {:?}", option);
                 }
             }
         } else {
-            println!("Unknown subnegotiation option: {}", data[0]);
+            eprintln!("SECURITY: Unknown subnegotiation option: {}", data[0]);
         }
     }
     
@@ -652,7 +674,14 @@ impl TelnetNegotiator {
     }
     
     /// Parse requested environment variables and send responses
+    /// SECURITY: Enhanced with comprehensive input validation
     fn parse_and_send_requested_variables(&mut self, data: &[u8]) {
+        // SECURITY: Validate input data before processing
+        if !self.validate_environment_data(data) {
+            eprintln!("SECURITY: Invalid environment variable request data rejected");
+            return;
+        }
+
         let mut i = 0;
         let mut response = vec![
             TelnetCommand::IAC as u8,
@@ -660,91 +689,121 @@ impl TelnetNegotiator {
             TelnetOption::NewEnvironment as u8,
             2, // IS command
         ];
-        
+
         while i < data.len() {
             if data[i] == 0 { // VAR type
                 i += 1;
                 let var_start = i;
-                
+
                 // Find the end of the variable name
                 while i < data.len() && data[i] != 0 && data[i] != 1 {
                     i += 1;
                 }
-                
+
                 if i > var_start {
                     let var_name = &data[var_start..i];
-                    let var_name_str = String::from_utf8_lossy(var_name);
-                    
-                    // Send the requested variable if we have it
-                    match var_name_str.as_ref() {
-                        "DEVNAME" => {
-                            response.push(0); // VAR type
-                            response.extend_from_slice(b"DEVNAME");
-                            response.push(1); // VALUE type
-                            response.extend_from_slice(b"TN5250R");
-                        },
-                        "KBDTYPE" => {
-                            response.push(0); // VAR type
-                            response.extend_from_slice(b"KBDTYPE");
-                            response.push(1); // VALUE type
-                            response.extend_from_slice(b"USB");
-                        },
-                        "CODEPAGE" => {
-                            response.push(0); // VAR type
-                            response.extend_from_slice(b"CODEPAGE");
-                            response.push(1); // VALUE type
-                            response.extend_from_slice(b"37");
-                        },
-                        "USER" => {
-                            response.push(0); // VAR type
-                            response.extend_from_slice(b"USER");
-                            response.push(1); // VALUE type
-                            response.extend_from_slice(b"GUEST");
-                        },
-                        _ => {
-                            println!("Requested unknown environment variable: {}", var_name_str);
+
+                    // SECURITY: Validate variable name before processing
+                    if self.validate_variable_name(var_name) {
+                        let var_name_str = String::from_utf8_lossy(var_name);
+
+                        // Send the requested variable if we have it (whitelist approach)
+                        match var_name_str.as_ref() {
+                            "DEVNAME" => {
+                                response.push(0); // VAR type
+                                response.extend_from_slice(b"DEVNAME");
+                                response.push(1); // VALUE type
+                                response.extend_from_slice(b"TN5250R");
+                            },
+                            "KBDTYPE" => {
+                                response.push(0); // VAR type
+                                response.extend_from_slice(b"KBDTYPE");
+                                response.push(1); // VALUE type
+                                response.extend_from_slice(b"USB");
+                            },
+                            "CODEPAGE" => {
+                                response.push(0); // VAR type
+                                response.extend_from_slice(b"CODEPAGE");
+                                response.push(1); // VALUE type
+                                response.extend_from_slice(b"37");
+                            },
+                            "USER" => {
+                                response.push(0); // VAR type
+                                response.extend_from_slice(b"USER");
+                                response.push(1); // VALUE type
+                                response.extend_from_slice(b"GUEST");
+                            },
+                            _ => {
+                                let sanitized_name = self.sanitize_string_output(&var_name_str);
+                                eprintln!("SECURITY: Requested unknown environment variable: {}", sanitized_name);
+                            }
                         }
+                    } else {
+                        eprintln!("SECURITY: Invalid environment variable name rejected");
                     }
                 }
             } else {
                 i += 1;
             }
         }
-        
+
         response.extend_from_slice(&[
             TelnetCommand::IAC as u8,
             TelnetCommand::SE as u8,
         ]);
-        
+
         self.output_buffer.extend_from_slice(&response);
     }
     
     /// Parse environment variables sent by the remote side
+    /// SECURITY: Enhanced with comprehensive input validation
     fn parse_received_environment_variables(&mut self, data: &[u8]) {
+        // SECURITY: Validate input data before processing
+        if !self.validate_environment_data(data) {
+            eprintln!("SECURITY: Invalid received environment variable data rejected");
+            return;
+        }
+
         let mut i = 0;
-        
+
         while i < data.len() {
             if data[i] == 0 { // VAR type
                 i += 1;
                 let var_start = i;
-                
+
                 // Find the end of variable name
                 while i < data.len() && data[i] != 1 {
                     i += 1;
                 }
-                
+
                 if i < data.len() && data[i] == 1 { // VALUE type
-                    let var_name = String::from_utf8_lossy(&data[var_start..i]);
-                    i += 1;
-                    let val_start = i;
-                    
-                    // Find the end of value
-                    while i < data.len() && data[i] != 0 && data[i] != 1 {
+                    let var_name_bytes = &data[var_start..i];
+
+                    // SECURITY: Validate variable name
+                    if self.validate_variable_name(var_name_bytes) {
+                        let var_name = String::from_utf8_lossy(var_name_bytes);
                         i += 1;
+                        let val_start = i;
+
+                        // Find the end of value
+                        while i < data.len() && data[i] != 0 && data[i] != 1 {
+                            i += 1;
+                        }
+
+                        let value_bytes = &data[val_start..i];
+
+                        // SECURITY: Validate variable value
+                        if self.validate_variable_value(value_bytes) {
+                            let value = String::from_utf8_lossy(value_bytes);
+                            let sanitized_name = self.sanitize_string_output(&var_name);
+                            let sanitized_value = self.sanitize_string_output(&value);
+                            println!("Received environment variable: {}={}", sanitized_name, sanitized_value);
+                        } else {
+                            eprintln!("SECURITY: Invalid environment variable value rejected");
+                        }
+                    } else {
+                        eprintln!("SECURITY: Invalid environment variable name rejected");
                     }
-                    
-                    let value = String::from_utf8_lossy(&data[val_start..i]);
-                    println!("Received environment variable: {}={}", var_name, value);
                 }
             } else {
                 i += 1;
@@ -788,25 +847,177 @@ impl TelnetNegotiator {
         ]);
     }
     
+    /// SECURITY: Validate terminal type data to prevent command injection
+    fn validate_terminal_type_data(&self, data: &[u8]) -> bool {
+        // Validate length constraints
+        if data.is_empty() || data.len() > 128 {
+            return false;
+        }
+
+        // Only allow printable ASCII characters, digits, hyphens, and common terminal type chars
+        for &byte in data {
+            if !((byte >= 32 && byte <= 126) || // Printable ASCII
+                 byte == b'-' || byte == b'/' || byte == b'.' ||
+                 byte >= b'0' && byte <= b'9') {
+                return false;
+            }
+        }
+
+        // Check for dangerous patterns
+        let data_str = String::from_utf8_lossy(data).to_lowercase();
+        let dangerous_patterns = ["<script", "javascript:", "data:", "vbscript:", ";", "|", "&", "`", "$("];
+        for pattern in &dangerous_patterns {
+            if data_str.contains(pattern) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// SECURITY: Validate environment negotiation data
+    fn validate_environment_data(&self, data: &[u8]) -> bool {
+        // Validate total length
+        if data.is_empty() || data.len() > 2048 {
+            return false;
+        }
+
+        let mut i = 0;
+        while i < data.len() {
+            match data[i] {
+                0 => { // VAR type
+                    i += 1;
+                    let var_start = i;
+
+                    // Find end of variable name
+                    while i < data.len() && data[i] != 0 && data[i] != 1 {
+                        i += 1;
+                    }
+
+                    if i > var_start {
+                        let var_name = &data[var_start..i];
+                        if !self.validate_variable_name(var_name) {
+                            return false;
+                        }
+                    }
+
+                    if i >= data.len() {
+                        return false;
+                    }
+                },
+                1 => { // VALUE type
+                    i += 1;
+                    let val_start = i;
+
+                    // Find end of value
+                    while i < data.len() && data[i] != 0 && data[i] != 1 {
+                        i += 1;
+                    }
+
+                    if i > val_start {
+                        let value = &data[val_start..i];
+                        if !self.validate_variable_value(value) {
+                            return false;
+                        }
+                    }
+                },
+                _ => {
+                    return false; // Invalid type byte
+                }
+            }
+        }
+
+        true
+    }
+
+    /// SECURITY: Validate environment variable names
+    fn validate_variable_name(&self, name: &[u8]) -> bool {
+        // Length constraints
+        if name.is_empty() || name.len() > 64 {
+            return false;
+        }
+
+        // Must start with letter or underscore
+        if let Some(first) = name.first() {
+            if !((*first >= b'A' && *first <= b'Z') ||
+                 (*first >= b'a' && *first <= b'z') ||
+                 *first == b'_') {
+                return false;
+            }
+        }
+
+        // Only allow alphanumeric, underscore, and common variable name chars
+        for &byte in name {
+            if !((byte >= b'A' && byte <= b'Z') ||
+                 (byte >= b'a' && byte <= b'z') ||
+                 (byte >= b'0' && byte <= b'9') ||
+                 byte == b'_') {
+                return false;
+            }
+        }
+
+        // Whitelist of allowed variable names
+        let allowed_vars = ["DEVNAME", "KBDTYPE", "CODEPAGE", "CHARSET", "USER", "IBMRSEED", "IBMSUBSPW"];
+        let name_str = String::from_utf8_lossy(name).to_uppercase();
+        allowed_vars.contains(&name_str.as_str())
+    }
+
+    /// SECURITY: Validate environment variable values
+    fn validate_variable_value(&self, value: &[u8]) -> bool {
+        // Length constraints
+        if value.len() > 256 {
+            return false;
+        }
+
+        // Only allow safe characters
+        for &byte in value {
+            if !((byte >= 32 && byte <= 126) || // Printable ASCII
+                 byte == b'\t' || byte == b'\n' || byte == b'\r') {
+                return false;
+            }
+        }
+
+        // Check for dangerous patterns
+        let value_str = String::from_utf8_lossy(value).to_lowercase();
+        let dangerous_patterns = ["<script", "javascript:", "data:", "vbscript:", ";", "|", "&", "`", "$("];
+        for pattern in &dangerous_patterns {
+            if value_str.contains(pattern) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// SECURITY: Sanitize string output to prevent log injection
+    fn sanitize_string_output(&self, input: &str) -> String {
+        input.chars()
+            .map(|c| if c.is_control() && c != '\n' && c != '\r' && c != '\t' { '?' } else { c })
+            .collect::<String>()
+            .chars()
+            .take(200) // Limit output length
+            .collect()
+    }
+
     /// Send terminal type response
     fn send_terminal_type_response(&mut self) {
         // Support common IBM terminal types like mature implementations
         // IBM-3179-2 for 24x80, IBM-3477-FC for 27x132, IBM-5555-C01 for basic 5250
         let terminal_type = b"IBM-3179-2"; // 24x80 color display terminal
-        
+
         let mut response: Vec<u8> = vec![
             TelnetCommand::IAC as u8,
             TelnetCommand::SB as u8,
             TelnetOption::TerminalType as u8,
             0, // IS command
         ];
-        
+
         response.extend_from_slice(terminal_type);
         response.extend_from_slice(&[
             TelnetCommand::IAC as u8,
             TelnetCommand::SE as u8,
         ]);
-        
+
         self.output_buffer.extend_from_slice(&response);
     }
     

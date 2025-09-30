@@ -180,7 +180,7 @@ impl Display {
     /// Roll/scroll display region
     /// Equivalent to tn5250_display_roll()
         pub fn roll(&mut self, top: u8, bottom: u8, lines: i8) {
-            self.screen.roll(top, bottom, lines);
+            self.screen.roll(top as usize, bottom as usize, lines);
     }
 
     /// Set pending insert cursor position

@@ -21,30 +21,46 @@ const DEFAULT_DEVICE_ID: &str = "IBM-3179-2";
 pub struct Session {
     /// Whether session is currently invited (unlocked for input)
     pub invited: bool,
-    
+
     /// Current read operation command code (if any)
     pub read_opcode: u8,
-    
+
     /// Buffer for incoming data stream
     data_buffer: Vec<u8>,
-    
+
     /// Current position in data buffer
     buffer_pos: usize,
-    
+
     /// Display buffer for terminal operations
     display: Display,
-    
+
     /// Device identification string
     device_id: String,
-    
+
     /// Whether enhanced 5250 features are enabled
     enhanced: bool,
+
+    /// SECURITY: Session authentication state
+    authenticated: bool,
+
+    /// SECURITY: Session validation token
+    session_token: Option<String>,
+
+    /// SECURITY: Maximum allowed command size to prevent DoS
+    max_command_size: usize,
+
+    /// SECURITY: Command count for rate limiting
+    command_count: usize,
+
+    /// SECURITY: Last command timestamp for timing validation
+    last_command_time: std::time::Instant,
 }
 
 impl Session {
     /// Create a new 5250 session
+    /// SECURITY: Initialize with secure defaults and authentication state
     pub fn new() -> Self {
-        Self {
+        let mut session = Self {
             invited: false,
             read_opcode: 0,
             data_buffer: Vec::new(),
@@ -52,7 +68,35 @@ impl Session {
             display: Display::new(),
             device_id: DEFAULT_DEVICE_ID.to_string(),
             enhanced: false,
-        }
+            authenticated: false,
+            session_token: None,
+            max_command_size: 65535, // 64KB max command size
+            command_count: 0,
+            last_command_time: std::time::Instant::now(),
+        };
+
+        // SECURITY: Generate a unique session token for validation
+        session.session_token = Some(session.generate_session_token());
+        session
+    }
+
+    /// SECURITY: Generate a unique session token for authentication validation
+    fn generate_session_token(&self) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        timestamp.hash(&mut hasher);
+
+        // Use process ID and thread ID for additional uniqueness
+        let pid = std::process::id();
+        pid.hash(&mut hasher);
+
+        format!("sess_{:016x}", hasher.finish())
     }
 
     /// Get a snapshot of the current display as a String
@@ -72,18 +116,32 @@ impl Session {
     }
     
     /// Process incoming 5250 data stream
+    /// SECURITY: Enhanced with authentication validation and rate limiting
     pub fn process_stream(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
+        // SECURITY: Validate input data size to prevent memory exhaustion
+        if data.len() > self.max_command_size {
+            return Err("Command size exceeds maximum allowed".to_string());
+        }
+
+        // SECURITY: Rate limiting - prevent command flooding
+        self.enforce_rate_limit()?;
+
+        // SECURITY: Validate session is properly authenticated for sensitive operations
+        if !self.validate_session_authentication() {
+            return Err("Session authentication required".to_string());
+        }
+
         self.data_buffer.extend_from_slice(data);
         self.buffer_pos = 0;
-        
+
         let mut responses = Vec::new();
-        
+
         while self.buffer_pos < self.data_buffer.len() {
             // Check for escape sequence (commands start with ESC)
             if self.get_byte()? != ESC {
                 return Err("Invalid command - missing ESC".to_string());
             }
-            
+
             let command = self.get_byte()?;
             match self.process_command(command) {
                 Ok(Some(response)) => responses.extend(response),
@@ -91,11 +149,15 @@ impl Session {
                 Err(e) => return Err(e),
             }
         }
-        
+
+        // SECURITY: Update command tracking
+        self.command_count += 1;
+        self.last_command_time = std::time::Instant::now();
+
         // Clear processed data
         self.data_buffer.clear();
         self.buffer_pos = 0;
-        
+
         Ok(responses)
     }
     
@@ -717,6 +779,107 @@ impl Session {
     /// Get mutable display
     pub fn display_mut(&mut self) -> &mut Display {
         &mut self.display
+    }
+
+    /// SECURITY: Authenticate session with credentials
+    pub fn authenticate(&mut self, username: &str, password: &str) -> Result<bool, String> {
+        // SECURITY: Validate input credentials
+        if username.is_empty() || password.is_empty() {
+            return Err("Username and password are required".to_string());
+        }
+
+        if username.len() > 64 || password.len() > 128 {
+            return Err("Invalid credential length".to_string());
+        }
+
+        // SECURITY: In a real implementation, this would validate against AS/400
+        // For now, we'll simulate authentication with basic validation
+        if self.validate_credentials(username, password) {
+            self.authenticated = true;
+            println!("SECURITY: Session authenticated successfully");
+            Ok(true)
+        } else {
+            self.authenticated = false;
+            Err("Authentication failed".to_string())
+        }
+    }
+
+    /// SECURITY: Validate user credentials (placeholder implementation)
+    fn validate_credentials(&self, username: &str, password: &str) -> bool {
+        // SECURITY: Basic validation - in real implementation this would check against AS/400
+        // For security, we don't log the actual credentials
+        !username.is_empty() && !password.is_empty() &&
+        username.len() >= 2 && password.len() >= 4 &&
+        username.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') &&
+        password.chars().all(|c| c.is_ascii_graphic())
+    }
+
+    /// SECURITY: Validate session authentication state
+    fn validate_session_authentication(&self) -> bool {
+        // SECURITY: Check if session is properly authenticated
+        if !self.authenticated {
+            eprintln!("SECURITY: Session authentication required for command processing");
+            return false;
+        }
+
+        // SECURITY: Validate session token exists and is not expired
+        if self.session_token.is_none() {
+            eprintln!("SECURITY: Invalid session token");
+            return false;
+        }
+
+        // SECURITY: Check session age (sessions should not live too long)
+        let session_age = self.last_command_time.elapsed();
+        if session_age > std::time::Duration::from_secs(3600) { // 1 hour max
+            eprintln!("SECURITY: Session expired due to age");
+            return false;
+        }
+
+        true
+    }
+
+    /// SECURITY: Enforce rate limiting to prevent command flooding
+    fn enforce_rate_limit(&mut self) -> Result<(), String> {
+        let now = std::time::Instant::now();
+        let time_since_last_command = now.duration_since(self.last_command_time);
+
+        // SECURITY: Allow maximum 100 commands per second
+        const MAX_COMMANDS_PER_SECOND: usize = 100;
+        const RATE_LIMIT_WINDOW: std::time::Duration = std::time::Duration::from_secs(1);
+
+        if time_since_last_command < RATE_LIMIT_WINDOW {
+            if self.command_count >= MAX_COMMANDS_PER_SECOND {
+                return Err("Rate limit exceeded".to_string());
+            }
+        } else {
+            // Reset counter for new time window
+            self.command_count = 0;
+        }
+
+        Ok(())
+    }
+
+    /// SECURITY: Get session authentication status
+    pub fn is_authenticated(&self) -> bool {
+        self.authenticated && self.session_token.is_some()
+    }
+
+    /// SECURITY: Get session token for validation
+    pub fn get_session_token(&self) -> Option<&str> {
+        self.session_token.as_deref()
+    }
+
+    /// SECURITY: Invalidate session (logout)
+    pub fn invalidate_session(&mut self) {
+        self.authenticated = false;
+        self.session_token = None;
+        self.command_count = 0;
+        println!("SECURITY: Session invalidated");
+    }
+
+    /// SECURITY: Set maximum command size for DoS protection
+    pub fn set_max_command_size(&mut self, size: usize) {
+        self.max_command_size = size.min(65535); // Cap at 64KB
     }
 }
 

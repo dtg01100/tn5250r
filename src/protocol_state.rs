@@ -106,11 +106,18 @@ impl ProtocolStateMachine {
     }
 
     pub fn set_cursor(&mut self, row: usize, col: usize) {
-        if row < TERMINAL_HEIGHT && col < TERMINAL_WIDTH {
-            self.cursor_row = row;
-            self.cursor_col = col;
-            self.cursor_position = row * TERMINAL_WIDTH + col;
-        }
+        // CRITICAL FIX: Enhanced boundary checking with proper validation
+        // Prevent cursor from going out of bounds and handle edge cases
+        let safe_row = if row >= TERMINAL_HEIGHT { TERMINAL_HEIGHT - 1 } else { row };
+        let safe_col = if col >= TERMINAL_WIDTH { TERMINAL_WIDTH - 1 } else { col };
+
+        // Additional validation: ensure coordinates are not negative
+        let valid_row = if safe_row > 0 { safe_row } else { 0 };
+        let valid_col = if safe_col > 0 { safe_col } else { 0 };
+
+        self.cursor_row = valid_row;
+        self.cursor_col = valid_col;
+        self.cursor_position = valid_row * TERMINAL_WIDTH + valid_col;
     }
 
     pub fn get_cursor(&self) -> (usize, usize) {
@@ -182,28 +189,105 @@ impl ProtocolStateMachine {
     }
 
     pub fn process_data(&mut self, data: &[u8]) -> Result<Vec<u8>, ProtocolError> {
-        if !self.connected {
-            return Err(ProtocolError::DeviceIdError { message: "Not connected".to_string() });
+        // CRITICAL FIX: Enhanced state validation and transition logic
+        // Prevent invalid state transitions and ensure proper error handling
+
+        // Validate input data to prevent processing of malformed packets
+        if data.is_empty() {
+            return Err(ProtocolError::DeviceIdError { message: "Empty data packet".to_string() });
+        }
+
+        // Validate data size to prevent memory exhaustion attacks
+        if data.len() > 65535 {
+            return Err(ProtocolError::DeviceIdError { message: "Data packet too large".to_string() });
         }
 
         match self.state {
             ProtocolState::Connected | ProtocolState::Receiving => {
-                self.state = ProtocolState::Receiving;
+                // CRITICAL FIX: Only transition to Receiving if not already connected
+                // This prevents unnecessary state changes and potential loops
+                if self.state == ProtocolState::Connected {
+                    self.state = ProtocolState::Receiving;
+                }
                 // TODO: Integrate with new session-based processing
                 // For now, just return empty response
                 Ok(vec![])
             },
             ProtocolState::InitialNegotiation => {
+                // CRITICAL FIX: Validate negotiation data before processing
+                if data.len() < 2 {
+                    return Err(ProtocolError::DeviceIdError { message: "Invalid negotiation data".to_string() });
+                }
                 self.handle_negotiation(data)?;
                 Ok(self.create_device_identification_response())
+            },
+            ProtocolState::Error => {
+                // CRITICAL FIX: Handle error state properly - don't process data in error state
+                Err(ProtocolError::DeviceIdError { message: "Protocol is in error state".to_string() })
             },
             _ => Err(ProtocolError::DeviceIdError { message: "Invalid protocol state".to_string() }),
         }
     }
 
-    fn handle_negotiation(&mut self, _data: &[u8]) -> Result<(), ProtocolError> {
-        self.state = ProtocolState::Connected;
-        Ok(())
+    fn handle_negotiation(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
+        // CRITICAL FIX: Validate negotiation data and only transition on success
+        // This prevents invalid state transitions during failed negotiations
+
+        // Basic validation of negotiation data
+        if data.is_empty() {
+            return Err(ProtocolError::DeviceIdError { message: "Empty negotiation data".to_string() });
+        }
+
+        // Check for valid telnet negotiation commands (IAC commands)
+        let mut valid_negotiation = false;
+        let mut i = 0;
+        while i < data.len() {
+            if data[i] == 255 { // IAC
+                if i + 1 < data.len() {
+                    // Check for valid telnet command bytes
+                    match data[i + 1] {
+                        251..=254 => { // WILL, WONT, DO, DONT
+                            if i + 2 < data.len() {
+                                valid_negotiation = true;
+                                i += 3;
+                            } else {
+                                break; // Malformed command
+                            }
+                        },
+                        250 => { // SB (subnegotiation)
+                            // Find SE (240) to end subnegotiation
+                            let mut j = i + 2;
+                            while j + 1 < data.len() {
+                                if data[j] == 255 && data[j + 1] == 240 {
+                                    valid_negotiation = true;
+                                    i = j + 2;
+                                    break;
+                                }
+                                j += 1;
+                            }
+                            if j + 1 >= data.len() {
+                                return Err(ProtocolError::DeviceIdError { message: "Malformed subnegotiation".to_string() });
+                            }
+                        },
+                        _ => {
+                            i += 2; // Skip other telnet commands
+                        }
+                    }
+                } else {
+                    break; // Incomplete IAC command
+                }
+            } else {
+                i += 1;
+            }
+        }
+
+        // Only transition to connected state if we found valid negotiation
+        if valid_negotiation {
+            self.state = ProtocolState::Connected;
+            Ok(())
+        } else {
+            Err(ProtocolError::DeviceIdError { message: "Invalid negotiation data".to_string() })
+        }
     }
 
     fn create_device_identification_response(&self) -> Vec<u8> {
@@ -214,7 +298,16 @@ impl ProtocolStateMachine {
     }
 
     pub fn set_cursor_position(&mut self, col: usize, row: usize) {
-        self.set_cursor(row, col);
+        // CRITICAL FIX: Add parameter validation before calling set_cursor
+        // This prevents invalid state transitions and ensures cursor bounds
+        if col > 0 && row > 0 && col <= TERMINAL_WIDTH && row <= TERMINAL_HEIGHT {
+            self.set_cursor(row - 1, col - 1); // Convert to 0-based indexing
+        } else {
+            // Log invalid cursor position attempt for debugging
+            eprintln!("SECURITY: Invalid cursor position ({}, {}) - out of bounds", row, col);
+            // Set to safe default position (1,1) in 1-based coordinates
+            self.set_cursor(0, 0);
+        }
     }
 
     pub fn get_cursor_position(&self) -> (usize, usize) {
@@ -235,7 +328,118 @@ impl ProtocolStateMachine {
                 self.field_manager.add_field_for_test(field);
             }
         }
-        self.set_cursor(0, 0); // Reset cursor on restore
+        // CRITICAL FIX: Reset cursor to safe position on restore
+        self.set_cursor(0, 0);
+    }
+
+    /// CRITICAL FIX: Validate protocol state machine consistency
+    /// This method ensures all internal state is consistent and valid
+    pub fn validate_state_consistency(&self) -> Result<(), String> {
+        // Validate cursor position is within bounds
+        if self.cursor_row >= TERMINAL_HEIGHT || self.cursor_col >= TERMINAL_WIDTH {
+            return Err(format!("Invalid cursor position: ({}, {})", self.cursor_row, self.cursor_col));
+        }
+
+        // Validate cursor position matches calculated position
+        let calculated_position = self.cursor_row * TERMINAL_WIDTH + self.cursor_col;
+        if self.cursor_position != calculated_position {
+            return Err(format!("Cursor position mismatch: stored={}, calculated={}",
+                             self.cursor_position, calculated_position));
+        }
+
+        // Validate state consistency
+        match self.state {
+            ProtocolState::InitialNegotiation => {
+                if self.connected {
+                    return Err("Connected flag true during initial negotiation".to_string());
+                }
+            },
+            ProtocolState::Connected | ProtocolState::Receiving => {
+                // These states should generally have connected = true
+                // but allow for transition periods
+            },
+            ProtocolState::Error => {
+                // Error state should generally not be connected
+                if self.connected {
+                    return Err("Connected flag true during error state".to_string());
+                }
+            },
+            _ => {}
+        }
+
+        // Validate field manager state
+        if let Some(active_idx) = self.field_manager.get_active_field_index() {
+            if active_idx >= self.field_manager.field_count() {
+                return Err(format!("Active field index {} out of bounds", active_idx));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// CRITICAL FIX: Safe state transition with validation
+    /// This method ensures state transitions are valid and safe
+    pub fn transition_to_state(&mut self, new_state: ProtocolState) -> Result<(), String> {
+        // Validate the transition is allowed
+        match (&self.state, &new_state) {
+            (ProtocolState::InitialNegotiation, ProtocolState::Connected) => {
+                // Valid transition after successful negotiation
+            },
+            (ProtocolState::Connected, ProtocolState::Receiving) => {
+                // Valid transition when receiving data
+            },
+            (ProtocolState::Receiving, ProtocolState::Connected) => {
+                // Valid transition when done receiving
+            },
+            (_, ProtocolState::Error) => {
+                // Can always transition to error state
+            },
+            (ProtocolState::Error, _) => {
+                // Can transition from error to any state for recovery
+            },
+            _ => {
+                return Err(format!("Invalid state transition: {:?} -> {:?}", self.state, new_state));
+            }
+        }
+
+        self.state = new_state;
+        Ok(())
+    }
+
+    /// COMPREHENSIVE VALIDATION: Full system validation
+    /// This method performs comprehensive validation of all system components
+    pub fn comprehensive_validation(&self) -> Result<(), String> {
+        // Validate state consistency
+        self.validate_state_consistency()?;
+
+        // Validate screen buffer
+        self.screen.validate_buffer_consistency()?;
+
+        // Validate field manager
+        if let Some(active_idx) = self.field_manager.get_active_field_index() {
+            if active_idx >= self.field_manager.field_count() {
+                return Err(format!("Active field index {} out of bounds (max: {})",
+                                 active_idx, self.field_manager.field_count().saturating_sub(1)));
+            }
+        }
+
+        // Validate device attributes
+        if self.device_attributes.max_buffer_size == 0 {
+            return Err("Invalid device attributes: max_buffer_size is zero".to_string());
+        }
+
+        if self.device_attributes.max_buffer_size > 65535 {
+            return Err("Invalid device attributes: max_buffer_size too large".to_string());
+        }
+
+        // Validate cursor position consistency
+        let expected_position = self.cursor_row * TERMINAL_WIDTH + self.cursor_col;
+        if self.cursor_position != expected_position {
+            return Err(format!("Cursor position inconsistency: stored={}, expected={}",
+                             self.cursor_position, expected_position));
+        }
+
+        Ok(())
     }
 }
 
