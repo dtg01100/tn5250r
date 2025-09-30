@@ -48,6 +48,9 @@ pub struct TN5250RApp {
     show_monitoring_dashboard: bool,  // Show monitoring dashboard
     monitoring_reports: HashMap<String, String>,  // Cached monitoring reports
     show_advanced_settings: bool,  // Show advanced settings dialog
+    show_settings_dialog: bool,   // Show settings dialog
+    selected_screen_size: crate::lib3270::display::ScreenSize,  // Selected screen size
+    selected_protocol_mode: network::ProtocolMode,  // Selected protocol mode
 }
 
 impl TN5250RApp {
@@ -136,7 +139,7 @@ impl TN5250RApp {
             connected,
             host,
             port,
-            config: shared_config,
+            config: shared_config.clone(),
             input_buffer: String::new(),
             function_keys_visible: true,
             terminal_content,
@@ -149,6 +152,26 @@ impl TN5250RApp {
             show_monitoring_dashboard: false,
             monitoring_reports: HashMap::new(),
             show_advanced_settings: false,
+            show_settings_dialog: false,
+            selected_screen_size: {
+                let cfg = shared_config.lock().unwrap();
+                match cfg.get_string_property("terminal.screenSize").as_deref() {
+                    Some("Model2") => crate::lib3270::display::ScreenSize::Model2,
+                    Some("Model3") => crate::lib3270::display::ScreenSize::Model3,
+                    Some("Model4") => crate::lib3270::display::ScreenSize::Model4,
+                    Some("Model5") => crate::lib3270::display::ScreenSize::Model5,
+                    _ => crate::lib3270::display::ScreenSize::Model2,  // Default to 24x80
+                }
+            },
+            selected_protocol_mode: {
+                let cfg = shared_config.lock().unwrap();
+                match cfg.get_string_property("terminal.protocolMode").as_deref() {
+                    Some("TN5250") => network::ProtocolMode::TN5250,
+                    Some("TN3270") => network::ProtocolMode::TN3270,
+                    Some("AutoDetect") => network::ProtocolMode::AutoDetect,
+                    _ => network::ProtocolMode::TN5250,  // Default to TN5250
+                }
+            }
         }
     }
     
@@ -877,6 +900,151 @@ impl TN5250RApp {
                 ui.small("Note: These settings will be saved automatically when changed.");
             });
     }
+
+    fn show_settings_dialog(&mut self, ctx: &egui::Context) {
+        egui::Window::new("Terminal Settings")
+            .collapsible(false)
+            .resizable(true)
+            .default_size([450.0, 350.0])
+            .show(ctx, |ui| {
+                ui.heading("Terminal Configuration");
+                ui.separator();
+
+                egui::Grid::new("terminal_settings_grid")
+                    .num_columns(2)
+                    .spacing([40.0, 12.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        // Protocol Mode Selection
+                        ui.label("Protocol Mode:");
+                        ui.vertical(|ui| {
+                            let mut changed = false;
+                            
+                            if ui.radio_value(&mut self.selected_protocol_mode, network::ProtocolMode::TN5250, "TN5250 (IBM AS/400)")
+                                .on_hover_text("Standard IBM AS/400 terminal protocol").changed() {
+                                changed = true;
+                            }
+                            
+                            if ui.radio_value(&mut self.selected_protocol_mode, network::ProtocolMode::TN3270, "TN3270 (IBM Mainframe)")
+                                .on_hover_text("IBM mainframe terminal protocol").changed() {
+                                changed = true;
+                            }
+                            
+                            if ui.radio_value(&mut self.selected_protocol_mode, network::ProtocolMode::AutoDetect, "Auto-Detect")
+                                .on_hover_text("Automatically detect protocol based on server response").changed() {
+                                changed = true;
+                            }
+
+                            if changed {
+                                // Save protocol mode to config
+                                if let Ok(mut cfg) = self.config.lock() {
+                                    let mode_str = match self.selected_protocol_mode {
+                                        network::ProtocolMode::TN5250 => "TN5250",
+                                        network::ProtocolMode::TN3270 => "TN3270",
+                                        network::ProtocolMode::AutoDetect => "AutoDetect",
+                                        _ => "TN5250", // Default fallback
+                                    };
+                                    cfg.set_property("terminal.protocolMode", mode_str);
+                                }
+                                let _ = config::save_shared_config(&self.config);
+                            }
+                        });
+                        ui.end_row();
+
+                        // Screen Size Selection
+                        ui.label("Screen Size:");
+                        ui.vertical(|ui| {
+                            let mut changed = false;
+                            
+                            if ui.radio_value(&mut self.selected_screen_size, crate::lib3270::display::ScreenSize::Model2, "Model 2 (24×80)")
+                                .on_hover_text("Standard 24 rows × 80 columns (1920 characters)").changed() {
+                                changed = true;
+                            }
+                            
+                            if ui.radio_value(&mut self.selected_screen_size, crate::lib3270::display::ScreenSize::Model3, "Model 3 (32×80)")
+                                .on_hover_text("Extended 32 rows × 80 columns (2560 characters)").changed() {
+                                changed = true;
+                            }
+                            
+                            if ui.radio_value(&mut self.selected_screen_size, crate::lib3270::display::ScreenSize::Model4, "Model 4 (43×80)")
+                                .on_hover_text("Large 43 rows × 80 columns (3440 characters)").changed() {
+                                changed = true;
+                            }
+                            
+                            if ui.radio_value(&mut self.selected_screen_size, crate::lib3270::display::ScreenSize::Model5, "Model 5 (27×132)")
+                                .on_hover_text("Wide 27 rows × 132 columns (3564 characters)").changed() {
+                                changed = true;
+                            }
+
+                            if changed {
+                                // Save screen size to config
+                                if let Ok(mut cfg) = self.config.lock() {
+                                    let size_str = match self.selected_screen_size {
+                                        crate::lib3270::display::ScreenSize::Model2 => "Model2",
+                                        crate::lib3270::display::ScreenSize::Model3 => "Model3",
+                                        crate::lib3270::display::ScreenSize::Model4 => "Model4",
+                                        crate::lib3270::display::ScreenSize::Model5 => "Model5",
+                                    };
+                                    cfg.set_property("terminal.screenSize", size_str);
+                                    
+                                    // Also save the dimensions for easy access
+                                    cfg.set_property("terminal.rows", self.selected_screen_size.rows() as i64);
+                                    cfg.set_property("terminal.cols", self.selected_screen_size.cols() as i64);
+                                }
+                                let _ = config::save_shared_config(&self.config);
+                            }
+                        });
+                        ui.end_row();
+
+                        // Display current selection info
+                        ui.label("Current Configuration:");
+                        ui.vertical(|ui| {
+                            let protocol_name = match self.selected_protocol_mode {
+                                network::ProtocolMode::TN5250 => "TN5250 (IBM AS/400)",
+                                network::ProtocolMode::TN3270 => "TN3270 (IBM Mainframe)",
+                                network::ProtocolMode::AutoDetect => "Auto-Detect",
+                                network::ProtocolMode::NVT => "NVT (Plain Text)",
+                            };
+                            ui.label(format!("Protocol: {}", protocol_name));
+                            
+                            let dimensions = format!("{}×{} ({} chars)", 
+                                self.selected_screen_size.rows(), 
+                                self.selected_screen_size.cols(),
+                                self.selected_screen_size.buffer_size()
+                            );
+                            ui.label(format!("Screen: {}", dimensions));
+                            
+                            ui.colored_label(egui::Color32::from_rgb(150, 150, 150), 
+                                "Note: Changes take effect on next connection");
+                        });
+                        ui.end_row();
+                    });
+
+                ui.separator();
+
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        self.show_settings_dialog = false;
+                    }
+                    
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Reset to Defaults").clicked() {
+                            self.selected_screen_size = crate::lib3270::display::ScreenSize::Model2;
+                            self.selected_protocol_mode = network::ProtocolMode::TN5250;
+                            
+                            // Save defaults to config
+                            if let Ok(mut cfg) = self.config.lock() {
+                                cfg.set_property("terminal.screenSize", "Model2");
+                                cfg.set_property("terminal.protocolMode", "TN5250");
+                                cfg.set_property("terminal.rows", 24i64);
+                                cfg.set_property("terminal.cols", 80i64);
+                            }
+                            let _ = config::save_shared_config(&self.config);
+                        }
+                    });
+                });
+            });
+    }
 }
 
 impl eframe::App for TN5250RApp {
@@ -997,13 +1165,14 @@ impl eframe::App for TN5250RApp {
                 });
                 
                 ui.menu_button("Settings", |ui| {
+                    if ui.button("Terminal Settings").clicked() {
+                        self.show_settings_dialog = true;
+                        ui.close_menu();
+                    }
                     if ui.button("Advanced Connection Settings").clicked() {
                         self.show_advanced_settings = true;
                         ui.close_menu();
                     }
-                    ui.separator();
-                    ui.label("Terminal Settings");
-                    // Add more settings here in the future
                 });
             });
         });
@@ -1195,6 +1364,11 @@ impl eframe::App for TN5250RApp {
         // Show advanced settings dialog if requested
         if self.show_advanced_settings {
             self.show_advanced_settings_dialog(ctx);
+        }
+
+        // Show terminal settings dialog if requested
+        if self.show_settings_dialog {
+            self.show_settings_dialog(ctx);
         }
 
         ctx.request_repaint();
