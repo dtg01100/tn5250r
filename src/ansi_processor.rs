@@ -274,7 +274,8 @@ impl AnsiProcessor {
                 attribute: self.current_attributes,
             };
             
-            screen.set_char_at(self.cursor_row - 1, self.cursor_col - 1, terminal_char);
+            // FIX: set_char_at expects (x=col, y=row), not (row, col)
+            screen.set_char_at(self.cursor_col - 1, self.cursor_row - 1, terminal_char);
             
             // Advance cursor
             self.cursor_col += 1;
@@ -289,13 +290,13 @@ impl AnsiProcessor {
     fn clear_from_cursor_to_end(&self, screen: &mut TerminalScreen) {
         // Clear from current position to end of current line
         for col in (self.cursor_col - 1)..80 {
-            screen.set_char_at(self.cursor_row - 1, col, TerminalChar::default());
+            screen.set_char_at(col, self.cursor_row - 1, TerminalChar::default());
         }
         
         // Clear all lines below current
         for row in self.cursor_row..24 {
             for col in 0..80 {
-                screen.set_char_at(row, col, TerminalChar::default());
+                screen.set_char_at(col, row, TerminalChar::default());
             }
         }
     }
@@ -305,34 +306,34 @@ impl AnsiProcessor {
         // Clear all lines above current
         for row in 0..(self.cursor_row - 1) {
             for col in 0..80 {
-                screen.set_char_at(row, col, TerminalChar::default());
+                screen.set_char_at(col, row, TerminalChar::default());
             }
         }
         
         // Clear from start of current line to cursor
         for col in 0..self.cursor_col {
-            screen.set_char_at(self.cursor_row - 1, col, TerminalChar::default());
+            screen.set_char_at(col, self.cursor_row - 1, TerminalChar::default());
         }
     }
     
     /// Clear from cursor to end of current line
     fn clear_line_from_cursor(&self, screen: &mut TerminalScreen) {
         for col in (self.cursor_col - 1)..80 {
-            screen.set_char_at(self.cursor_row - 1, col, TerminalChar::default());
+            screen.set_char_at(col, self.cursor_row - 1, TerminalChar::default());
         }
     }
     
     /// Clear from start of line to cursor
     fn clear_line_to_cursor(&self, screen: &mut TerminalScreen) {
         for col in 0..self.cursor_col {
-            screen.set_char_at(self.cursor_row - 1, col, TerminalChar::default());
+            screen.set_char_at(col, self.cursor_row - 1, TerminalChar::default());
         }
     }
     
     /// Clear entire current line
     fn clear_entire_line(&self, screen: &mut TerminalScreen) {
         for col in 0..80 {
-            screen.set_char_at(self.cursor_row - 1, col, TerminalChar::default());
+            screen.set_char_at(col, self.cursor_row - 1, TerminalChar::default());
         }
     }
     

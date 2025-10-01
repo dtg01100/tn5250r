@@ -35,6 +35,8 @@ pub struct TN5250RApp {
     connected: bool,
     host: String,
     port: u16,
+    username: String,  // AS/400 username for authentication
+    password: String,  // AS/400 password for authentication
     config: config::SharedSessionConfig,
     input_buffer: String,
     function_keys_visible: bool,
@@ -51,14 +53,27 @@ pub struct TN5250RApp {
     show_settings_dialog: bool,   // Show settings dialog
     selected_screen_size: crate::lib3270::display::ScreenSize,  // Selected screen size
     selected_protocol_mode: network::ProtocolMode,  // Selected protocol mode
+    debug_mode: bool,  // Enable debug output and data dumps
+    show_debug_panel: bool,  // Show debug information panel
+    raw_buffer_dump: String,  // Raw hex dump of last received data
+    last_data_size: usize,  // Size of last data packet
 }
 
 impl TN5250RApp {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false, None)
+        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false, None, None, None, false)
     }
     
-    fn new_with_server(_cc: &eframe::CreationContext<'_>, server: String, port: u16, auto_connect: bool, cli_ssl_override: Option<bool>) -> Self {
+    fn new_with_server(
+        _cc: &eframe::CreationContext<'_>, 
+        server: String, 
+        port: u16, 
+        auto_connect: bool, 
+        cli_ssl_override: Option<bool>,
+        cli_username: Option<String>,
+        cli_password: Option<String>,
+        debug_mode: bool,
+    ) -> Self {
         // Load persistent configuration
         let shared_config = config::load_shared_config("default".to_string());
 
@@ -104,8 +119,18 @@ impl TN5250RApp {
         let connection_string = format!("{}:{}", host, port);
         let mut controller = controller::AsyncTerminalController::new();
 
+        // Configure credentials from CLI if provided
+        let username = cli_username.unwrap_or_default();
+        let password = cli_password.unwrap_or_default();
+        
         // If auto-connect is requested, initiate connection
         let connected = if auto_connect {
+            // Set credentials before connecting
+            if !username.is_empty() && !password.is_empty() {
+                controller.set_credentials(&username, &password);
+                println!("CLI: Configured credentials for user: {}", username);
+            }
+            
             // Read TLS preference from config
             let use_tls = {
                 let cfg = shared_config.lock().unwrap();
@@ -153,6 +178,12 @@ impl TN5250RApp {
             monitoring_reports: HashMap::new(),
             show_advanced_settings: false,
             show_settings_dialog: false,
+            username,  // Use CLI credentials or empty
+            password,  // Use CLI credentials or empty
+            debug_mode,  // From CLI flag
+            show_debug_panel: debug_mode,  // Auto-show if debug enabled
+            raw_buffer_dump: String::new(),
+            last_data_size: 0,
             selected_screen_size: {
                 let cfg = shared_config.lock().unwrap();
                 match cfg.get_string_property("terminal.screenSize").as_deref() {
@@ -193,6 +224,16 @@ impl TN5250RApp {
         let (host, port) = self.parse_connection_string();
         self.host = host;
         self.port = port;
+        
+        // Configure credentials before connecting (RFC 4777 authentication)
+        if !self.username.is_empty() && !self.password.is_empty() {
+            self.controller.set_credentials(&self.username, &self.password);
+            println!("GUI: Configured credentials for user: {}", self.username);
+        } else {
+            // Clear credentials if fields are empty
+            self.controller.clear_credentials();
+        }
+        
         // Use non-blocking connect to avoid UI hang
         self.connecting = true;
         self.terminal_content = format!("Connecting to {}:{}...\n", self.host, self.port);
@@ -840,6 +881,96 @@ impl TN5250RApp {
         println!("MONITORING: Full system report generated and cached");
     }
 
+    /// Show debug information panel for troubleshooting
+    fn show_debug_panel_dialog(&mut self, ctx: &egui::Context) {
+        egui::Window::new("🐛 Debug Information")
+            .collapsible(true)
+            .resizable(true)
+            .default_size([700.0, 500.0])
+            .show(ctx, |ui| {
+                ui.heading("Terminal Emulator Debug Panel");
+                ui.separator();
+
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    ui.collapsing("Connection State", |ui| {
+                        ui.label(format!("Connected: {}", self.connected));
+                        ui.label(format!("Connecting: {}", self.connecting));
+                        ui.label(format!("Host: {}:{}", self.host, self.port));
+                        ui.label(format!("Username: {}", if self.username.is_empty() { "<none>" } else { &self.username }));
+                        ui.label(format!("Password: {}", if self.password.is_empty() { "<none>" } else { "****" }));
+                        if let Some(time) = self.connection_time {
+                            ui.label(format!("Connection duration: {:.2}s", time.elapsed().as_secs_f32()));
+                        }
+                    });
+
+                    ui.separator();
+
+                    ui.collapsing("Terminal Content", |ui| {
+                        ui.label(format!("Content length: {} chars", self.terminal_content.len()));
+                        ui.label(format!("Content lines: {}", self.terminal_content.lines().count()));
+                        ui.separator();
+                        ui.label("First 500 chars:");
+                        ui.code(self.terminal_content.chars().take(500).collect::<String>());
+                        ui.separator();
+                        ui.label("Last 200 chars:");
+                        let skip = self.terminal_content.len().saturating_sub(200);
+                        ui.code(self.terminal_content.chars().skip(skip).collect::<String>());
+                    });
+
+                    ui.separator();
+
+                    ui.collapsing("Field Information", |ui| {
+                        ui.label(format!("Number of fields: {}", self.fields_info.len()));
+                        for (i, field) in self.fields_info.iter().enumerate() {
+                            ui.group(|ui| {
+                                ui.label(format!("Field {}:", i + 1));
+                                ui.label(format!("  Label: {}", field.label));
+                                ui.label(format!("  Content: '{}'", field.content));
+                                ui.label(format!("  Active: {}", field.is_active));
+                                ui.label(format!("  Highlighted: {}", field.highlighted));
+                                if let Some(error) = &field.error_state {
+                                    ui.colored_label(egui::Color32::RED, format!("  Error: {}", error.get_user_message()));
+                                }
+                            });
+                        }
+                    });
+
+                    ui.separator();
+
+                    ui.collapsing("Raw Data Dump", |ui| {
+                        ui.label(format!("Last packet size: {} bytes", self.last_data_size));
+                        if !self.raw_buffer_dump.is_empty() {
+                            ui.separator();
+                            ui.label("Hex dump of last received data:");
+                            ui.code(&self.raw_buffer_dump);
+                        } else {
+                            ui.label("No data captured yet");
+                        }
+                    });
+
+                    ui.separator();
+
+                    ui.collapsing("Controller State", |ui| {
+                        if let Ok(content) = self.controller.get_terminal_content() {
+                            ui.label(format!("Controller content length: {} chars", content.len()));
+                            ui.separator();
+                            ui.label("Raw controller content (first 1000 bytes as hex):");
+                            let hex: String = content.bytes().take(1000)
+                                .map(|b| format!("{:02x} ", b))
+                                .collect();
+                            ui.code(hex);
+                        }
+                    });
+
+                    ui.separator();
+
+                    if ui.button("Close Debug Panel").clicked() {
+                        self.show_debug_panel = false;
+                    }
+                });
+            });
+    }
+
     /// Show the advanced settings dialog
     fn show_advanced_settings_dialog(&mut self, ctx: &egui::Context) {
         egui::Window::new("Advanced Connection Settings")
@@ -1225,10 +1356,24 @@ impl eframe::App for TN5250RApp {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if self.debug_mode {
+                        if ui.button("🐛 Debug").on_hover_text("Show debug information panel").clicked() {
+                            self.show_debug_panel = !self.show_debug_panel;
+                        }
+                    }
                     if ui.button("⚙ Advanced").on_hover_text("Advanced connection settings").clicked() {
                         self.show_advanced_settings = true;
                     }
                 });
+            });
+            
+            // Username and Password fields for AS/400 authentication (RFC 4777)
+            ui.horizontal(|ui| {
+                ui.label("Username:");
+                ui.text_edit_singleline(&mut self.username);
+                
+                ui.label("Password:");
+                ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
             });
 
             ui.separator();
@@ -1368,6 +1513,11 @@ impl eframe::App for TN5250RApp {
         // Process incoming data and update terminal content
         self.update_terminal_content();
 
+        // Show debug panel if requested
+        if self.show_debug_panel {
+            self.show_debug_panel_dialog(ctx);
+        }
+
         // Show advanced settings dialog if requested
         if self.show_advanced_settings {
             self.show_advanced_settings_dialog(ctx);
@@ -1397,6 +1547,10 @@ fn main() {
     let mut cli_ssl_override: Option<bool> = None;
     let mut cli_insecure: Option<bool> = None;
     let mut cli_ca_bundle: Option<String> = None;
+    let mut cli_username: Option<String> = None;
+    let mut cli_password: Option<String> = None;
+    let mut debug_mode = false;
+    let mut verbose_mode = false;
     
     // Parse --server and --port options
     let mut i = 1;
@@ -1439,6 +1593,32 @@ fn main() {
                     std::process::exit(1);
                 }
             }
+            "--user" | "-u" => {
+                if i + 1 < args.len() {
+                    cli_username = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --user requires a username");
+                    std::process::exit(1);
+                }
+            }
+            "--password" | "--pass" => {
+                if i + 1 < args.len() {
+                    cli_password = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --password requires a password");
+                    std::process::exit(1);
+                }
+            }
+            "--debug" | "-d" => {
+                debug_mode = true;
+                println!("DEBUG MODE ENABLED: Verbose logging and data dumps active");
+            }
+            "--verbose" | "-v" => {
+                verbose_mode = true;
+                println!("VERBOSE MODE: Detailed connection logs active");
+            }
             "--help" | "-h" => {
                 println!("TN5250R - IBM AS/400 Terminal Emulator");
                 println!();
@@ -1447,10 +1627,17 @@ fn main() {
                 println!("Options:");
                 println!("  --server <server> or -s <server>    Set the server to connect to and auto-connect");
                 println!("  --port <port> or -p <port>          Set the port to connect to (default: 23)");
+                println!("  --user <username> or -u <username>  AS/400 username for authentication (RFC 4777)");
+                println!("  --password <password> or --pass     AS/400 password for authentication (RFC 4777)");
                 println!("  --ssl | --no-ssl                    Force TLS on/off for this run (overrides config)");
                 println!("  --insecure                          Accept invalid TLS certs and hostnames (NOT recommended)");
                 println!("  --ca-bundle <path>                  Use a custom CA bundle (PEM or DER) to validate server certs");
+                println!("  --debug or -d                       Enable debug mode (verbose logging + data dumps)");
+                println!("  --verbose or -v                     Enable verbose connection logging");
                 println!("  --help or -h                        Show this help message");
+                println!();
+                println!("Example:");
+                println!("  tn5250r --server 10.100.200.1 --port 23 --user dave3 --password dave3");
                 std::process::exit(0);
             }
             _ => { /* ignore unknown */ }
@@ -1468,7 +1655,16 @@ fn main() {
         "TN5250R",
         options,
         Box::new(move |cc| {
-            let app = TN5250RApp::new_with_server(cc, default_server, default_port, auto_connect, cli_ssl_override);
+            let app = TN5250RApp::new_with_server(
+                cc, 
+                default_server, 
+                default_port, 
+                auto_connect, 
+                cli_ssl_override,
+                cli_username,
+                cli_password,
+                debug_mode,
+            );
             // Apply CLI TLS extras into config for this run (persist if user later saves/changes)
             if let Some(insec) = cli_insecure {
                 if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.insecure", insec); }

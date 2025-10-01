@@ -87,7 +87,7 @@ pub struct Session {
     /// Whether enhanced 5250 features are enabled
     enhanced: bool,
 
-    /// SECURITY: Session authentication state
+    /// SECURITY: Authenticate a user session with credentials
     authenticated: bool,
 
     /// SECURITY: Session validation token
@@ -149,6 +149,14 @@ impl Session {
         // SECURITY: Generate a unique session token for validation
         session.session_token = Some(session.generate_session_token());
         session
+    }
+
+    /// Mark session as authenticated after successful telnet negotiation
+    /// For TN5250, telnet negotiation serves as the initial authentication
+    pub fn mark_telnet_negotiation_complete(&mut self) {
+        self.authenticated = true;
+        // Keep handshake_state at Initial - ready to receive 5250 data
+        println!("Session marked as authenticated after telnet negotiation");
     }
 
     /// SECURITY: Generate a unique session token for authentication validation
@@ -1151,7 +1159,7 @@ impl Session {
         data.push(0x00);
         
         // Structured field header length (2 bytes)
-        data.extend_from_slice(&[0x00, 0x06]); // 6 bytes for the SF header
+        data.extend_from_slice(&[0x00, 0x03]); // 3 bytes: class + type + data
         
         // Structured field class (0xD9)
         data.push(0xD9);
@@ -1308,24 +1316,41 @@ impl Session {
                 return Ok(responses); // Only negotiation, no 5250 data
             }
 
-            // INTEGRATION: Process 5250 data through protocol processor
-            if let Some(ref mut processor) = self.protocol_processor {
-                if let Some(packet) = Packet::from_bytes(&clean_data) {
-                    match processor.process_packet(&packet) {
-                        Ok(protocol_responses) => {
-                            for response in protocol_responses {
-                                responses.extend_from_slice(&response.to_bytes());
+            // INTEGRATION: Process 5250 data
+            if let Some(packet) = Packet::from_bytes(&clean_data) {
+                // Handle display commands directly in session
+                match packet.command {
+                    CommandCode::WriteToDisplay => {
+                        // Process WriteToDisplay directly
+                        self.data_buffer.clear();
+                        self.data_buffer.extend_from_slice(&packet.data);
+                        self.buffer_pos = 0;
+                        let _ = self.write_to_display();
+                        // No response needed for WriteToDisplay
+                    },
+                    CommandCode::WriteStructuredField => {
+                        // Process structured fields directly
+                        self.data_buffer.clear();
+                        self.data_buffer.extend_from_slice(&packet.data);
+                        self.buffer_pos = 0;
+                        let _ = self.write_structured_field();
+                        // No response needed for structured fields
+                    },
+                    _ => {
+                        // Use protocol processor for other commands
+                        if let Some(ref mut processor) = self.protocol_processor {
+                            match processor.process_packet(&packet) {
+                                Ok(protocol_responses) => {
+                                    for response in protocol_responses {
+                                        responses.extend_from_slice(&response.to_bytes());
+                                    }
+                                },
+                                Err(e) => {
+                                    println!("INTEGRATION: Protocol processor error: {e}");
+                                }
                             }
-                        },
-                        Err(e) => {
-                            println!("INTEGRATION: Protocol processor error, falling back to direct processing: {e}");
-                            // INTEGRATION: Fallback to direct session processing
-                            return self.process_stream(&clean_data);
                         }
                     }
-                } else {
-                    // INTEGRATION: Fallback to direct session processing
-                    return self.process_stream(&clean_data);
                 }
             } else {
                 // INTEGRATION: Fallback to direct session processing

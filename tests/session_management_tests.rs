@@ -363,3 +363,48 @@ mod integration_tests {
         assert_eq!(applied.max_reconnect_attempts, config.max_reconnect_attempts);
     }
 }
+
+#[test]
+fn test_write_to_display_packet_processing() {
+    use std::sync::{Arc, Mutex};
+    use tn5250r::lib5250::session::Session;
+    use tn5250r::lib5250::display::Display;
+    use tn5250r::lib5250::protocol::{Packet, CommandCode};
+
+    println!("Testing WriteToDisplay packet processing...");
+
+    // Create a session and display
+    let mut session = Session::new();
+
+    // Authenticate the session first
+    match session.authenticate("testuser", "testpass") {
+        Ok(true) => println!("✓ Session authenticated successfully"),
+        Ok(false) => panic!("✗ Authentication failed"),
+        Err(e) => panic!("✗ Authentication error: {}", e),
+    }
+
+    // Create a WriteToDisplay packet with some test data
+    // This simulates a simple screen write with "HELLO" at position (0,0)
+    // Format: CC1, CC2, SBA order, row, col, characters
+    let data = vec![
+        0x00, 0x00,  // CC1=0x00 (no keyboard lock), CC2=0x00 (no special control)
+        0x11, 0x01, 0x01,  // SBA (Set Buffer Address) to (1,1) - 1-based
+        0xC8, 0xC5, 0xD3, 0xD3, 0xD6  // EBCDIC for "HELLO"
+    ];
+
+    let packet = Packet::new(CommandCode::WriteToDisplay, 1, data);
+
+    // Process the packet
+    match session.process_integrated_data(&packet.to_bytes()) {
+        Ok(_) => println!("✓ Packet processed successfully"),
+        Err(e) => {
+            panic!("✗ Packet processing failed: {}", e);
+        }
+    }
+
+    // Check if the display was updated
+    let display_content = session.display_string();
+    println!("Display content:\n{}", display_content);
+
+    assert!(display_content.contains("HELLO"), "Display should contain 'HELLO' after processing WriteToDisplay packet");
+}

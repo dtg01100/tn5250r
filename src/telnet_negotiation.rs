@@ -278,6 +278,12 @@ pub struct TelnetNegotiator {
     
     /// Buffer pool for memory optimization
     buffer_pool: BufferPool,
+    
+    /// Optional username for auto-sign-on (RFC 4777 Section 5)
+    username: Option<String>,
+    
+    /// Optional password for auto-sign-on (RFC 4777 Section 5)
+    password: Option<String>,
 }
 
 impl TelnetNegotiator {
@@ -295,6 +301,8 @@ impl TelnetNegotiator {
             output_buffer: Vec::new(),
             negotiation_complete: false,
             buffer_pool: BufferPool::new(),
+            username: None,
+            password: None,
         };
         
         // Initialize all options to Initial state
@@ -303,6 +311,21 @@ impl TelnetNegotiator {
         }
         
         negotiator
+    }
+    
+    /// Set credentials for auto-sign-on authentication (RFC 4777 Section 5)
+    /// The username and password will be sent in response to IBMRSEED requests
+    /// 
+    /// # Arguments
+    /// * `username` - AS/400 user profile name (uppercase recommended)
+    /// * `password` - User password (will be sent as plain text if no encryption)
+    ///
+    /// # Security Note
+    /// This implementation uses plain text password transmission (IBMRSEED empty).
+    /// For production use, implement DES or SHA password encryption per RFC 4777.
+    pub fn set_credentials(&mut self, username: &str, password: &str) {
+        self.username = Some(username.to_uppercase());
+        self.password = Some(password.to_string());
     }
     
     /// Escape IAC bytes in data stream (important for binary mode)
@@ -377,9 +400,33 @@ impl TelnetNegotiator {
                                         pos += 3; // Skip IAC + command + option
                                         continue;
                                     } else {
-                                        // PROTOCOL VIOLATION: Invalid option byte
-                                        eprintln!("PROTOCOL VIOLATION: Invalid telnet option byte 0x{:02X}", remaining[2]);
-                                        pos += 3; // Skip invalid sequence
+                                        // Handle unknown telnet options according to RFC 854
+                                        // For unknown options, reject them appropriately
+                                        let unknown_option = remaining[2];
+                                        match cmd {
+                                            TelnetCommand::WILL => {
+                                                // Server wants to enable unknown option - reject it
+                                                self.output_buffer.push(TelnetCommand::IAC as u8);
+                                                self.output_buffer.push(TelnetCommand::DONT as u8);
+                                                self.output_buffer.push(unknown_option);
+                                                println!("TELNET: Rejecting unknown option 0x{:02X} (WILL -> DONT)", unknown_option);
+                                            },
+                                            TelnetCommand::DO => {
+                                                // Server wants us to enable unknown option - reject it
+                                                self.output_buffer.push(TelnetCommand::IAC as u8);
+                                                self.output_buffer.push(TelnetCommand::WONT as u8);
+                                                self.output_buffer.push(unknown_option);
+                                                println!("TELNET: Rejecting unknown option 0x{:02X} (DO -> WONT)", unknown_option);
+                                            },
+                                            TelnetCommand::WONT | TelnetCommand::DONT => {
+                                                // Server is disabling unknown option - acknowledge silently
+                                                println!("TELNET: Acknowledging disable of unknown option 0x{:02X}", unknown_option);
+                                            },
+                                            _ => {
+                                                println!("TELNET: Ignoring unknown command 0x{:02X} with unknown option 0x{:02X}", command, unknown_option);
+                                            }
+                                        }
+                                        pos += 3; // Skip IAC + command + option
                                         continue;
                                     }
                                 } else {
@@ -791,14 +838,70 @@ impl TelnetNegotiator {
                                 response.push(0); // VAR type
                                 response.extend_from_slice(b"USER");
                                 response.push(1); // VALUE type
-                                response.extend_from_slice(b"GUEST");
+                                // Use configured username or default to GUEST
+                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                                response.extend_from_slice(user);
                             },
                             "IBMRSEED" => {
-                                // INTEGRATION: Random seed for encryption
+                                // RFC 4777 Section 5: IBMRSEED response for authentication
+                                // When server sends USERVAR request for IBMRSEED, we respond with:
+                                // 1. VAR "USER" VALUE "<username>"
+                                // 2. USERVAR "IBMRSEED" VALUE "" (empty for plain text) OR client seed for encryption
+                                // 3. USERVAR "IBMSUBSPW" VALUE "<password>" (plain text or encrypted)
+                                
+                                println!("INTEGRATION: Server requested IBMRSEED - sending authentication credentials");
+                                
+                                // Send USER variable
                                 response.push(0); // VAR type
+                                response.extend_from_slice(b"USER");
+                                response.push(1); // VALUE type
+                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                                response.extend_from_slice(user);
+                                println!("   USER: {}", String::from_utf8_lossy(user));
+                                
+                                // Send IBMRSEED with empty value for plain text password
+                                response.push(3); // USERVAR type
                                 response.extend_from_slice(b"IBMRSEED");
                                 response.push(1); // VALUE type
-                                response.extend_from_slice(b"12345678"); // Fixed seed for compatibility
+                                // Empty value indicates plain text password mode
+                                println!("   IBMRSEED: <empty> (plain text mode)");
+                                
+                                // Send IBMSUBSPW with password
+                                response.push(3); // USERVAR type
+                                response.extend_from_slice(b"IBMSUBSPW");
+                                response.push(1); // VALUE type
+                                let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
+                                response.extend_from_slice(pass);
+                                println!("   IBMSUBSPW: {} characters", pass.len());
+                            },
+                            name if name.starts_with("IBMRSEED") => {
+                                // INTEGRATION: Handle IBMRSEED requests with seed data embedded in variable name
+                                // Some AS/400 servers send: USERVAR "IBMRSEED<8-byte-hex-seed>"
+                                // We extract the seed but for now use plain text authentication
+                                
+                                println!("INTEGRATION: Server requested IBMRSEED with embedded seed - sending authentication");
+                                
+                                // Send USER variable
+                                response.push(0); // VAR type
+                                response.extend_from_slice(b"USER");
+                                response.push(1); // VALUE type
+                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                                response.extend_from_slice(user);
+                                println!("   USER: {}", String::from_utf8_lossy(user));
+                                
+                                // Send IBMRSEED with empty value for plain text
+                                response.push(3); // USERVAR type
+                                response.extend_from_slice(b"IBMRSEED");
+                                response.push(1); // VALUE type
+                                println!("   IBMRSEED: <empty> (plain text mode)");
+                                
+                                // Send IBMSUBSPW with password
+                                response.push(3); // USERVAR type
+                                response.extend_from_slice(b"IBMSUBSPW");
+                                response.push(1); // VALUE type
+                                let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
+                                response.extend_from_slice(pass);
+                                println!("   IBMSUBSPW: {} characters", pass.len());
                             },
                             "IBMSUBSPW" => {
                                 // INTEGRATION: Subsystem password
@@ -1321,20 +1424,31 @@ impl TelnetNegotiator {
     
     /// Check if all required negotiations are complete
     fn check_negotiation_complete(&mut self) {
-        // For now, consider negotiation complete when essential options are handled
-        // In a real implementation, this would check all required options
+        // For TN5250, we need Binary and SGA at minimum
+        // EOR is specified in RFC 2877 but some servers don't support it
         let essential_active = [
             TelnetOption::Binary,
-            TelnetOption::EndOfRecord, 
             TelnetOption::SuppressGoAhead
         ];
         
         let all_essential_active = essential_active.iter().all(|&opt| {
-            matches!(self.negotiation_states.get(&opt), Some(NegotiationState::Active))
+            let state = self.negotiation_states.get(&opt);
+            let is_active = matches!(state, Some(NegotiationState::Active));
+            eprintln!("TELNET DEBUG: Option {:?} state: {:?}, active: {}", opt, state, is_active);
+            is_active
         });
         
+        // Optional: Check if EOR is active (preferred but not required)
+        let eor_active = matches!(self.negotiation_states.get(&TelnetOption::EndOfRecord), 
+                                 Some(NegotiationState::Active));
+        eprintln!("TELNET DEBUG: EOR state: {:?} (optional)", 
+                 self.negotiation_states.get(&TelnetOption::EndOfRecord));
+        
+        eprintln!("TELNET DEBUG: All essential active: {}, EOR active: {}", 
+                 all_essential_active, eor_active);
         if all_essential_active {
             self.negotiation_complete = true;
+            eprintln!("TELNET DEBUG: Negotiation marked complete!");
         }
     }
 

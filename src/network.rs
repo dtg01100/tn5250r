@@ -1189,8 +1189,12 @@ impl AS400Connection {
                         }
                     }
 
-                    // Process the received data through our telnet negotiator
-                    let negotiation_response = self.telnet_negotiator.process_incoming_data(&data);
+                    // Process the received data through our telnet negotiator (only during negotiation)
+                    let negotiation_response = if !self.negotiation_complete {
+                        self.telnet_negotiator.process_incoming_data(&data)
+                    } else {
+                        Vec::new() // Negotiation complete, no more telnet processing needed
+                    };
 
                     // If there's a negotiation response, send it immediately
                     if !negotiation_response.is_empty() {
@@ -1426,6 +1430,21 @@ impl AS400Connection {
         self.detected_mode = mode;
         self.protocol_detector.mode = mode;
         println!("INTEGRATION: Protocol mode manually set to {:?}", mode);
+    }
+
+    /// Set credentials for AS/400 authentication (RFC 4777)
+    /// These credentials will be used during telnet NEW-ENVIRON negotiation
+    /// 
+    /// # Arguments
+    /// * `username` - AS/400 user profile name
+    /// * `password` - User password
+    /// 
+    /// # Security Note
+    /// Current implementation uses plain text password transmission.
+    /// For production use, implement DES or SHA password encryption per RFC 4777.
+    pub fn set_credentials(&mut self, username: &str, password: &str) {
+        self.telnet_negotiator.set_credentials(username, password);
+        println!("Network: Credentials configured for telnet negotiation");
     }
 
     /// Gets the host address

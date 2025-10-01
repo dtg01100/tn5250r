@@ -68,6 +68,8 @@ pub struct TerminalController {
     field_manager: FieldManager,
     screen: crate::terminal::TerminalScreen, // Screen management moved to controller level
     pending_input: Vec<u8>, // Buffer for queued input to be transmitted
+    username: Option<String>, // Username for AS/400 authentication (RFC 4777)
+    password: Option<String>, // Password for AS/400 authentication (RFC 4777)
 }
 
 impl Default for TerminalController {
@@ -83,6 +85,8 @@ impl Default for TerminalController {
             field_manager: FieldManager::new(),
             screen: crate::terminal::TerminalScreen::new(),
             pending_input: Vec::new(),
+            username: None,
+            password: None,
         };
 
         // Initialize screen with welcome message
@@ -95,6 +99,28 @@ impl Default for TerminalController {
 impl TerminalController {
     pub fn new() -> Self {
         Self::default()
+    }
+    
+    /// Set credentials for AS/400 authentication (RFC 4777 Section 5)
+    /// These credentials will be sent during telnet negotiation via NEW-ENVIRON option
+    /// 
+    /// # Arguments
+    /// * `username` - AS/400 user profile name (will be converted to uppercase)
+    /// * `password` - User password (sent as plain text unless encryption implemented)
+    /// 
+    /// # Security Note
+    /// Current implementation uses plain text password transmission (IBMRSEED empty).
+    /// For production use, implement DES or SHA password encryption per RFC 4777.
+    pub fn set_credentials(&mut self, username: &str, password: &str) {
+        self.username = Some(username.to_uppercase());
+        self.password = Some(password.to_string());
+        println!("Controller: Credentials configured for user: {}", username.to_uppercase());
+    }
+    
+    /// Clear stored credentials
+    pub fn clear_credentials(&mut self) {
+        self.username = None;
+        self.password = None;
     }
     
     /// Connect with optional TLS override. When `tls_override` is Some, it forces TLS on/off.
@@ -216,6 +242,13 @@ impl TerminalController {
         // Force the protocol mode
         conn.set_protocol_mode(protocol_mode);
 
+        // Configure credentials for authentication (RFC 4777)
+        // The network layer's telnet negotiator will use these during NEW-ENVIRON negotiation
+        if let (Some(ref username), Some(ref password)) = (&self.username, &self.password) {
+            println!("Controller: Configuring authentication for user: {}", username);
+            conn.set_credentials(username, password);
+        }
+
         // Initialize session
         // Session is already initialized in new()
 
@@ -225,6 +258,11 @@ impl TerminalController {
         // SECURITY: Use generic connection message without exposing sensitive details
         self.screen.clear();
         self.screen.write_string(&format!("Connecting to remote system using {} protocol...\n", protocol.to_str()));
+
+        // CRITICAL: Wait for telnet negotiation to complete before sending Query
+        // The network layer handles telnet option negotiation including authentication
+        // We'll send the Query command after the first data exchange confirms auth is complete
+        // This is handled in process_received_data() when negotiation completes
 
         // Record successful connection attempt in monitoring
         let monitoring = crate::monitoring::MonitoringSystem::global();
@@ -500,9 +538,16 @@ impl TerminalController {
                 }
                 
                 // Detect if this looks like ANSI escape sequences
-                if !self.use_ansi_mode && self.contains_ansi_sequences(&received_data) {
+                // ANSI data starts with ESC [ or ESC ( (matching test_connection.rs logic)
+                let is_ansi = received_data.len() >= 2 && 
+                             received_data[0] == 0x1B && 
+                             (received_data[1] == 0x5B || received_data[1] == 0x28);
+                
+                if !self.use_ansi_mode && is_ansi {
                     self.use_ansi_mode = true;
-                    println!("DEBUG: Switched to ANSI mode");
+                    println!("Controller: Detected ANSI/VT100 data - switching to ANSI mode");
+                    // Clear screen for ANSI mode
+                    self.screen.clear();
                 }
                 
                 if self.use_ansi_mode {
@@ -515,7 +560,7 @@ impl TerminalController {
                 } else {
                     // Process through the 5250 session processor
                     println!("DEBUG: Processing data through 5250 session");
-                    let result = self.session.process_stream(&received_data);
+                    let result = self.session.process_integrated_data(&received_data);
                     println!("DEBUG: Session processing result: {:?}", result);
                     
                     // Send any response data back to the server
@@ -857,6 +902,21 @@ impl AsyncTerminalController {
             connect_in_progress: Arc::new(AtomicBool::new(false)),
             last_connect_error: Arc::new(Mutex::new(None)),
             cancel_connect_flag: Arc::new(AtomicBool::new(false)),
+        }
+    }
+    
+    /// Set credentials for AS/400 authentication (RFC 4777)
+    /// Must be called before connect() or connect_async()
+    pub fn set_credentials(&self, username: &str, password: &str) {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.set_credentials(username, password);
+        }
+    }
+    
+    /// Clear stored credentials
+    pub fn clear_credentials(&self) {
+        if let Ok(mut ctrl) = self.controller.lock() {
+            ctrl.clear_credentials();
         }
     }
     

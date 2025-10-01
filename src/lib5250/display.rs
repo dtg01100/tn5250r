@@ -155,7 +155,7 @@ impl Display {
         if self.cursor_row < self.height && self.cursor_col < self.width {
               // Move cursor to position first, then add character
               self.screen.move_cursor(self.cursor_col, self.cursor_row);
-                self.screen.add_char(ascii_char as u8);
+                self.screen.write_char(ascii_char);
             
             // Advance cursor
             self.cursor_col += 1;
