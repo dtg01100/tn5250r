@@ -661,6 +661,15 @@ impl TerminalController {
     
     /// Type character into active field
     pub fn type_char(&mut self, ch: char) -> Result<(), String> {
+        // In ANSI mode, send characters directly to the terminal (server will echo)
+        if self.use_ansi_mode {
+            // Send the character as raw ASCII byte
+            let byte = ch as u8;
+            self.send_input(&[byte])?;
+            return Ok(());
+        }
+        
+        // 5250 mode: Use field-based input
         // Get field ID before borrowing
         let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
             active_field.id
@@ -691,6 +700,15 @@ impl TerminalController {
     
     /// Backspace in active field
     pub fn backspace(&mut self) -> Result<(), String> {
+        // In ANSI mode, send backspace directly
+        if self.use_ansi_mode {
+            // Send backspace (0x08) followed by space and another backspace
+            // This is the standard way to backspace in terminals: \b \b
+            self.send_input(&[0x08, 0x20, 0x08])?;
+            return Ok(());
+        }
+        
+        // 5250 mode: Use field-based backspace
         // First get the field ID to avoid borrowing conflicts
         let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
             active_field.id
@@ -713,6 +731,13 @@ impl TerminalController {
     
     /// Delete character in active field
     pub fn delete(&mut self) -> Result<(), String> {
+        // In ANSI mode, send delete escape sequence (ESC[3~)
+        if self.use_ansi_mode {
+            self.send_input(&[0x1B, 0x5B, 0x33, 0x7E])?; // ESC [ 3 ~
+            return Ok(());
+        }
+        
+        // 5250 mode: Use field-based delete
         // First get the field ID to avoid borrowing conflicts
         let field_id = if let Some(active_field) = self.field_manager.get_active_field() {
             active_field.id
