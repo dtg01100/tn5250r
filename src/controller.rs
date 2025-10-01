@@ -12,7 +12,6 @@ use crate::field_manager::FieldManager;
 use crate::network;
 use crate::lib5250::session::Session;
 use crate::keyboard;
-use crate::error::TN5250Error;
 
 /// Protocol type for terminal connections
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -23,16 +22,22 @@ pub enum ProtocolType {
     TN3270,
 }
 
-impl ProtocolType {
+use std::str::FromStr;
+
+impl FromStr for ProtocolType {
+    type Err = String;
+
     /// Parse protocol type from string
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "tn5250" | "5250" => Ok(ProtocolType::TN5250),
             "tn3270" | "3270" => Ok(ProtocolType::TN3270),
-            _ => Err(format!("Invalid protocol type: {}. Must be 'tn5250' or 'tn3270'", s))
+            _ => Err(format!("Invalid protocol type: {s}. Must be 'tn5250' or 'tn3270'"))
         }
     }
-    
+}
+
+impl ProtocolType {
     /// Convert protocol type to string
     pub fn to_str(&self) -> &str {
         match self {
@@ -65,8 +70,8 @@ pub struct TerminalController {
     pending_input: Vec<u8>, // Buffer for queued input to be transmitted
 }
 
-impl TerminalController {
-    pub fn new() -> Self {
+impl Default for TerminalController {
+    fn default() -> Self {
         let mut controller = Self {
             session: Session::new(),
             network_connection: None,
@@ -79,11 +84,17 @@ impl TerminalController {
             screen: crate::terminal::TerminalScreen::new(),
             pending_input: Vec::new(),
         };
-        
+
         // Initialize screen with welcome message
         controller.screen.write_string("TN5250R - IBM AS/400 Terminal Emulator\nReady for connection...\n");
-        
+
         controller
+    }
+}
+
+impl TerminalController {
+    pub fn new() -> Self {
+        Self::default()
     }
     
     /// Connect with optional TLS override. When `tls_override` is Some, it forces TLS on/off.
@@ -100,7 +111,7 @@ impl TerminalController {
         }
 
         // SECURITY: Handle connection errors securely without exposing internal details
-        conn.connect().map_err(|e| {
+        conn.connect().map_err(|_e| {
             eprintln!("SECURITY: Connection failed - suppressing detailed error information");
             "Connection failed".to_string()
         })?;
@@ -169,7 +180,7 @@ impl TerminalController {
         }
 
         // SECURITY: Handle connection errors securely without exposing internal details
-        conn.connect().map_err(|e| {
+        conn.connect().map_err(|_e| {
             eprintln!("SECURITY: Connection failed - suppressing detailed error information");
             
             // Record connection failure in monitoring
@@ -484,7 +495,7 @@ impl TerminalController {
         if let Some(ref mut conn) = self.network_connection {
             if let Some(received_data) = conn.receive_data_channel() {
                 println!("DEBUG: Received {} bytes of data", received_data.len());
-                if received_data.len() > 0 {
+                if !received_data.is_empty() {
                     println!("DEBUG: First 50 bytes: {:02x?}", &received_data[..received_data.len().min(50)]);
                 }
                 
@@ -935,7 +946,7 @@ impl AsyncTerminalController {
                         ctrl.screen.write_string(&connected_msg);
                         Ok(())
                     }
-                    Err(std::sync::TryLockError::Poisoned(poisoned)) => {
+                    Err(std::sync::TryLockError::Poisoned(_poisoned)) => {
                         eprintln!("SECURITY: Controller mutex poisoned during connection");
                         Err("Controller lock poisoned".to_string())
                     }
@@ -1144,7 +1155,7 @@ impl AsyncTerminalController {
 
                         Ok(())
                     }
-                    Err(std::sync::TryLockError::Poisoned(poisoned)) => {
+                    Err(std::sync::TryLockError::Poisoned(_poisoned)) => {
                         eprintln!("SECURITY: Controller mutex poisoned during connection");
                         Err("Controller lock poisoned".to_string())
                     }

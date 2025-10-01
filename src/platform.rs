@@ -289,7 +289,6 @@ impl Networking for Platform {
     }
 }
 
-/// INTEGRATION: Global platform instance for easy access
 lazy_static::lazy_static! {
     pub static ref PLATFORM: Platform = Platform::new();
 }
@@ -299,15 +298,15 @@ pub mod global {
     use super::*;
 
     pub fn filesystem() -> &'static Platform {
-        &*PLATFORM
+        &PLATFORM
     }
 
     pub fn system() -> &'static Platform {
-        &*PLATFORM
+        &PLATFORM
     }
 
     pub fn networking() -> &'static Platform {
-        &*PLATFORM
+        &PLATFORM
     }
 }
 

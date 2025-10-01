@@ -3,11 +3,10 @@
 //! This module provides real-time system health monitoring, performance tracking,
 //! security validation, and quality assurance capabilities for production operation.
 
-use std::sync::{Arc, Mutex, atomic::{AtomicBool, AtomicU64, Ordering}};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::thread;
-use serde::{Serialize, Deserialize};
 
 /// Global monitoring system instance
 static GLOBAL_MONITORING: once_cell::sync::Lazy<Arc<MonitoringSystem>> =

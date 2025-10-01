@@ -6,7 +6,6 @@
 /// 
 /// Source: lib5250/codes5250.h from the tn5250 project
 /// Copyright (C) 2000-2008 Michael Madore
-
 /// Miscellaneous constants
 pub const ESC: u8 = 0x04;
 pub const SOHLEN: usize = 7;
@@ -127,13 +126,9 @@ pub const MSG_BAD_CHAR: &str = "Cannot use undefined key.";
 pub const MSG_NO_HELP: &str = "No help text is available.";
 
 /// DBCS Support (Japan)
-#[cfg(feature = "japan")]
 pub const ERR_DBCS_WRONG_TYPE: u8 = 0x60;
-#[cfg(feature = "japan")]
 pub const ERR_SBCS_WRONG_TYPE: u8 = 0x61;
-#[cfg(feature = "japan")]
 pub const MSG_DBCS_WRONG_TYPE: &str = "Field requires alphanumeric characters.";
-#[cfg(feature = "japan")]
 pub const MSG_SBCS_WRONG_TYPE: &str = "Field requires double-byte characters.";
 
 /// Data Stream Negative Response Codes
@@ -220,9 +215,7 @@ pub fn get_error_message(error_code: u8) -> Option<&'static str> {
         ERR_NO_FIELD_EXIT => Some(MSG_NO_FIELD_EXIT),
         ERR_NO_INPUT => Some(MSG_NO_INPUT),
         ERR_BAD_CHAR => Some(MSG_BAD_CHAR),
-        #[cfg(feature = "japan")]
         ERR_DBCS_WRONG_TYPE => Some(MSG_DBCS_WRONG_TYPE),
-        #[cfg(feature = "japan")]
         ERR_SBCS_WRONG_TYPE => Some(MSG_SBCS_WRONG_TYPE),
         _ => None,
     }

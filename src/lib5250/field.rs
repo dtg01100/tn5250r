@@ -1,5 +1,4 @@
 /// Field attribute and management logic for 5250
-
 use crate::lib5250::FieldAttribute;
 
 /// Detected field struct
@@ -20,11 +19,7 @@ pub fn detect_fields_from_screen(screen: &crate::terminal::TerminalScreen) -> Ve
         // Example: detect fields with underscores
         if let Some(col) = line.find('_') {
             let length = line.chars().skip(col).take_while(|&c| c == '_').count();
-            let label = if let Some(label_end) = line[..col].rfind(':') {
-                Some(line[..label_end].trim().to_string())
-            } else {
-                None
-            };
+            let label = line[..col].rfind(':').map(|label_end| line[..label_end].trim().to_string());
             fields.push(Field {
                 label,
                 row: row_idx + 1,

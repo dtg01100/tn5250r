@@ -8,8 +8,8 @@
 /// - RFC 1205: 5250 Telnet Interface
 /// - RFC 2355: TN3270 Enhancements
 /// - IBM 3270 Data Stream Programmer's Reference (GA23-0059)
-
 /// 3270 Command Codes
+///
 /// These are the primary commands sent from the host to the terminal
 pub const CMD_WRITE: u8 = 0x01;              // Write command
 pub const CMD_ERASE_WRITE: u8 = 0x05;        // Erase/Write command

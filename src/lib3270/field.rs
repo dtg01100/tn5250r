@@ -2,7 +2,6 @@
 ///
 /// This module handles 3270 field attributes, including both basic field
 /// attributes (from SF order) and extended field attributes (from SFE order).
-
 use super::codes::*;
 
 /// 3270 Field Attribute Structure
@@ -154,7 +153,7 @@ impl FieldAttribute {
 ///
 /// 3270 supports extended attributes via the SFE (Start Field Extended) order.
 /// These provide additional formatting capabilities beyond the base attribute.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct ExtendedAttributes {
     /// Highlighting attribute (normal, blink, reverse, underscore)
     pub highlighting: Option<u8>,
@@ -176,20 +175,6 @@ pub struct ExtendedAttributes {
     
     /// Transparency
     pub transparency: Option<u8>,
-}
-
-impl Default for ExtendedAttributes {
-    fn default() -> Self {
-        Self {
-            highlighting: None,
-            foreground_color: None,
-            background_color: None,
-            charset: None,
-            validation: None,
-            outlining: None,
-            transparency: None,
-        }
-    }
 }
 
 impl ExtendedAttributes {
@@ -262,7 +247,7 @@ impl ExtendedAttributes {
                 XA_TRANSPARENCY => attrs.transparency = Some(attr_value),
                 _ => {
                     // Unknown attribute type, skip it
-                    eprintln!("Unknown extended attribute type: 0x{:02X}", attr_type);
+                    eprintln!("Unknown extended attribute type: 0x{attr_type:02X}");
                 }
             }
         }

@@ -13,6 +13,7 @@ use tn5250r::lib3270::{
 use tn5250r::lib3270::display::addressing;
 use tn5250r::config::SessionConfig;
 use tn5250r::controller::ProtocolType;
+use std::str::FromStr;
 use tn5250r::protocol_common::traits::TerminalProtocol;
 
 fn main() {

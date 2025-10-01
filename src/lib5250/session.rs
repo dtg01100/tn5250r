@@ -34,7 +34,6 @@
 ///
 /// 6. **Health Monitoring**: IntegrationHealth struct provides visibility into
 ///    component status, enabling proactive maintenance and troubleshooting.
-
 use super::codes::*;
 use super::display::Display;
 use crate::network::ProtocolMode;
@@ -43,9 +42,6 @@ use super::protocol::{ProtocolProcessor, Packet};
 
 // 5250 Protocol Constants
 const ESC: u8 = 0x04;
-
-/// Maximum number of input fields supported
-const MAX_INPUT_FIELDS: usize = 65535;
 
 /// Default device identification string
 const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
@@ -85,6 +81,7 @@ pub struct Session {
     display: Display,
 
     /// Device identification string
+    #[allow(dead_code)]
     device_id: String,
 
     /// Whether enhanced 5250 features are enabled
@@ -192,8 +189,8 @@ impl Session {
     /// Process incoming 5250 data stream
     /// SECURITY: Enhanced with authentication validation and rate limiting
     pub fn process_stream(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
-        println!("DEBUG: Session.process_stream called with {} bytes", data.len());
-        if data.len() > 0 {
+        println!("DEBUG: Session.process_stream called with {len} bytes", len = data.len());
+        if !data.is_empty() {
             println!("DEBUG: First 20 bytes: {:02x?}", &data[..data.len().min(20)]);
         }
         
@@ -314,7 +311,7 @@ impl Session {
             }
             
             _ => {
-                Err(format!("Unknown command: 0x{:02X}", command))
+                Err(format!("Unknown command: 0x{command:02X}"))
             }
         }
     }
@@ -330,7 +327,7 @@ impl Session {
     fn clear_unit_alternate(&mut self) -> Result<(), String> {
         let param = self.get_byte()?;
         if param != 0x00 && param != 0x80 {
-            return Err(format!("Invalid Clear Unit Alternate parameter: 0x{:02X}", param));
+            return Err(format!("Invalid Clear Unit Alternate parameter: 0x{param:02X}"));
         }
         
         self.display.clear_unit_alternate();
@@ -405,7 +402,7 @@ impl Session {
                     if self.is_printable_char(order) {
                         self.display.add_char(order);
                     } else {
-                        return Err(format!("Unknown order: 0x{:02X}", order));
+                        return Err(format!("Unknown order: 0x{order:02X}"));
                     }
                 }
             }
@@ -420,10 +417,10 @@ impl Session {
     /// Handle Control Character 1 - keyboard locking and field management
     fn handle_cc1(&mut self, cc1: u8) {
         let lock_keyboard = (cc1 & 0xE0) != 0x00;
-        let reset_non_bypass_mdt = (cc1 & 0x40) != 0;
-        let reset_all_mdt = (cc1 & 0x60) == 0x60;
-        let null_non_bypass_mdt = (cc1 & 0x80) != 0;
-        let null_non_bypass = (cc1 & 0xA0) == 0xA0;
+        let _reset_non_bypass_mdt = (cc1 & 0x40) != 0;
+        let _reset_all_mdt = (cc1 & 0x60) == 0x60;
+        let _null_non_bypass_mdt = (cc1 & 0x80) != 0;
+        let _null_non_bypass = (cc1 & 0xA0) == 0xA0;
         
         if lock_keyboard {
             self.display.lock_keyboard();
@@ -454,13 +451,13 @@ impl Session {
             // Input field - has Field Format Word (FFW)
             let ffw1 = first_byte;
             let ffw2 = self.get_byte()?;
-            let ffw = (ffw1 as u16) << 8 | ffw2 as u16;
+            let _ffw = (ffw1 as u16) << 8 | ffw2 as u16;
             
             // Process Field Control Words (FCW) if present
             let mut next_byte = self.get_byte()?;
             while (next_byte & 0xE0) != 0x20 {
-                let fcw1 = next_byte;
-                let fcw2 = self.get_byte()?;
+                let _fcw1 = next_byte;
+                let _fcw2 = self.get_byte()?;
                 // TODO: Process FCW (continuous fields, word wrap, etc.)
                 next_byte = self.get_byte()?;
             }
@@ -472,7 +469,7 @@ impl Session {
             // Field length
             let len1 = self.get_byte()?;
             let len2 = self.get_byte()?;
-            let length = (len1 as u16) << 8 | len2 as u16;
+            let _length = (len1 as u16) << 8 | len2 as u16;
             
             // TODO: Create and add field with proper attributes
             
@@ -483,7 +480,7 @@ impl Session {
             
             let len1 = self.get_byte()?;
             let len2 = self.get_byte()?;
-            let length = (len1 as u16) << 8 | len2 as u16;
+            let _length = (len1 as u16) << 8 | len2 as u16;
             
             // TODO: Handle output field
         }
@@ -493,8 +490,8 @@ impl Session {
     
     /// Repeat to Address order
     fn repeat_to_address(&mut self) -> Result<(), String> {
-        let end_row = self.get_byte()?;
-        let end_col = self.get_byte()?;
+        let _end_row = self.get_byte()?;
+        let _end_col = self.get_byte()?;
         let repeat_char = self.get_byte()?;
         
         // TODO: Implement repeat logic
@@ -531,7 +528,7 @@ impl Session {
     fn start_of_header(&mut self) -> Result<(), String> {
         let length = self.get_byte()?;
         if length > 7 {
-            return Err(format!("Invalid SOH length: {}", length));
+            return Err(format!("Invalid SOH length: {length}"));
         }
         
         let mut header_data = Vec::new();
@@ -593,12 +590,11 @@ impl Session {
         let old_opcode = self.read_opcode;
         self.read_opcode = CMD_READ_IMMEDIATE;
         
-        let mut response = Vec::new();
-        
-        // Cursor position and AID code 0 for immediate read
-        response.push(self.display.cursor_row() as u8 + 1);
-        response.push(self.display.cursor_col() as u8 + 1);
-        response.push(0); // AID code 0
+        let response = vec![
+            self.display.cursor_row() as u8 + 1,
+            self.display.cursor_col() as u8 + 1,
+            0, // AID code 0
+        ];
         
         self.read_opcode = old_opcode;
         Ok(response)
@@ -658,7 +654,7 @@ impl Session {
         let sf_type = self.get_byte()?;
         
         if class != 0xD9 {
-            return Err(format!("Invalid SF class: 0x{:02X}", class));
+            return Err(format!("Invalid SF class: 0x{class:02X}"));
         }
         
         match sf_type {
@@ -689,12 +685,11 @@ impl Session {
     
     /// Create field response based on current read operation
     fn create_field_response(&mut self, aid_code: u8) -> Result<Vec<u8>, String> {
-        let mut response = Vec::new();
-        
-        // Cursor position and AID code
-        response.push(self.display.cursor_row() as u8 + 1);
-        response.push(self.display.cursor_col() as u8 + 1);
-        response.push(aid_code);
+        let response = vec![
+            self.display.cursor_row() as u8 + 1,
+            self.display.cursor_col() as u8 + 1,
+            aid_code,
+        ];
         
         // TODO: Add field data based on read_opcode
         match self.read_opcode {
@@ -760,9 +755,7 @@ impl Session {
         response.push(0x00);
         
         // Reserved bytes (16 bytes)
-        for _ in 0..16 {
-            response.push(0x00);
-        }
+        response.extend(std::iter::repeat_n(0x00, 16));
         
         // Device type
         response.push(0x01); // Display emulation
@@ -848,7 +841,7 @@ impl Session {
     /// Check if character is printable
     fn is_printable_char(&self, ch: u8) -> bool {
         // TODO: Use proper EBCDIC character map
-        ch >= 0x20 && ch <= 0xFE
+        (0x20..=0xFE).contains(&ch)
     }
     
     /// Get current display
@@ -1043,7 +1036,7 @@ impl Session {
     /// INTEGRATION: Set protocol mode for the session
     pub fn set_protocol_mode(&mut self, mode: ProtocolMode) {
         self.protocol_mode = mode;
-        println!("INTEGRATION: Session protocol mode set to {:?}", mode);
+        println!("INTEGRATION: Session protocol mode set to {mode:?}");
     }
 
     /// INTEGRATION: Get current protocol mode
@@ -1067,7 +1060,7 @@ impl Session {
             return Err("Session authentication required".to_string());
         }
 
-        let mut responses = Vec::new();
+        let responses;
 
         match self.protocol_mode {
             ProtocolMode::TN5250 => {
@@ -1110,7 +1103,7 @@ impl Session {
         // PHASE 1: Send Query command to request device capabilities
         let query_packet = self.create_query_packet();
 
-        println!("DEBUG: Sending Query packet: {:02x?}", query_packet);
+        println!("DEBUG: Sending Query packet: {query_packet:02x?}");
 
         Ok(query_packet)
     }
@@ -1131,7 +1124,7 @@ impl Session {
         data.extend_from_slice(&wtd_packet);
         data.extend_from_slice(&rif_packet);
         
-        println!("DEBUG: Sending screen initialization packets: {:02x?}", data);
+        println!("DEBUG: Sending screen initialization packets: {data:02x?}");
         
         Ok(data)
     }
@@ -1325,7 +1318,7 @@ impl Session {
                             }
                         },
                         Err(e) => {
-                            println!("INTEGRATION: Protocol processor error, falling back to direct processing: {}", e);
+                            println!("INTEGRATION: Protocol processor error, falling back to direct processing: {e}");
                             // INTEGRATION: Fallback to direct session processing
                             return self.process_stream(&clean_data);
                         }
@@ -1361,7 +1354,7 @@ impl Session {
             self.protocol_mode = ProtocolMode::TN5250;
             println!("INTEGRATION: Auto-detected 5250 protocol");
             self.process_5250_data_integrated(data)
-        } else if data.iter().all(|&b| b >= 32 && b <= 126) { // Plain ASCII
+        } else if data.iter().all(|&b| (32..=126).contains(&b)) { // Plain ASCII
             self.protocol_mode = ProtocolMode::NVT;
             println!("INTEGRATION: Auto-detected NVT protocol");
             self.process_nvt_data(data)
@@ -1440,9 +1433,9 @@ impl Session {
                     self.protocol_processor = None;
                 }
             },
-            _ => println!("INTEGRATION: Unknown component: {}", component),
+            _ => println!("INTEGRATION: Unknown component: {component}"),
         }
-        println!("INTEGRATION: Component {} {}", component, if enabled { "enabled" } else { "disabled" });
+        println!("INTEGRATION: Component {component} {status}", status = if enabled { "enabled" } else { "disabled" });
     }
 
     /// INTEGRATION: Get fallback buffer contents (for NVT data, etc.)
