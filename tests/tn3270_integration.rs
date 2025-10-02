@@ -3,6 +3,7 @@
 //! Comprehensive test suite to validate TN3270 protocol implementation,
 //! UI component integration, and protocol switching functionality.
 
+use std::str::FromStr;
 use tn5250r::lib3270::{
     Display3270, ProtocolProcessor3270, ScreenSize,
     CommandCode, OrderCode, AidKey,

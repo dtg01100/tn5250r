@@ -26,6 +26,7 @@
 //!    to minimize allocations during high-frequency network operations.
 
 use std::net::{TcpStream, ToSocketAddrs, SocketAddr};
+use base64::Engine;
 use std::io::{Read, Write, Result as IoResult};
 use std::time::{Duration, Instant};
 use std::sync::{mpsc, Arc, Mutex};
@@ -39,6 +40,70 @@ use std::fs;
 
 use crate::telnet_negotiation::TelnetNegotiator;
 use crate::error::{ProtocolError, TN5250Error};
+use crate::monitoring::PerformanceMetrics;
+
+#[derive(Debug)]
+struct OwnedTlsStream {
+    conn: ClientConnection,
+    stream: std::net::TcpStream,
+}
+
+impl OwnedTlsStream {
+    fn set_read_timeout(&self, dur: Option<std::time::Duration>) -> std::io::Result<()> {
+        self.stream.set_read_timeout(dur)
+    }
+    fn set_write_timeout(&self, dur: Option<std::time::Duration>) -> std::io::Result<()> {
+        self.stream.set_write_timeout(dur)
+    }
+}
+
+impl std::io::Read for OwnedTlsStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut s = rustls::Stream::new(&mut self.conn, &mut self.stream);
+        s.read(buf)
+    }
+}
+
+impl std::io::Write for OwnedTlsStream {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let mut s = rustls::Stream::new(&mut self.conn, &mut self.stream);
+        s.write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        let mut s = rustls::Stream::new(&mut self.conn, &mut self.stream);
+        s.flush()
+    }
+}
+
+#[derive(Debug)]
+enum StreamType {
+    Plain(std::net::TcpStream),
+    Tls(OwnedTlsStream),
+}
+
+impl std::io::Read for StreamType {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            StreamType::Plain(t) => t.read(buf),
+            StreamType::Tls(t) => t.read(buf),
+        }
+    }
+}
+
+impl std::io::Write for StreamType {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            StreamType::Plain(t) => t.write(buf),
+            StreamType::Tls(t) => t.write(buf),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            StreamType::Plain(t) => t.flush(),
+            StreamType::Tls(t) => t.flush(),
+        }
+    }
+}
 
 /// Session management configuration
 #[derive(Debug, Clone)]
@@ -238,13 +303,19 @@ impl BufferPool {
 
     /// PERFORMANCE OPTIMIZATION: Get a buffer from the pool or allocate new one
     fn get_buffer(&self) -> Vec<u8> {
-        let mut pool = self.pool.lock().unwrap();
+        let mut pool = self.pool.lock().unwrap_or_else(|poisoned| {
+            eprintln!("SECURITY: BufferPool mutex poisoned - recovering");
+            poisoned.into_inner()
+        });
         pool.pop_front().unwrap_or_else(|| Vec::with_capacity(self.buffer_size))
     }
 
     /// PERFORMANCE OPTIMIZATION: Return buffer to pool for reuse
     fn return_buffer(&self, mut buffer: Vec<u8>) {
-        let mut pool = self.pool.lock().unwrap();
+        let mut pool = self.pool.lock().unwrap_or_else(|poisoned| {
+            eprintln!("SECURITY: BufferPool mutex poisoned - recovering");
+            poisoned.into_inner()
+        });
         if pool.len() < self.max_buffers {
             buffer.clear();
             buffer.shrink_to_fit(); // PERFORMANCE: Minimize memory usage
@@ -263,7 +334,7 @@ lazy_static::lazy_static! {
 trait ReadWrite: Read + Write {}
 impl<T: Read + Write> ReadWrite for T {}
 
-type DynStream = Box<dyn ReadWrite + Send>;
+type DynStream = Box<StreamType>;
 type SharedStream = Arc<Mutex<DynStream>>;
 
 /// Represents a connection to an AS/400 system
@@ -388,45 +459,58 @@ impl AS400Connection {
         tcp.set_write_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
 
         // Wrap with TLS if requested
-        let mut rw: DynStream = if self.use_tls {
-            // For now, use plain TCP instead of TLS to avoid lifetime issues
-            // TODO: Implement proper TLS connection handling with rustls
-            eprintln!("TLS requested but using plain TCP for now (TLS implementation needs refactoring)");
-            
-            // Use shorter timeouts during negotiation
+        let mut rw: DynStream;
+        if self.use_tls {
+            // Build TLS connector with secure certificate validation
+            let tls_config = self.build_tls_connector()?;
+
+            // Create TLS connection
+            let server_name = match TlsServerName::try_from(self.host.clone()) {
+                Ok(name) => name,
+                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
+            };
+            let mut tcp = TcpStream::connect(&address)?;
+            self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
-            // Perform telnet negotiation over plain TCP
-            self.perform_telnet_negotiation_rw(&mut tcp)?;
-            // Reset timeouts to none (blocking) after negotiation
-            tcp.set_read_timeout(None)?;
-            tcp.set_write_timeout(None)?;
-            
-            // Record successful connection in monitoring (treating as TLS connection)
+
+            let tls_conn = match ClientConnection::new(tls_config, server_name) {
+                Ok(conn) => conn,
+                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e))),
+            };
+            rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
+            // Record successful TLS connection in monitoring
             let monitoring = crate::monitoring::MonitoringSystem::global();
             monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
                 timestamp: std::time::Instant::now(),
                 event_type: crate::monitoring::IntegrationEventType::IntegrationSuccess,
                 source_component: "network".to_string(),
                 target_component: Some("tls".to_string()),
-                description: format!("Connection established to {}:{} (TLS bypassed temporarily)", self.host, self.port),
+                description: format!("Secure TLS connection established to {}:{}", self.host, self.port),
                 details: std::collections::HashMap::new(),
                 duration_us: None,
                 success: true,
             });
-
-            Box::new(tcp)
         } else {
-            // Short negotiation timeouts
+            let mut tcp = TcpStream::connect(&address)?;
+            self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
-            // Perform negotiation in plain TCP
-            self.perform_telnet_negotiation_rw(&mut tcp)?;
-            // Reset to blocking after negotiation
-            tcp.set_read_timeout(None)?;
-            tcp.set_write_timeout(None)?;
-            Box::new(tcp)
-        };
+            rw = Box::new(StreamType::Plain(tcp));
+        }
+
+        self.perform_telnet_negotiation_rw(&mut *rw)?;
+
+        match &mut *rw {
+            StreamType::Plain(t) => {
+                t.set_read_timeout(None)?;
+                t.set_write_timeout(None)?;
+            }
+            StreamType::Tls(t) => {
+                t.set_read_timeout(None)?;
+                t.set_write_timeout(None)?;
+            }
+        }
         self.stream = Some(Arc::new(Mutex::new(rw)));
         self.running = true;
         
@@ -549,30 +633,47 @@ impl AS400Connection {
         tcp.set_write_timeout(Some(Duration::from_secs(self.session_config.connection_timeout_secs)))?;
 
         // Wrap with TLS if requested
-        // Wrap with TLS if requested
-        let mut rw: DynStream = if self.use_tls {
-            // For now, use plain TCP instead of TLS to avoid lifetime issues
-            // TODO: Implement proper TLS connection handling with rustls
-            eprintln!("TLS requested but using plain TCP for now (TLS implementation needs refactoring)");
-            
-            // Short negotiation timeouts
+        let mut rw: DynStream;
+        if self.use_tls {
+            // Build TLS connector with secure certificate validation
+            let tls_config = self.build_tls_connector()?;
+
+            // Create TLS connection
+            let server_name = match TlsServerName::try_from(self.host.clone()) {
+                Ok(name) => name,
+                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
+            };
+
+            let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+            self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
-            // Perform negotiation in plain TCP
-            self.perform_telnet_negotiation_rw(&mut tcp)?;
-            // Reset
-            tcp.set_read_timeout(None)?;
-            tcp.set_write_timeout(None)?;
-            Box::new(tcp)
-        } else {
-            // Short negotiation timeouts
+
+let tls_conn = match ClientConnection::new(tls_config, server_name) {
+    Ok(conn) => conn,
+    Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e))),
+};
+rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
+} else {
+            let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+            self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
-            self.perform_telnet_negotiation_rw(&mut tcp)?;
-            tcp.set_read_timeout(None)?;
-            tcp.set_write_timeout(None)?;
-            Box::new(tcp)
-        };
+            rw = Box::new(StreamType::Plain(tcp));
+        }
+
+        self.perform_telnet_negotiation_rw(&mut *rw)?;
+
+        match &mut *rw {
+            StreamType::Plain(t) => {
+                t.set_read_timeout(None)?;
+                t.set_write_timeout(None)?;
+            }
+            StreamType::Tls(t) => {
+                t.set_read_timeout(None)?;
+                t.set_write_timeout(None)?;
+            }
+        }
 
         self.stream = Some(Arc::new(Mutex::new(rw)));
         self.running = true;
@@ -698,7 +799,7 @@ impl AS400Connection {
                         ));
                     }
 
-                    match base64::decode(&b64) {
+                    match base64::engine::general_purpose::STANDARD.decode(&b64) {
                         Ok(_der) => {
                             // For now, accept the certificate without validating its format
                             // This is a temporary workaround to fix compilation issues
@@ -1095,15 +1196,19 @@ impl AS400Connection {
                 let send_result = guard.write(data);
                 // PERFORMANCE MONITORING: Track bytes sent
                 if let Ok(bytes) = &send_result {
-                    // TODO: Re-enable performance metrics once import issues are resolved
-                    // crate::PerformanceMetrics::global()
-                    //     .network_metrics
-                    //     .bytes_sent
-                    //     .fetch_add(*bytes as u64, std::sync::atomic::Ordering::Relaxed);
-                    // crate::PerformanceMetrics::global()
-                    //     .network_metrics
-                    //     .packets_sent
-                    //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    use std::sync::atomic::Ordering;
+                    crate::monitoring::MonitoringSystem::global()
+                        .performance_monitor
+                        .metrics
+                        .network
+                        .bytes_sent_per_sec
+                        .fetch_add(*bytes as u64, Ordering::Relaxed);
+                    crate::monitoring::MonitoringSystem::global()
+                        .performance_monitor
+                        .metrics
+                        .network
+                        .packets_sent_per_sec
+                        .fetch_add(1, Ordering::Relaxed);
                 }
                 send_result
             } else {
