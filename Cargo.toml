@@ -10,25 +10,28 @@ homepage = "https://github.com/your-username/tn5250r"
 documentation = "https://github.com/your-username/tn5250r#readme"
 
 [dependencies]
-egui = "0.27"
+egui = "0.32"
 eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 env_logger = "0.10"
-native-tls = "0.2"
+rustls = { version = "0.22", features = ["tls12"] }
+rustls-native-certs = "0.7"
+webpki = "0.22"
+webpki-roots = "0.26"
 base64 = "0.22"
 lazy_static = "1.4"
 hostname = "0.4"
 libc = "0.2"
 
-openssl-sys = { version = "0.9", features = ["vendored"] }
 once_cell = "1.21.3"
 uuid = { version = "1.0", features = ["v4"] }
 
 [dev-dependencies]
 criterion = "0.5"
+egui_kittest = { version = "0.32.3", features = ["eframe", "snapshot"] }
 proptest = "1.0"
 rand = "0.8"
 
@@ -37,7 +40,26 @@ rand = "0.8"
 name = "tn5250r"
 path = "src/main.rs"
 
-# Test binary for TN5250 field input
-[[bin]]
-name = "tn5250_field_input_test"
-path = "src/bin/tn5250_field_input_test.rs"
+# Test binary for GUI testing
+[[test]]
+name = "gui"
+path = "tests/gui/main.rs"
+harness = false
+
+# Test binary for component tests
+[[test]]
+name = "gui_components"
+path = "tests/gui/components/main.rs"
+harness = false
+
+# Test binary for integration tests
+[[test]]
+name = "gui_integration"
+path = "tests/gui/integration/main.rs"
+harness = false
+
+# Test binary for visual regression tests
+[[test]]
+name = "gui_visual"
+path = "tests/gui/visual/main.rs"
+harness = false

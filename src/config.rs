@@ -522,9 +522,13 @@ pub fn load_shared_config(session_name: String) -> SharedSessionConfig {
 }
 
 /// Save the shared configuration to disk using its `config_resource` path.
+/// This function is synchronous and should NOT be called from GUI thread.
+/// Use save_shared_config_async() instead for non-blocking behavior.
 pub fn save_shared_config(shared: &SharedSessionConfig) -> std::io::Result<()> {
     let (path_str, json) = {
-        let cfg = shared.lock().unwrap();
+        // Use try_lock to avoid blocking if config is currently locked
+        let cfg = shared.try_lock()
+            .map_err(|_| std::io::Error::new(std::io::ErrorKind::WouldBlock, "Config locked"))?;
         let json = cfg.to_json().unwrap_or_else(|_| "{}".to_string());
         (cfg.get_config_resource().to_string(), json)
     };
@@ -539,6 +543,35 @@ pub fn save_shared_config(shared: &SharedSessionConfig) -> std::io::Result<()> {
     let mut f = fs::File::create(&path)?;
     f.write_all(json.as_bytes())?;
     Ok(())
+}
+
+/// Async version that saves config in a background thread to avoid blocking GUI.
+/// This is the preferred method to call from GUI code.
+pub fn save_shared_config_async(shared: &SharedSessionConfig) {
+    let shared = Arc::clone(shared);
+    std::thread::spawn(move || {
+        // Retry a few times if config is locked
+        for attempt in 0..3 {
+            match save_shared_config(&shared) {
+                Ok(()) => {
+                    if attempt > 0 {
+                        eprintln!("Config saved on attempt {}", attempt + 1);
+                    }
+                    return;
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    // Config locked, wait briefly and retry
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    continue;
+                }
+                Err(e) => {
+                    eprintln!("Failed to save config: {}", e);
+                    return;
+                }
+            }
+        }
+        eprintln!("Failed to save config after 3 attempts (config still locked)");
+    });
 }
 
 #[cfg(test)]

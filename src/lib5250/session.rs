@@ -215,32 +215,41 @@ impl Session {
             return Err("Session authentication required".to_string());
         }
 
+        // CRITICAL FIX: Append to buffer, but ensure cleanup on any error path
         self.data_buffer.extend_from_slice(data);
         self.buffer_pos = 0;
 
         let mut responses = Vec::new();
 
-        while self.buffer_pos < self.data_buffer.len() {
-            // Check for escape sequence (commands start with ESC)
-            if self.get_byte()? != ESC {
-                return Err("Invalid command - missing ESC".to_string());
-            }
+        // Process commands with proper cleanup on error
+        let process_result = (|| {
+            while self.buffer_pos < self.data_buffer.len() {
+                // Check for escape sequence (commands start with ESC)
+                if self.get_byte()? != ESC {
+                    return Err("Invalid command - missing ESC".to_string());
+                }
 
-            let command = self.get_byte()?;
-            match self.process_command(command) {
-                Ok(Some(response)) => responses.extend(response),
-                Ok(None) => {}, // No response needed
-                Err(e) => return Err(e),
+                let command = self.get_byte()?;
+                match self.process_command(command) {
+                    Ok(Some(response)) => responses.extend(response),
+                    Ok(None) => {}, // No response needed
+                    Err(e) => return Err(e),
+                }
             }
-        }
+            Ok(())
+        })();
+
+        // CRITICAL FIX: ALWAYS clear the buffer, even on error
+        // This prevents memory leak when invalid data accumulates
+        self.data_buffer.clear();
+        self.buffer_pos = 0;
+
+        // Check if processing had errors
+        process_result?;
 
         // SECURITY: Update command tracking
         self.command_count += 1;
         self.last_command_time = std::time::Instant::now();
-
-        // Clear processed data
-        self.data_buffer.clear();
-        self.buffer_pos = 0;
 
         Ok(responses)
     }

@@ -77,38 +77,33 @@ impl TN5250RApp {
         // Load persistent configuration
         let shared_config = config::load_shared_config("default".to_string());
 
-        // Seed host/port/TLS from config if available, otherwise from CLI/defaults
-        let mut host = server;
-        let mut port = port; // Use the provided port directly
-        {
-            let mut cfg = shared_config.lock().unwrap();
-            // Resolve values: prefer persisted config, then arguments/defaults
-            let cfg_host = cfg.get_string_property("connection.host");
-            let cfg_port = cfg.get_int_property("connection.port").map(|v| v as u16);
-            let cfg_ssl = cfg.get_boolean_property("connection.ssl");
-            let cfg_insecure = cfg.get_boolean_property("connection.tls.insecure");
-            let cfg_ca = cfg.get_string_property("connection.tls.caBundlePath");
-
-            if let Some(h) = cfg_host { host = h; }
-            if let Some(p) = cfg_port { port = p; }
-
-            // Apply/compute SSL setting
-            let ssl_default = port == 992;
-            let mut ssl = cfg_ssl.unwrap_or(ssl_default);
-            if let Some(cli) = cli_ssl_override {
-                // Do not persist immediately; override for this run
-                ssl = cli;
+        // Read all required config values once to avoid multiple borrows
+        let (cfg_host, cfg_port, cfg_ssl, screen_size_config, protocol_mode_config) = {
+            if let Ok(cfg) = shared_config.try_lock() {
+                let host_val = cfg.get_string_property("connection.host");
+                let port_val = cfg.get_int_property("connection.port").map(|v| v as u16);
+                let ssl_val = cfg.get_boolean_property("connection.ssl").unwrap_or(port == 992);
+                let screen_size_val = cfg.get_string_property("terminal.screenSize");
+                let protocol_mode_val = cfg.get_string_property("terminal.protocolMode");
+                (host_val, port_val, ssl_val, screen_size_val, protocol_mode_val)
+            } else {
+                (None, None, port == 992, None, None)
             }
+        };
 
-            // Ensure config reflects current host/port; keep ssl as last known/persisted (or CLI override only in runtime)
+        // Seed host/port/TLS from config if available, otherwise from CLI/defaults
+        let mut host = cfg_host.unwrap_or_else(|| server.clone());
+        let port = cfg_port.unwrap_or(port);
+        let config_ssl = cfg_ssl;
+        
+        // Update config with current values if config is available
+        if let Ok(mut cfg) = shared_config.try_lock() {
             cfg.set_property("connection.host", host.as_str());
             cfg.set_property("connection.port", port as i64);
             if cli_ssl_override.is_none() {
                 // Persist only when no CLI override to avoid surprising save of ephemeral override
-                cfg.set_property("connection.ssl", ssl);
+                cfg.set_property("connection.ssl", config_ssl);
             }
-            if let Some(insec) = cfg_insecure { cfg.set_property("connection.tls.insecure", insec); }
-            if let Some(ca) = cfg_ca { cfg.set_property("connection.tls.caBundlePath", ca); }
         }
 
         // Save initial state so a newly created config file gets written
@@ -131,12 +126,15 @@ impl TN5250RApp {
                 println!("CLI: Configured credentials for user: {}", username);
             }
             
-            // Read TLS preference from config
-            let use_tls = {
-                let cfg = shared_config.lock().unwrap();
-                // If CLI override exists, prefer it at runtime
-                if let Some(cli) = cli_ssl_override { cli } else { cfg.get_boolean_property_or("connection.ssl", port == 992) }
+            // Use pre-read config values to avoid borrow issues
+            let config_ssl = {
+                if let Ok(cfg) = shared_config.try_lock() {
+                    cfg.get_boolean_property("connection.ssl").unwrap_or(port == 992)
+                } else {
+                    port == 992  // Default based on port
+                }
             };
+            let use_tls = cli_ssl_override.unwrap_or(config_ssl);
             match controller.connect_with_tls(host.clone(), port, Some(use_tls)) {
                 Ok(()) => {
                     true
@@ -185,8 +183,7 @@ impl TN5250RApp {
             raw_buffer_dump: String::new(),
             last_data_size: 0,
             selected_screen_size: {
-                let cfg = shared_config.lock().unwrap();
-                match cfg.get_string_property("terminal.screenSize").as_deref() {
+                match screen_size_config.as_deref() {
                     Some("Model2") => crate::lib3270::display::ScreenSize::Model2,
                     Some("Model3") => crate::lib3270::display::ScreenSize::Model3,
                     Some("Model4") => crate::lib3270::display::ScreenSize::Model4,
@@ -195,8 +192,7 @@ impl TN5250RApp {
                 }
             },
             selected_protocol_mode: {
-                let cfg = shared_config.lock().unwrap();
-                match cfg.get_string_property("terminal.protocolMode").as_deref() {
+                match protocol_mode_config.as_deref() {
                     Some("TN5250") => network::ProtocolMode::TN5250,
                     Some("TN3270") => network::ProtocolMode::TN3270,
                     Some("AutoDetect") => network::ProtocolMode::AutoDetect,
@@ -237,14 +233,18 @@ impl TN5250RApp {
         // Use non-blocking connect to avoid UI hang
         self.connecting = true;
         self.terminal_content = format!("Connecting to {}:{}...\n", self.host, self.port);
-        // Read TLS settings from config
+        // Read TLS settings from config (non-blocking)
         let (use_tls, insecure, ca_opt) = {
-            let cfg = self.config.lock().unwrap();
-            let use_tls = cfg.get_boolean_property_or("connection.ssl", self.port == 992);
-            let insecure = cfg.get_boolean_property_or("connection.tls.insecure", false);
-            let ca = cfg.get_string_property_or("connection.tls.caBundlePath", "");
-            let ca_opt = if ca.trim().is_empty() { None } else { Some(ca) };
-            (use_tls, insecure, ca_opt)
+            if let Ok(cfg) = self.config.try_lock() {
+                let use_tls = cfg.get_boolean_property_or("connection.ssl", self.port == 992);
+                let insecure = cfg.get_boolean_property_or("connection.tls.insecure", false);
+                let ca = cfg.get_string_property_or("connection.tls.caBundlePath", "");
+                let ca_opt = if ca.trim().is_empty() { None } else { Some(ca) };
+                (use_tls, insecure, ca_opt)
+            } else {
+                // Config locked, use safe defaults
+                (self.port == 992, false, None)
+            }
         };
         if let Err(e) = self.controller.connect_async_with_tls_options(self.host.clone(), self.port, Some(use_tls), Some(insecure), ca_opt) {
             self.terminal_content = format!("Connection failed to start: {}\n", e);
@@ -377,23 +377,23 @@ impl TN5250RApp {
         }
     }
     
-    fn update_terminal_content(&mut self) {
+    fn update_terminal_content(&mut self) -> bool {
+        let mut content_changed = false;
+        
         // Update terminal content from controller
         if let Ok(content) = self.controller.get_terminal_content() {
-            println!("DEBUG: Retrieved terminal content ({} chars): '{}'", 
-                content.len(), 
-                content.chars().take(100).collect::<String>()
-            );
-            // Only update if content has changed to avoid unnecessary UI updates
+            // Only update and log if content has actually changed
             if content != self.terminal_content {
-                println!("DEBUG: Terminal content changed, updating GUI");
+                println!("DEBUG: Terminal content changed ({} -> {} chars)", 
+                    self.terminal_content.len(), 
+                    content.len()
+                );
                 self.terminal_content = content;
-            } else {
-                println!("DEBUG: Terminal content unchanged");
+                content_changed = true;
             }
         }
         
-        // Update field information
+        // Update field information (always update if available)
         if let Ok(fields) = self.controller.get_fields_info() {
             self.fields_info = fields;
         }
@@ -401,10 +401,14 @@ impl TN5250RApp {
         // Update connection status
         let was_connected = self.connected;
         self.connected = self.controller.is_connected();
+        if self.connected != was_connected {
+            content_changed = true;
+        }
 
         if self.connecting && self.connected && !was_connected {
             self.connecting = false;
             self.terminal_content = format!("Connected to {}:{}\nNegotiating...\n", self.host, self.port);
+            content_changed = true;
 
             // Record successful connection in monitoring
             let monitoring = monitoring::MonitoringSystem::global();
@@ -433,6 +437,7 @@ impl TN5250RApp {
                 self.terminal_content = message;
                 self.connection_time = None;
                 self.login_screen_requested = false;
+                content_changed = true;
 
                 // Record connection error in monitoring
                 let monitoring = monitoring::MonitoringSystem::global();
@@ -483,6 +488,8 @@ impl TN5250RApp {
                 }
             }
         }
+        
+        content_changed
     }
     
     fn draw_terminal_with_cursor(&mut self, ui: &mut egui::Ui) {
@@ -497,29 +504,12 @@ impl TN5250RApp {
         let char_width = ui.fonts(|f| f.glyph_width(&font, ' '));
         let line_height = ui.fonts(|f| f.row_height(&font));
         
-        // Create a scrollable text area with clickable regions
+        // Create a layout area for the terminal content
         let available_size = ui.available_size();
-        let response = ui.allocate_response(available_size, egui::Sense::click());
-        
-        // Handle mouse clicks to set cursor position
-        if response.clicked() {
-            if let Some(pos) = response.interact_pointer_pos() {
-                let relative_pos = pos - response.rect.min;
-                let col = (relative_pos.x / char_width).floor() as usize + 1; // Convert to 1-based
-                let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
-                
-                // Clamp to valid terminal bounds
-                let row = row.max(1).min(24);
-                let col = col.max(1).min(80);
-                
-                if let Err(e) = self.controller.click_at_position(row, col) {
-                    eprintln!("Failed to click at position ({}, {}): {}", row, col, e);
-                }
-            }
-        }
+        let (rect, _response) = ui.allocate_exact_size(available_size, egui::Sense::hover());
         
         // Draw the terminal content
-        if ui.is_rect_visible(response.rect) {
+        if ui.is_rect_visible(rect) {
             let mut y_offset = 0.0;
             
             for (line_idx, line) in lines.iter().enumerate() {
@@ -529,7 +519,7 @@ impl TN5250RApp {
                 for (char_idx, ch) in line.chars().enumerate() {
                     let col_number = char_idx + 1; // 1-based column numbers
                     
-                    let char_pos = response.rect.min + egui::vec2(char_idx as f32 * char_width, y_offset);
+                    let char_pos = rect.min + egui::vec2(char_idx as f32 * char_width, y_offset);
                     
                     // Check if this is the cursor position
                     let is_cursor = cursor_pos.0 == line_number && cursor_pos.1 == col_number;
@@ -590,7 +580,7 @@ impl TN5250RApp {
                (cursor_pos.0 as usize <= lines.len() && 
                 cursor_pos.1 as usize > lines.get(cursor_pos.0 - 1).map_or(0, |l| l.len())) {
                 
-                let cursor_char_pos = response.rect.min + egui::vec2(
+                let cursor_char_pos = rect.min + egui::vec2(
                     (cursor_pos.1 - 1) as f32 * char_width,
                     (cursor_pos.0 - 1) as f32 * line_height
                 );
@@ -988,41 +978,50 @@ impl TN5250RApp {
                     .show(ui, |ui| {
                         ui.label("Use TLS (SSL):");
                         let mut ssl_enabled = {
-                            let cfg = self.config.lock().unwrap();
-                            cfg.get_boolean_property_or("connection.ssl", self.port == 992)
+                            if let Ok(cfg) = self.config.try_lock() {
+                                cfg.get_boolean_property_or("connection.ssl", self.port == 992)
+                            } else {
+                                self.port == 992  // Default: TLS on port 992
+                            }
                         };
                         let checkbox = ui.checkbox(&mut ssl_enabled, "Enable TLS encryption");
                         if checkbox.changed() {
-                            if let Ok(mut cfg) = self.config.lock() {
+                            if let Ok(mut cfg) = self.config.try_lock() {
                                 cfg.set_property("connection.ssl", ssl_enabled);
                             }
-                            let _ = config::save_shared_config(&self.config);
+                            config::save_shared_config_async(&self.config);
                         }
                         ui.end_row();
 
                         ui.label("TLS Options:");
                         let mut insecure = {
-                            let cfg = self.config.lock().unwrap();
-                            cfg.get_boolean_property_or("connection.tls.insecure", false)
+                            if let Ok(cfg) = self.config.try_lock() {
+                                cfg.get_boolean_property_or("connection.tls.insecure", false)
+                            } else {
+                                false  // Default: secure mode
+                            }
                         };
                         if ui.checkbox(&mut insecure, "Accept invalid certificates (insecure)").changed() {
-                            if let Ok(mut cfg) = self.config.lock() {
+                            if let Ok(mut cfg) = self.config.try_lock() {
                                 cfg.set_property("connection.tls.insecure", insecure);
                             }
-                            let _ = config::save_shared_config(&self.config);
+                            config::save_shared_config_async(&self.config);
                         }
                         ui.end_row();
 
                         ui.label("CA bundle path:");
                         let mut ca_path = {
-                            let cfg = self.config.lock().unwrap();
-                            cfg.get_string_property_or("connection.tls.caBundlePath", "")
+                            if let Ok(cfg) = self.config.try_lock() {
+                                cfg.get_string_property_or("connection.tls.caBundlePath", "")
+                            } else {
+                                String::new()  // Default: empty path
+                            }
                         };
                         if ui.text_edit_singleline(&mut ca_path).lost_focus() {
-                            if let Ok(mut cfg) = self.config.lock() {
+                            if let Ok(mut cfg) = self.config.try_lock() {
                                 cfg.set_property("connection.tls.caBundlePath", ca_path.as_str());
                             }
-                            let _ = config::save_shared_config(&self.config);
+                            config::save_shared_config_async(&self.config);
                         }
                         ui.end_row();
                     });
@@ -1075,7 +1074,7 @@ impl TN5250RApp {
 
                             if changed {
                                 // Save protocol mode to config
-                                if let Ok(mut cfg) = self.config.lock() {
+                                if let Ok(mut cfg) = self.config.try_lock() {
                                     let mode_str = match self.selected_protocol_mode {
                                         network::ProtocolMode::TN5250 => "TN5250",
                                         network::ProtocolMode::TN3270 => "TN3270",
@@ -1084,7 +1083,7 @@ impl TN5250RApp {
                                     };
                                     cfg.set_property("terminal.protocolMode", mode_str);
                                 }
-                                let _ = config::save_shared_config(&self.config);
+                                config::save_shared_config_async(&self.config);
                             }
                         });
                         ui.end_row();
@@ -1116,7 +1115,7 @@ impl TN5250RApp {
 
                             if changed {
                                 // Save screen size to config
-                                if let Ok(mut cfg) = self.config.lock() {
+                                if let Ok(mut cfg) = self.config.try_lock() {
                                     let size_str = match self.selected_screen_size {
                                         crate::lib3270::display::ScreenSize::Model2 => "Model2",
                                         crate::lib3270::display::ScreenSize::Model3 => "Model3",
@@ -1129,7 +1128,7 @@ impl TN5250RApp {
                                     cfg.set_property("terminal.rows", self.selected_screen_size.rows() as i64);
                                     cfg.set_property("terminal.cols", self.selected_screen_size.cols() as i64);
                                 }
-                                let _ = config::save_shared_config(&self.config);
+                                config::save_shared_config_async(&self.config);
                             }
                         });
                         ui.end_row();
@@ -1171,13 +1170,13 @@ impl TN5250RApp {
                             self.selected_protocol_mode = network::ProtocolMode::TN5250;
                             
                             // Save defaults to config
-                            if let Ok(mut cfg) = self.config.lock() {
+                            if let Ok(mut cfg) = self.config.try_lock() {
                                 cfg.set_property("terminal.screenSize", "Model2");
                                 cfg.set_property("terminal.protocolMode", "TN5250");
                                 cfg.set_property("terminal.rows", 24i64);
                                 cfg.set_property("terminal.cols", 80i64);
                             }
-                            let _ = config::save_shared_config(&self.config);
+                            config::save_shared_config_async(&self.config);
                         }
                     });
                 });
@@ -1334,12 +1333,12 @@ impl eframe::App for TN5250RApp {
                     self.host = host;
                     self.port = port;
                     // Sync to configuration; do NOT auto-toggle TLS, keep user's persisted choice
-                    if let Ok(mut cfg) = self.config.lock() {
+                    if let Ok(mut cfg) = self.config.try_lock() {
                         cfg.set_property("connection.host", self.host.as_str());
                         cfg.set_property("connection.port", self.port as i64);
                     }
-                    // Persist change
-                    let _ = config::save_shared_config(&self.config);
+                    // Persist change (async to avoid blocking GUI)
+                    config::save_shared_config_async(&self.config);
                 }
 
                 if ui.button("Connect").clicked() {
@@ -1379,12 +1378,39 @@ impl eframe::App for TN5250RApp {
             ui.separator();
 
             // Display terminal content with cursor and click handling
-            egui::ScrollArea::vertical()
+            let scroll_area_response = egui::ScrollArea::vertical()
                 .id_source("terminal_display")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     self.draw_terminal_with_cursor(ui);
                 });
+
+            // Handle mouse clicks on the scroll area content
+            let content_rect = scroll_area_response.inner_rect;
+            let response = ui.interact(content_rect, egui::Id::new("terminal_area"), egui::Sense::click());
+            
+            if response.clicked() {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    // Calculate position relative to the content area
+                    let relative_pos = pos - content_rect.min;
+                    
+                    // Get font metrics for coordinate calculation
+                    let font = egui::FontId::monospace(14.0);
+                    let char_width = ui.fonts(|f| f.glyph_width(&font, ' '));
+                    let line_height = ui.fonts(|f| f.row_height(&font));
+                    
+                    let col = (relative_pos.x / char_width).floor() as usize + 1; // Convert to 1-based
+                    let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
+                    
+                    // Clamp to valid terminal bounds
+                    let row = row.max(1).min(24);
+                    let col = col.max(1).min(80);
+                    
+                    if let Err(e) = self.controller.click_at_position(row, col) {
+                        eprintln!("Failed to click at position ({}, {}): {}", row, col, e);
+                    }
+                }
+            }
 
             // Display field information if available
             if !self.fields_info.is_empty() {
@@ -1511,7 +1537,7 @@ impl eframe::App for TN5250RApp {
         });
 
         // Process incoming data and update terminal content
-        self.update_terminal_content();
+        let content_changed = self.update_terminal_content();
 
         // Show debug panel if requested
         if self.show_debug_panel {
@@ -1528,11 +1554,40 @@ impl eframe::App for TN5250RApp {
             self.show_settings_dialog(ctx);
         }
 
-        ctx.request_repaint();
+        // Smart repaint logic to prevent CPU waste:
+        // - Disconnected: No repaints (only on user interaction)
+        // - Connecting: Check every 100ms for connection completion
+        // - Connected with recent data: Check every 50ms for smooth updates
+        // - Connected but idle: Check every 500ms for status/errors
+        if self.connecting {
+            // Check every 100ms while connecting
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
+        } else if self.connected {
+            if content_changed {
+                // Content just changed, check again soon for more data
+                ctx.request_repaint_after(std::time::Duration::from_millis(50));
+            } else {
+                // No recent changes, check every 500ms for connection status/errors
+                // This reduces CPU usage dramatically when idle
+                ctx.request_repaint_after(std::time::Duration::from_millis(500));
+            }
+        }
+        // When disconnected, egui only repaints on user interaction (0% CPU)
     }
 }
 
 fn main() {
+    // Install panic handler to log panics before crashing
+    std::panic::set_hook(Box::new(|panic_info| {
+        eprintln!("!!! PANIC !!!");
+        eprintln!("Program panicked: {}", panic_info);
+        if let Some(location) = panic_info.location() {
+            eprintln!("Panic occurred in file '{}' at line {}", location.file(), location.line());
+        }
+        eprintln!("Stack backtrace:");
+        eprintln!("{:?}", std::backtrace::Backtrace::capture());
+    }));
+
     env_logger::init();
 
     // Initialize comprehensive monitoring system
