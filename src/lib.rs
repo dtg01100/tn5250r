@@ -33,3 +33,28 @@ pub mod protocol_state;
 pub mod telnet_negotiation;
 pub mod terminal;
 pub mod test_field_detection;
+
+/// Application state management
+pub mod app_state;
+
+/// Connection management
+pub mod connection;
+
+/// Terminal display rendering
+pub mod terminal_display;
+
+/// Input handling
+pub mod input;
+
+/// Main application loop
+pub mod app;
+
+/// UI components
+pub mod ui {
+    pub mod monitoring_ui;
+    pub mod dialogs;
+    pub mod function_keys;
+}
+
+/// Application constants
+pub mod constants;

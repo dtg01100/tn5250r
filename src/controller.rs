@@ -992,6 +992,19 @@ pub struct AsyncTerminalController {
     cancel_connect_flag: Arc<AtomicBool>,
 }
 
+impl Clone for AsyncTerminalController {
+    fn clone(&self) -> Self {
+        Self {
+            controller: Arc::clone(&self.controller),
+            running: self.running,
+            handle: None, // Do not clone the handle
+            connect_in_progress: Arc::clone(&self.connect_in_progress),
+            last_connect_error: Arc::clone(&self.last_connect_error),
+            cancel_connect_flag: Arc::clone(&self.cancel_connect_flag),
+        }
+    }
+}
+
 impl AsyncTerminalController {
     pub fn new() -> Self {
         Self {
@@ -1066,7 +1079,7 @@ impl AsyncTerminalController {
         host: String,
         port: u16,
         tls_override: Option<bool>,
-        tls_insecure: Option<bool>,
+        insecure: Option<bool>,
         ca_bundle_path: Option<String>,
     ) -> Result<(), String> {
         // If already processing, restart cleanly
@@ -1098,7 +1111,7 @@ impl AsyncTerminalController {
                 if let Some(tls) = tls_override {
                     conn.set_tls(tls);
                 }
-                if let Some(insec) = tls_insecure {
+                if let Some(insec) = insecure {
                     conn.set_tls_insecure(insec);
                 }
                 if let Some(ref path) = ca_bundle_path {
@@ -1260,7 +1273,7 @@ impl AsyncTerminalController {
 
     /// Connect with a specific protocol type (async)
     /// Enhanced with protocol validation and error handling
-    pub fn connect_async_with_protocol(
+    pub async fn connect_async_with_protocol(
         &mut self,
         host: String,
         port: u16,
