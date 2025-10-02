@@ -338,8 +338,18 @@ pub fn ascii_to_ebcdic(ch: char) -> u8 {
         '\u{00FE}' => 0x8E, // thorn
         '\u{00FF}' => 0xDF, // y diaeresis
         
-        // Default to space for unmapped characters
-        _ => 0x40,
+        // Default: search the table for any remaining characters
+        _ => {
+            // For complete mapping coverage, search the EBCDIC table
+            // This ensures all 256 EBCDIC characters have correct reverse mappings
+            for (i, &table_char) in EBCDIC_CP037_TO_ASCII.iter().enumerate() {
+                if table_char == ch {
+                    return i as u8;
+                }
+            }
+            // If not found, default to EBCDIC space
+            0x40
+        }
     }
 }
 

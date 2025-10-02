@@ -731,6 +731,8 @@ impl TelnetNegotiator {
     /// Handle environment variable negotiation
     pub fn handle_environment_negotiation(&mut self, data: &[u8]) {
         if data.is_empty() {
+            // Assume empty SEND command - send all environment variables
+            self.send_environment_variables();
             return;
         }
         
