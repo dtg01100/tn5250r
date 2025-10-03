@@ -683,6 +683,10 @@ impl TelnetNegotiator {
                 // If we prefer this option, WILL it, otherwise WONT it
                 if self.preferred_options.contains(&option) {
                     self.negotiation_states.insert(option, NegotiationState::Active);
+                    // Special handling for TN3270E session state
+                    if option == TelnetOption::TN3270E {
+                        self.tn3270e_session_state = TN3270ESessionState::TN3270ENegotiated;
+                    }
                     self.send_will(option);
                 } else {
                     self.negotiation_states.insert(option, NegotiationState::Inactive);
@@ -882,7 +886,7 @@ impl TelnetNegotiator {
     
     /// INTEGRATION: Handle environment variable negotiation
     /// Processes SEND and IS commands according to RFC 1572
-    fn handle_environment_negotiation(&mut self, data: &[u8]) {
+    pub fn handle_environment_negotiation(&mut self, data: &[u8]) {
         if data.is_empty() {
             return;
         }
@@ -931,6 +935,8 @@ impl TelnetNegotiator {
                         self.send_tn3270e_device_type_is(dt);
                     } else {
                         println!("TN3270E: Unknown device type requested: 0x{:02X}", device_type);
+                        // Send IS response with default device type for invalid requests
+                        self.send_tn3270e_device_type_is(TN3270EDeviceType::Model2);
                     }
                 }
             },
@@ -1002,6 +1008,8 @@ impl TelnetNegotiator {
     fn handle_tn3270e_bind(&mut self, data: &[u8]) {
         if data.is_empty() {
             println!("TN3270E: BIND command received but no bind data");
+            // Send BIND response even for malformed BIND
+            self.send_tn3270e_bind_response();
             return;
         }
 

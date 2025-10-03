@@ -173,7 +173,7 @@ mod integration_tests {
         });
 
         // Wait for the text to appear
-        let result = harness.wait_for_text("Async content loaded ", Duration::from_secs(1));
+        let result = harness.wait_for_text("Async content loaded", Duration::from_secs(1));
         assert!(result.is_ok());
     }
 
