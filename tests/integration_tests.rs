@@ -352,6 +352,66 @@ mod integration_tests {
         assert!(final_health.protocol_processor);
         assert!(final_health.overall_healthy);
     }
+
+    #[test]
+    fn test_end_to_end_session_simulation() {
+        // END-TO-END: Simulate complete session from connection to data exchange
+        use tests::mocks::mock_network::MockAS400Connection;
+
+        let mock_connection = MockAS400Connection::new();
+        
+        // Simulate telnet negotiation responses
+        mock_connection.add_responses(vec![
+            vec![255, 251, 0], // IAC WILL BINARY
+            vec![255, 251, 24], // IAC WILL TERMINAL TYPE
+            vec![255, 251, 31], // IAC WILL WINDOW SIZE
+            vec![255, 251, 32], // IAC WILL TERMINAL SPEED
+            vec![255, 251, 35], // IAC WILL REMOTE FLOW CONTROL
+            vec![255, 251, 39], // IAC WILL NEW ENVIRONMENT
+        ]);
+        
+        // Simulate 5250 welcome screen data
+        let welcome_data = vec![
+            0x04, // ESC
+            0x11, // WriteToDisplay
+            0x00, // WCC
+            0x1A, 0x01, 0x01, // Set cursor to (0,0)
+            0xC9, 0xD5, 0xE2, 0xF4, 0xF5, 0xF0, 0xF9, 0xF2, // "INS5250R" in EBCDIC
+            0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, // Spaces
+            0xD7, 0xD9, 0xD6, 0xD4, 0xD9, 0xC1, 0xD4, // "PROGRAM" in EBCDIC
+            0xF0, // End of command
+        ];
+        mock_connection.add_response(welcome_data);
+        
+        // Create session and connect
+        let mut session = Session::new();
+        session.authenticate("testuser", "testpass").unwrap();
+        
+        // Simulate receiving telnet negotiation data
+        for _ in 0..6 {
+            if let Some(data) = mock_connection.read_data() {
+                let _ = session.process_integrated_data(&data);
+            }
+        }
+        
+        // Simulate receiving 5250 screen data
+        if let Some(screen_data) = mock_connection.read_data() {
+            let result = session.process_integrated_data(&screen_data);
+            assert!(result.is_ok());
+        }
+        
+        // Verify session processed the data
+        let health = session.check_integration_health();
+        assert!(health.overall_healthy);
+        
+        // Test sending response data
+        let response_data = session.generate_response_data();
+        if let Some(response) = response_data {
+            mock_connection.send_data(&response);
+            let sent = mock_connection.sent_data();
+            assert!(!sent.is_empty());
+        }
+    }
 }
 
 // INTEGRATION: Helper functions for testing

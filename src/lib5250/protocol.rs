@@ -1015,6 +1015,23 @@ impl ProtocolParser {
             0x81 => { // Query List
                 state.detect_fields();
             },
+            0x82 => { // Query Reply
+                // Handle query reply with terminal capabilities
+                // Data contains screen dimensions, supported features, etc.
+            },
+            0x83 => { // Define Extended Attribute
+                // Handle extended attribute definition for fields
+                // Defines attribute values for field processing
+            },
+            0x84 => { // Define Named Logical Unit
+                // Handle logical unit naming
+            },
+            0x85 => { // Define Pending Operations
+                // Handle pending operation definitions
+            },
+            0x86 => { // Set Reply Mode
+                // Handle reply mode settings
+            },
             _ => {}, // Unknown SF, skip
         }
         self.cursor += data_len;

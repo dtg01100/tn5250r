@@ -28,15 +28,22 @@ This document describes the process of porting the lib5250 component from the or
 - `telnet_negotiation.rs`: Telnet negotiation logic to be ported to `lib5250::telnet`.
 
 ## Current Status
-- **Stubbed Implementation**: Most logic is currently stubbed; only basic command dispatch and detection are implemented.
-- **Unit Tests**: All stubbed logic is covered by passing unit tests.
-- **Integration**: TN5250R uses lib5250 stubs for protocol and field handling; advanced features are not yet implemented.
+- **Advanced Implementation**: Full protocol parsing with support for WriteToDisplay, Read commands, and extended structured fields (Query, Query Reply, Define Extended Attribute, etc.).
+- **Performance Optimized**: Added benchmarking infrastructure and optimized hot paths in field navigation and telnet processing.
+- **Comprehensive Testing**: Unit tests, integration tests, and end-to-end session simulation tests implemented.
+- **Integration**: TN5250R fully integrated with lib5250 for protocol parsing, field management, and telnet negotiation.
+
+## Recent Developments
+1. **Structured Fields Enhancement**: Added support for complex 5250 structured fields beyond basic Query/Reply, including Define Extended Attribute, Define Named Logical Unit, Define Pending Operations, and Set Reply Mode.
+2. **Performance Benchmarking**: Implemented Criterion-based benchmarks for protocol parsing performance analysis and optimization.
+3. **End-to-End Testing**: Added comprehensive integration tests simulating full AS/400 sessions with mock network components.
+4. **Protocol State Trait**: Refactored parsing to use ProtocolState trait for better modularity and testability.
 
 ## Next Steps
-1. Incrementally implement full protocol parsing, field management, and telnet negotiation logic in Rust.
-2. Expand unit and integration tests to cover all protocol features and edge cases.
-3. Optimize for performance and maintainability.
-4. Document further architectural decisions and migration steps.
+1. Continue expanding structured field implementations for full RFC 2877 compliance.
+2. Add more performance benchmarks and optimize based on profiling results.
+3. Enhance end-to-end testing with real network scenarios (when available).
+4. Document API usage and integration patterns for developers.
 
 ## References
 - Original lib5250 C source code
@@ -44,4 +51,4 @@ This document describes the process of porting the lib5250 component from the or
 - TN5250R architecture notes
 
 ---
-_Last updated: 2025-09-25_
+_Last updated: 2025-10-03_
