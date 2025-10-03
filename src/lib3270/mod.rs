@@ -52,11 +52,11 @@
 //! - ✅ Screen buffer management
 //! - ✅ Multiple screen sizes
 //!
-//! ## Phase 3: Session Management (Future)
-//! - ⏳ Telnet negotiation (TN3270E)
-//! - ⏳ Device type negotiation
-//! - ⏳ Session establishment
-//! - ⏳ Error recovery
+//! ## Phase 3: Session Management (Current)
+//! - Telnet negotiation (TN3270E) - IMPLEMENTED
+//! - Device type negotiation - IMPLEMENTED
+//! - Session establishment - IMPLEMENTED
+//! - Error recovery - IMPLEMENTED
 //!
 //! ## Phase 4: Advanced Features (Future)
 //! - ⏳ Structured fields

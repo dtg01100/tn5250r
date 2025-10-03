@@ -684,8 +684,25 @@ impl Session {
                 // Handle QueryCommand (0x84) - respond with SetReplyMode (0x85)
                 self.create_set_reply_mode_response()
             }
+            0x5B => {
+                // Erase/Reset structured field
+                self.handle_erase_reset()
+            }
+            0x80 => {
+                // Define Pending Operations structured field
+                self.handle_define_pending_operations()
+            }
+            0x82 => {
+                // Enable Command Recognition structured field
+                self.handle_enable_command_recognition()
+            }
+            0x83 => {
+                // Request Minimum Timestamp Interval structured field
+                self.handle_request_timestamp_interval()
+            }
             _ => {
                 // TODO: Handle other structured field types
+                println!("5250: Unhandled structured field type: 0x{sf_type:02X}");
                 Ok(Vec::new())
             }
         }
@@ -842,6 +859,99 @@ impl Session {
         ]);
         
         Ok(response)
+    }
+    
+    /// Handle Erase/Reset structured field (0x5B)
+    fn handle_erase_reset(&mut self) -> Result<Vec<u8>, String> {
+        // Parse reset type from the structured field data
+        if self.buffer_pos < self.data_buffer.len() {
+            let reset_type = self.get_byte()?;
+            match reset_type {
+                0x00 => {
+                    // Clear screen to null
+                    self.display.screen().clear();
+                    self.display.set_cursor(0, 0);
+                    println!("5250: Erase/Reset - Clear screen to null");
+                }
+                0x01 => {
+                    // Clear screen to blanks
+                    self.display.screen().clear();
+                    self.display.set_cursor(0, 0);
+                    println!("5250: Erase/Reset - Clear screen to blanks");
+                }
+                0x02 => {
+                    // Clear input fields only
+                    // TODO: Implement selective field clearing
+                    println!("5250: Erase/Reset - Clear input fields only (not implemented)");
+                }
+                _ => {
+                    println!("5250: Erase/Reset - Unknown reset type: 0x{reset_type:02X}");
+                }
+            }
+        } else {
+            // Default: clear screen to null
+            self.display.screen().clear();
+            self.display.set_cursor(0, 0);
+            println!("5250: Erase/Reset - Default clear screen to null");
+        }
+        
+        // Reset session state
+        self.read_opcode = 0;
+        self.invited = false;
+        
+        // No response needed for Erase/Reset
+        Ok(Vec::new())
+    }
+    
+    /// Handle Define Pending Operations structured field (0x80)
+    fn handle_define_pending_operations(&mut self) -> Result<Vec<u8>, String> {
+        // Parse pending operations data
+        // This typically defines operations that should be performed later
+        println!("5250: Define Pending Operations - processing");
+        
+        // For now, just consume any remaining data in this structured field
+        // Real implementation would parse and store pending operations
+        while self.buffer_pos < self.data_buffer.len() {
+            let _byte = self.get_byte()?;
+            // TODO: Parse pending operation definitions
+        }
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Enable Command Recognition structured field (0x82)
+    fn handle_enable_command_recognition(&mut self) -> Result<Vec<u8>, String> {
+        // This enables recognition of certain commands
+        // Parse any parameters
+        if self.buffer_pos < self.data_buffer.len() {
+            let flags = self.get_byte()?;
+            println!("5250: Enable Command Recognition - flags: 0x{flags:02X}");
+            
+            // TODO: Set command recognition flags in session state
+        } else {
+            println!("5250: Enable Command Recognition - no parameters");
+        }
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Request Minimum Timestamp Interval structured field (0x83)
+    fn handle_request_timestamp_interval(&mut self) -> Result<Vec<u8>, String> {
+        // Parse requested minimum timestamp interval
+        if self.buffer_pos + 1 < self.data_buffer.len() {
+            let interval = u16::from_be_bytes([self.get_byte()?, self.get_byte()?]);
+            println!("5250: Request Minimum Timestamp Interval - {} milliseconds", interval);
+            
+            // TODO: Set timestamp interval for session
+            // For now, acknowledge the request
+        } else {
+            println!("5250: Request Minimum Timestamp Interval - insufficient data");
+        }
+        
+        // No response needed for this command
+        Ok(Vec::new())
     }
     
     /// Get next byte from data buffer

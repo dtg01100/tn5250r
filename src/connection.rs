@@ -21,6 +21,9 @@ impl TN5250RApp {
     }
 
     pub fn do_connect(&mut self) {
+        // Clear any previous error message
+        self.error_message = None;
+
         // Parse host and port from connection string
         let (host, port) = self.parse_connection_string();
         self.host = host;
@@ -85,6 +88,7 @@ impl TN5250RApp {
         self.login_screen_requested = false;
         self.connection_time = None;
         self.terminal_content = "Disconnected from AS/400 system\nReady for new connection...\n".to_string();
+        self.error_message = None;  // Clear any error on disconnect
 
         // Record disconnection in monitoring
         let monitoring = monitoring::MonitoringSystem::global();

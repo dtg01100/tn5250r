@@ -1,0 +1,51 @@
+# TN5250R GUI Test Configuration
+# This file contains configuration for automated GUI testing
+
+[test_environment]
+# Test environment settings
+headless = true
+xvfb_display = ":99"
+timeout_seconds = 30
+screenshot_directory = "test_screenshots"
+
+[visual_regression]
+# Visual regression testing settings
+enabled = true
+baseline_directory = "test_baselines"
+diff_directory = "test_diffs"
+threshold = 0.01  # Pixel difference threshold (0.0-1.0)
+
+[performance]
+# Performance testing thresholds
+max_frame_time_ms = 16  # 60 FPS target
+max_memory_mb = 100
+max_startup_time_ms = 2000
+
+[test_scenarios]
+# E2E test scenarios to run
+enabled_scenarios = [
+    "connection_workflow",
+    "menu_navigation",
+    "input_handling",
+    "function_keys",
+    "error_handling",
+    "disconnect_workflow",
+    "settings_dialog",
+    "monitoring_dashboard",
+    "responsive_layout"
+]
+
+[ci_settings]
+# CI/CD specific settings
+parallel_execution = true
+max_parallel_tests = 4
+retry_failed_tests = true
+max_retries = 2
+generate_report = true
+report_format = "html"
+
+[network_simulation]
+# Network simulation settings for testing
+connection_delay_ms = 100
+data_transfer_delay_ms = 10
+failure_rate = 0.0  # 0.0 = no failures, 1.0 = always fail

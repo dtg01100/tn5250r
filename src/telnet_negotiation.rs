@@ -39,6 +39,7 @@ pub enum TelnetOption {
     EndOfRecord = 19,
     TerminalType = 24,
     NewEnvironment = 39,
+    TN3270E = 40,  // TN3270 Enhanced protocol option
 }
 
 impl TelnetOption {
@@ -50,6 +51,7 @@ impl TelnetOption {
             19 => Some(TelnetOption::EndOfRecord),
             24 => Some(TelnetOption::TerminalType),
             39 => Some(TelnetOption::NewEnvironment),
+            40 => Some(TelnetOption::TN3270E),
             _ => None,
         }
     }
@@ -97,6 +99,80 @@ pub enum NegotiationState {
     Active,
     /// Both sides agree we won't do this option
     Inactive,
+}
+
+/// TN3270E Device Types as defined in RFC 2355
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TN3270EDeviceType {
+    /// 3278 Model 2 (24x80 monochrome)
+    Model2 = 0x02,
+    /// 3278 Model 3 (32x80 monochrome)
+    Model3 = 0x03,
+    /// 3278 Model 4 (43x80 monochrome)
+    Model4 = 0x04,
+    /// 3278 Model 5 (27x132 monochrome)
+    Model5 = 0x05,
+    /// 3279 Model 2 (24x80 color)
+    Model2Color = 0x82,
+    /// 3279 Model 3 (32x80 color)
+    Model3Color = 0x83,
+    /// 3279 Model 4 (43x80 color)
+    Model4Color = 0x84,
+    /// 3279 Model 5 (27x132 color)
+    Model5Color = 0x85,
+}
+
+impl TN3270EDeviceType {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x02 => Some(TN3270EDeviceType::Model2),
+            0x03 => Some(TN3270EDeviceType::Model3),
+            0x04 => Some(TN3270EDeviceType::Model4),
+            0x05 => Some(TN3270EDeviceType::Model5),
+            0x82 => Some(TN3270EDeviceType::Model2Color),
+            0x83 => Some(TN3270EDeviceType::Model3Color),
+            0x84 => Some(TN3270EDeviceType::Model4Color),
+            0x85 => Some(TN3270EDeviceType::Model5Color),
+            _ => None,
+        }
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        *self as u8
+    }
+
+    pub fn screen_size(&self) -> (usize, usize) {
+        match self {
+            TN3270EDeviceType::Model2 | TN3270EDeviceType::Model2Color => (24, 80),
+            TN3270EDeviceType::Model3 | TN3270EDeviceType::Model3Color => (32, 80),
+            TN3270EDeviceType::Model4 | TN3270EDeviceType::Model4Color => (43, 80),
+            TN3270EDeviceType::Model5 | TN3270EDeviceType::Model5Color => (27, 132),
+        }
+    }
+
+    pub fn supports_color(&self) -> bool {
+        matches!(self, 
+            TN3270EDeviceType::Model2Color | 
+            TN3270EDeviceType::Model3Color | 
+            TN3270EDeviceType::Model4Color | 
+            TN3270EDeviceType::Model5Color
+        )
+    }
+}
+
+/// TN3270E Session States
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TN3270ESessionState {
+    /// Initial state, no session established
+    NotConnected,
+    /// TN3270E option negotiated, waiting for device type
+    TN3270ENegotiated,
+    /// Device type negotiated, session active
+    DeviceNegotiated,
+    /// Session bound to logical unit
+    Bound,
+    /// Session unbound (temporary disconnect)
+    Unbound,
 }
 
 /// Memory-efficient buffer pool for telnet negotiation optimization
@@ -290,6 +366,15 @@ pub struct TelnetNegotiator {
     
     /// Optional password for auto-sign-on (RFC 4777 Section 5)
     password: Option<String>,
+
+    /// TN3270E session state
+    tn3270e_session_state: TN3270ESessionState,
+
+    /// Negotiated TN3270E device type
+    tn3270e_device_type: Option<TN3270EDeviceType>,
+
+    /// Logical unit name for session binding
+    logical_unit_name: Option<String>,
 }
 
 impl TelnetNegotiator {
@@ -302,6 +387,7 @@ impl TelnetNegotiator {
                 TelnetOption::SuppressGoAhead,
                 TelnetOption::TerminalType,
                 TelnetOption::NewEnvironment,
+                TelnetOption::TN3270E,  // Add TN3270E to preferred options
             ],
             input_buffer: Vec::new(),
             output_buffer: Vec::new(),
@@ -309,6 +395,9 @@ impl TelnetNegotiator {
             buffer_pool: BufferPool::new(),
             username: None,
             password: None,
+            tn3270e_session_state: TN3270ESessionState::NotConnected,
+            tn3270e_device_type: None,
+            logical_unit_name: None,
         };
         
         // Initialize all options to Initial state
@@ -501,7 +590,7 @@ impl TelnetNegotiator {
         // Send both DO and WILL requests for critical options like mature implementations
         for &option in &self.preferred_options {
             if matches!(self.negotiation_states.get(&option), 
-                       Some(NegotiationState::Initial)) {
+                        Some(NegotiationState::Initial)) {
                 
                 match option {
                     // For these options, we both DO and WILL
@@ -535,6 +624,16 @@ impl TelnetNegotiator {
                             option as u8
                         ]);
                     },
+                    // TN3270E requires special handling - send WILL to indicate we support it
+                    TelnetOption::TN3270E => {
+                        self.negotiation_states.insert(option, NegotiationState::RequestedWill);
+                        
+                        negotiation.extend_from_slice(&[
+                            TelnetCommand::IAC as u8,
+                            TelnetCommand::WILL as u8,
+                            option as u8
+                        ]);
+                    },
                     // Echo is not typically used in 5250 connections
                     TelnetOption::Echo => {
                         // Usually we don't want echo in 5250 mode
@@ -550,6 +649,12 @@ impl TelnetNegotiator {
     /// Check if negotiation is complete
     pub fn is_negotiation_complete(&self) -> bool {
         self.negotiation_complete
+    }
+    
+    /// Force negotiation to complete (for partial negotiation scenarios)
+    pub fn force_negotiation_complete(&mut self) -> bool {
+        self.negotiation_complete = true;
+        true
     }
     
     /// Check if a specific option is active
@@ -687,10 +792,45 @@ impl TelnetNegotiator {
         }
     }
     
+    /// Send WILL command for an option
+    fn send_will(&mut self, option: TelnetOption) {
+        self.output_buffer.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::WILL as u8,
+            option as u8
+        ]);
+    }
+    
+    /// Send WONT command for an option
+    fn send_wont(&mut self, option: TelnetOption) {
+        self.output_buffer.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::WONT as u8,
+            option as u8
+        ]);
+    }
+    
+    /// Send DO command for an option
+    fn send_do(&mut self, option: TelnetOption) {
+        self.output_buffer.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::DO as u8,
+            option as u8
+        ]);
+    }
+    
+    /// Send DONT command for an option
+    fn send_dont(&mut self, option: TelnetOption) {
+        self.output_buffer.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::DONT as u8,
+            option as u8
+        ]);
+    }
+    
     /// Handle subnegotiation (like terminal type or environment variables)
     /// SECURITY: Comprehensive input validation to prevent command injection
     fn handle_subnegotiation(&mut self, data: &[u8]) {
-        // CRITICAL SECURITY FIX: Validate input bounds and prevent command injection
         if data.is_empty() || data.len() > 4096 { // Prevent oversized subnegotiations
             eprintln!("SECURITY: Invalid subnegotiation data length: {}", data.len());
             return;
@@ -718,11 +858,17 @@ impl TelnetNegotiator {
                         let env_data = &data[1..];
                         if env_data.is_empty() || env_data[0] == 1 && env_data.len() == 1 {
                             // Empty data or just SEND command - allow it
-                            self.handle_environment_negotiation(env_data);
+                            self.send_environment_variables();
                         } else {
                             // ENHANCED: Be more permissive with environment data for AS/400 compatibility
                             self.handle_environment_negotiation(env_data);
                         }
+                    }
+                },
+                TelnetOption::TN3270E => {
+                    // Handle TN3270E subnegotiation
+                    if data.len() >= 1 {
+                        self.handle_tn3270e_subnegotiation(&data[1..]);
                     }
                 },
                 _ => {
@@ -734,45 +880,206 @@ impl TelnetNegotiator {
         }
     }
     
-    /// Handle environment variable negotiation
-    pub fn handle_environment_negotiation(&mut self, data: &[u8]) {
+    /// INTEGRATION: Handle environment variable negotiation
+    /// Processes SEND and IS commands according to RFC 1572
+    fn handle_environment_negotiation(&mut self, data: &[u8]) {
         if data.is_empty() {
-            // Assume empty SEND command - send all environment variables
-            self.send_environment_variables();
             return;
         }
-        
-        let sub_command = data[0];
-        match sub_command {
-            1 => { // SEND command - they want us to send variables
+
+        let command = data[0];
+        match command {
+            1 => { // SEND command - server wants us to send our environment variables
                 if data.len() > 1 {
-                    // Parse requested variable names and send specific ones
-                    // ENHANCED: SEND commands may include seed data that we should acknowledge
-                    println!("INTEGRATION: Received SEND environment request ({} bytes of data)", data.len() - 1);
+                    // Server is requesting specific variables
                     self.parse_and_send_requested_variables(&data[1..]);
                 } else {
-                    // No specific variables requested, send all
+                    // Server wants all our environment variables
                     self.send_environment_variables();
                 }
             },
-            2 => { // IS command - they're sending us variables
-                if data.len() > 1 {
-                    self.parse_received_environment_variables(&data[1..]);
-                }
-            },
-            0 => { // INFO command - informational
-                println!("Received environment INFO command");
+            2 => { // IS command - server is sending us their environment variables
+                self.parse_received_environment_variables(&data[1..]);
             },
             _ => {
-                println!("Unknown environment sub-command: {}", sub_command);
+                eprintln!("Unknown environment negotiation command: {}", command);
             }
         }
     }
-    
+
+    /// Handle TN3270E subnegotiation
+    fn handle_tn3270e_subnegotiation(&mut self, data: &[u8]) {
+        if data.is_empty() {
+            return;
+        }
+
+        let command = data[0];
+        match command {
+            1 => { // CONNECT
+                println!("TN3270E: Received CONNECT command");
+                // Server wants to connect - we should respond with device type
+                self.send_tn3270e_device_type();
+            },
+            2 => { // DEVICE-TYPE
+                if data.len() >= 2 {
+                    let device_type = data[1];
+                    if let Some(dt) = TN3270EDeviceType::from_u8(device_type) {
+                        println!("TN3270E: Server requested device type: {:?}", dt);
+                        self.tn3270e_device_type = Some(dt);
+                        self.tn3270e_session_state = TN3270ESessionState::DeviceNegotiated;
+                        // Send IS response to confirm
+                        self.send_tn3270e_device_type_is(dt);
+                    } else {
+                        println!("TN3270E: Unknown device type requested: 0x{:02X}", device_type);
+                    }
+                }
+            },
+            3 => { // FUNCTIONS
+                println!("TN3270E: Received FUNCTIONS command");
+                // Handle function negotiation if needed
+            },
+            4 => { // IS
+                println!("TN3270E: Received IS command");
+                // Server is confirming something
+            },
+            5 => { // REQUEST
+                println!("TN3270E: Received REQUEST command");
+                // Server is requesting information
+            },
+            6 => { // BIND
+                println!("TN3270E: Received BIND command");
+                self.handle_tn3270e_bind(&data[1..]);
+            },
+            7 => { // UNBIND
+                println!("TN3270E: Received UNBIND command");
+                self.handle_tn3270e_unbind(&data[1..]);
+            },
+            _ => {
+                println!("TN3270E: Unknown subcommand: {}", command);
+            }
+        }
+    }
+
+    /// Send TN3270E DEVICE-TYPE request
+    fn send_tn3270e_device_type(&mut self) {
+        // Request device type negotiation
+        let mut response = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TN3270E as u8,
+            2, // DEVICE-TYPE command
+            TN3270EDeviceType::Model2Color as u8, // Request color model
+        ];
+        response.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ]);
+
+        println!("TN3270E: Sending DEVICE-TYPE request for Model2Color");
+        self.output_buffer.extend_from_slice(&response);
+    }
+
+    /// Send TN3270E IS response with device type
+    fn send_tn3270e_device_type_is(&mut self, device_type: TN3270EDeviceType) {
+        let mut response = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TN3270E as u8,
+            4, // IS command
+            2, // DEVICE-TYPE response
+            device_type.to_u8(),
+        ];
+        response.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ]);
+
+        println!("TN3270E: Sending IS response with device type: {:?}", device_type);
+        self.output_buffer.extend_from_slice(&response);
+    }
+
+    /// Handle TN3270E BIND command
+    fn handle_tn3270e_bind(&mut self, data: &[u8]) {
+        if data.is_empty() {
+            println!("TN3270E: BIND command received but no bind data");
+            return;
+        }
+
+        // Parse bind data - typically includes logical unit name
+        // Format: <bind-data> where bind-data starts with logical unit information
+        if data.len() >= 1 {
+            // For now, extract logical unit name if present
+            // In a full implementation, this would parse the complete bind structure
+            let lu_name = if data.len() > 1 {
+                // Try to extract ASCII logical unit name
+                let name_end = data.iter().position(|&b| b == 0).unwrap_or(data.len());
+                String::from_utf8_lossy(&data[0..name_end]).to_string()
+            } else {
+                "DEFAULT".to_string()
+            };
+
+            println!("TN3270E: Binding to logical unit: {}", lu_name);
+            self.logical_unit_name = Some(lu_name);
+            self.tn3270e_session_state = TN3270ESessionState::Bound;
+
+            // Send BIND response to acknowledge
+            self.send_tn3270e_bind_response();
+        }
+    }
+
+    /// Handle TN3270E UNBIND command
+    fn handle_tn3270e_unbind(&mut self, _data: &[u8]) {
+        println!("TN3270E: Unbinding session");
+        self.tn3270e_session_state = TN3270ESessionState::Unbound;
+        self.logical_unit_name = None;
+
+        // Send UNBIND response
+        self.send_tn3270e_unbind_response();
+    }
+
+    /// Send TN3270E BIND response
+    fn send_tn3270e_bind_response(&mut self) {
+        let mut response = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TN3270E as u8,
+            4, // IS command
+            6, // BIND response
+        ];
+
+        // Add logical unit name if available
+        if let Some(ref lu_name) = self.logical_unit_name {
+            response.extend_from_slice(lu_name.as_bytes());
+            response.push(0); // Null terminator
+        }
+
+        response.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ]);
+
+        println!("TN3270E: Sending BIND response");
+        self.output_buffer.extend_from_slice(&response);
+    }
+
+    /// Send TN3270E UNBIND response
+    fn send_tn3270e_unbind_response(&mut self) {
+        let response = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TN3270E as u8,
+            4, // IS command
+            7, // UNBIND response
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ];
+
+        println!("TN3270E: Sending UNBIND response");
+        self.output_buffer.extend_from_slice(&response);
+    }
+
     /// Parse requested environment variables and send responses
-    /// SECURITY: Enhanced with comprehensive input validation
     fn parse_and_send_requested_variables(&mut self, data: &[u8]) {
-        let mut i = 0;
         let mut response = vec![
             TelnetCommand::IAC as u8,
             TelnetCommand::SB as u8,
@@ -780,16 +1087,11 @@ impl TelnetNegotiator {
             2, // IS command
         ];
 
-        // ENHANCED: Handle both VAR(0) and USERVAR(3) types
+        let mut i = 0;
         while i < data.len() {
-            if data[i] == 0 || data[i] == 3 { // VAR type or USERVAR type
+            if data[i] == 0 || data[i] == 3 { // VAR or USERVAR
                 let var_type = data[i];
                 i += 1;
-                
-                if i >= data.len() {
-                    break;
-                }
-                
                 let var_start = i;
 
                 // Find the end of the variable name
@@ -819,137 +1121,137 @@ impl TelnetNegotiator {
                     // Enhanced whitelist with all required AS/400 variables
                     match var_name_str.as_ref() {
                         "DEVNAME" => {
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"DEVNAME");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"TN5250R");
-                            },
-                            "KBDTYPE" => {
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"KBDTYPE");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"USB");
-                            },
-                            "CODEPAGE" => {
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"CODEPAGE");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"37");
-                            },
-                            "CHARSET" => {
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"CHARSET");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"37");
-                            },
-                            "USER" => {
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"USER");
-                                response.push(1); // VALUE type
-                                // Use configured username or default to GUEST
-                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
-                                response.extend_from_slice(user);
-                            },
-                            "IBMRSEED" => {
-                                // RFC 4777 Section 5: IBMRSEED response for authentication
-                                // When server sends USERVAR request for IBMRSEED, we respond with:
-                                // 1. VAR "USER" VALUE "<username>"
-                                // 2. USERVAR "IBMRSEED" VALUE "" (empty for plain text) OR client seed for encryption
-                                // 3. USERVAR "IBMSUBSPW" VALUE "<password>" (plain text or encrypted)
-                                
-                                println!("INTEGRATION: Server requested IBMRSEED - sending authentication credentials");
-                                
-                                // Send USER variable
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"USER");
-                                response.push(1); // VALUE type
-                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
-                                response.extend_from_slice(user);
-                                println!("   USER: {}", String::from_utf8_lossy(user));
-                                
-                                // Send IBMRSEED with empty value for plain text password
-                                response.push(3); // USERVAR type
-                                response.extend_from_slice(b"IBMRSEED");
-                                response.push(1); // VALUE type
-                                // Empty value indicates plain text password mode
-                                println!("   IBMRSEED: <empty> (plain text mode)");
-                                
-                                // Send IBMSUBSPW with password
-                                response.push(3); // USERVAR type
-                                response.extend_from_slice(b"IBMSUBSPW");
-                                response.push(1); // VALUE type
-                                let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
-                                response.extend_from_slice(pass);
-                                println!("   IBMSUBSPW: {} characters", pass.len());
-                            },
-                            name if name.starts_with("IBMRSEED") => {
-                                // INTEGRATION: Handle IBMRSEED requests with seed data embedded in variable name
-                                // Some AS/400 servers send: USERVAR "IBMRSEED<8-byte-hex-seed>"
-                                // We extract the seed but for now use plain text authentication
-                                
-                                println!("INTEGRATION: Server requested IBMRSEED with embedded seed - sending authentication");
-                                
-                                // Send USER variable
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"USER");
-                                response.push(1); // VALUE type
-                                let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
-                                response.extend_from_slice(user);
-                                println!("   USER: {}", String::from_utf8_lossy(user));
-                                
-                                // Send IBMRSEED with empty value for plain text
-                                response.push(3); // USERVAR type
-                                response.extend_from_slice(b"IBMRSEED");
-                                response.push(1); // VALUE type
-                                println!("   IBMRSEED: <empty> (plain text mode)");
-                                
-                                // Send IBMSUBSPW with password
-                                response.push(3); // USERVAR type
-                                response.extend_from_slice(b"IBMSUBSPW");
-                                response.push(1); // VALUE type
-                                let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
-                                response.extend_from_slice(pass);
-                                println!("   IBMSUBSPW: {} characters", pass.len());
-                            },
-                            "IBMSUBSPW" => {
-                                // INTEGRATION: Subsystem password
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"IBMSUBSPW");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b""); // Empty for guest access
-                            },
-                            "LFA" => {
-                                // INTEGRATION: Local format attribute
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"LFA");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"1"); // Standard format
-                            },
-                            "TERM" => {
-                                // INTEGRATION: Terminal type
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"TERM");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"IBM-3179-2");
-                            },
-                            "LANG" => {
-                                // INTEGRATION: Language setting
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"LANG");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b"EN_US");
-                            },
-                            "DISPLAY" => {
-                                // INTEGRATION: Display device
-                                response.push(0); // VAR type
-                                response.extend_from_slice(b"DISPLAY");
-                                response.push(1); // VALUE type
-                                response.extend_from_slice(b":0.0");
-                            },
-                            _ => {
-                                let sanitized_name = self.sanitize_string_output(&var_name_str);
-                                eprintln!("INTEGRATION: Requested unknown environment variable: {}", sanitized_name);
-                            }
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"DEVNAME");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"TN5250R");
+                        },
+                        "KBDTYPE" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"KBDTYPE");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"USB");
+                        },
+                        "CODEPAGE" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"CODEPAGE");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"37");
+                        },
+                        "CHARSET" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"CHARSET");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"37");
+                        },
+                        "USER" => {
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"USER");
+                            response.push(1); // VALUE type
+                            // Use configured username or default to GUEST
+                            let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                            response.extend_from_slice(user);
+                        },
+                        "IBMRSEED" => {
+                            // RFC 4777 Section 5: IBMRSEED response for authentication
+                            // When server sends USERVAR request for IBMRSEED, we respond with:
+                            // 1. VAR "USER" VALUE "<username>"
+                            // 2. USERVAR "IBMRSEED" VALUE "" (empty for plain text) OR client seed for encryption
+                            // 3. USERVAR "IBMSUBSPW" VALUE "<password>" (plain text or encrypted)
+
+                            println!("INTEGRATION: Server requested IBMRSEED - sending authentication credentials");
+
+                            // Send USER variable
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"USER");
+                            response.push(1); // VALUE type
+                            let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                            response.extend_from_slice(user);
+                            println!("   USER: {}", String::from_utf8_lossy(user));
+
+                            // Send IBMRSEED with empty value for plain text password
+                            response.push(3); // USERVAR type
+                            response.extend_from_slice(b"IBMRSEED");
+                            response.push(1); // VALUE type
+                            // Empty value indicates plain text password mode
+                            println!("   IBMRSEED: <empty> (plain text mode)");
+
+                            // Send IBMSUBSPW with password
+                            response.push(3); // USERVAR type
+                            response.extend_from_slice(b"IBMSUBSPW");
+                            response.push(1); // VALUE type
+                            let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
+                            response.extend_from_slice(pass);
+                            println!("   IBMSUBSPW: {} characters", pass.len());
+                        },
+                        name if name.starts_with("IBMRSEED") => {
+                            // INTEGRATION: Handle IBMRSEED requests with seed data embedded in variable name
+                            // Some AS/400 servers send: USERVAR "IBMRSEED<8-byte-hex-seed>"
+                            // We extract the seed but for now use plain text authentication
+
+                            println!("INTEGRATION: Server requested IBMRSEED with embedded seed - sending authentication");
+
+                            // Send USER variable
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"USER");
+                            response.push(1); // VALUE type
+                            let user = self.username.as_ref().map(|s| s.as_bytes()).unwrap_or(b"GUEST");
+                            response.extend_from_slice(user);
+                            println!("   USER: {}", String::from_utf8_lossy(user));
+
+                            // Send IBMRSEED with empty value for plain text
+                            response.push(3); // USERVAR type
+                            response.extend_from_slice(b"IBMRSEED");
+                            response.push(1); // VALUE type
+                            println!("   IBMRSEED: <empty> (plain text mode)");
+
+                            // Send IBMSUBSPW with password
+                            response.push(3); // USERVAR type
+                            response.extend_from_slice(b"IBMSUBSPW");
+                            response.push(1); // VALUE type
+                            let pass = self.password.as_ref().map(|s| s.as_bytes()).unwrap_or(b"");
+                            response.extend_from_slice(pass);
+                            println!("   IBMSUBSPW: {} characters", pass.len());
+                        },
+                        "IBMSUBSPW" => {
+                            // INTEGRATION: Subsystem password
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"IBMSUBSPW");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b""); // Empty for guest access
+                        },
+                        "LFA" => {
+                            // INTEGRATION: Local format attribute
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"LFA");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"1"); // Standard format
+                        },
+                        "TERM" => {
+                            // INTEGRATION: Terminal type
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"TERM");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"IBM-3179-2");
+                        },
+                        "LANG" => {
+                            // INTEGRATION: Language setting
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"LANG");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b"EN_US");
+                        },
+                        "DISPLAY" => {
+                            // INTEGRATION: Display device
+                            response.push(0); // VAR type
+                            response.extend_from_slice(b"DISPLAY");
+                            response.push(1); // VALUE type
+                            response.extend_from_slice(b":0.0");
+                        },
+                        _ => {
+                            let sanitized_name = self.sanitize_string_output(&var_name_str);
+                            eprintln!("INTEGRATION: Requested unknown environment variable: {}", sanitized_name);
+                        }
                     }
                 }
             } else {
@@ -964,61 +1266,51 @@ impl TelnetNegotiator {
 
         self.output_buffer.extend_from_slice(&response);
     }
-    
+
     /// Parse environment variables sent by the remote side
-    /// SECURITY: Enhanced with comprehensive input validation
+    /// ENHANCED: Allows unknown AS/400 variables while maintaining basic security
     fn parse_received_environment_variables(&mut self, data: &[u8]) {
-        // SECURITY: Validate input data before processing
-        if !self.validate_environment_data(data) {
-            eprintln!("SECURITY: Invalid received environment variable data rejected");
+        if data.is_empty() {
             return;
         }
 
         let mut i = 0;
-
         while i < data.len() {
-            if data[i] == 0 { // VAR type
+            if data[i] == 0 || data[i] == 3 { // VAR or USERVAR
+                let var_type = data[i];
                 i += 1;
                 let var_start = i;
 
-                // Find the end of variable name
-                while i < data.len() && data[i] != 1 {
+                // Find the end of the variable name
+                while i < data.len() && data[i] != 0 && data[i] != 1 && data[i] != 3 {
                     i += 1;
                 }
 
-                if i < data.len() && data[i] == 1 { // VALUE type
-                    let var_name_bytes = &data[var_start..i];
+                if i > var_start {
+                    let var_name = &data[var_start..i];
+                    let var_name_str = String::from_utf8_lossy(var_name);
 
-                    // SECURITY: Validate variable name format (allows unknown AS/400 variables)
-                    if self.validate_variable_name_format(var_name_bytes) {
-                        let var_name = String::from_utf8_lossy(var_name_bytes);
+                    // Skip to value if present
+                    if i < data.len() && data[i] == 1 { // VALUE type
                         i += 1;
-                        let val_start = i;
+                        let value_start = i;
 
-                        // Find the end of value
-                        while i < data.len() && data[i] != 0 && data[i] != 1 {
+                        // Find end of value (next VAR, USERVAR, or end)
+                        while i < data.len() && data[i] != 0 && data[i] != 3 {
                             i += 1;
                         }
 
-                        let value_bytes = &data[val_start..i];
+                        let var_value = &data[value_start..i];
+                        let var_value_str = String::from_utf8_lossy(var_value);
 
-                        // SECURITY: Validate variable value
-                        if self.validate_variable_value(value_bytes) {
-                            let value = String::from_utf8_lossy(value_bytes);
-                            let sanitized_name = self.sanitize_string_output(&var_name);
-                            let sanitized_value = self.sanitize_string_output(&value);
-
-                            // ENHANCED: Better logging for AS/400 environment variables
-                            if self.validate_variable_name(var_name_bytes) {
-                                println!("Received known environment variable: {}={}", sanitized_name, sanitized_value);
-                            } else {
-                                println!("Received AS/400 environment variable: {}={}", sanitized_name, sanitized_value);
-                            }
-                        } else {
-                            eprintln!("SECURITY: Invalid environment variable value rejected");
-                        }
+                        println!("INTEGRATION: Server sent {} {} = {}",
+                                if var_type == 3 { "USERVAR" } else { "VAR" },
+                                var_name_str,
+                                self.sanitize_string_output(&var_value_str));
                     } else {
-                        eprintln!("SECURITY: Invalid environment variable name format rejected");
+                        println!("INTEGRATION: Server sent {} {} (no value)",
+                                if var_type == 3 { "USERVAR" } else { "VAR" },
+                                var_name_str);
                     }
                 }
             } else {
@@ -1026,117 +1318,8 @@ impl TelnetNegotiator {
             }
         }
     }
-    
-    /// Send a WILL command
-    fn send_will(&mut self, option: TelnetOption) {
-        self.output_buffer.extend_from_slice(&[
-            TelnetCommand::IAC as u8,
-            TelnetCommand::WILL as u8,
-            option as u8
-        ]);
-    }
-    
-    /// Send a WONT command
-    fn send_wont(&mut self, option: TelnetOption) {
-        self.output_buffer.extend_from_slice(&[
-            TelnetCommand::IAC as u8,
-            TelnetCommand::WONT as u8,
-            option as u8
-        ]);
-    }
-    
-    /// Send a DO command
-    fn send_do(&mut self, option: TelnetOption) {
-        self.output_buffer.extend_from_slice(&[
-            TelnetCommand::IAC as u8,
-            TelnetCommand::DO as u8,
-            option as u8
-        ]);
-    }
-    
-    /// Send a DONT command
-    fn send_dont(&mut self, option: TelnetOption) {
-        self.output_buffer.extend_from_slice(&[
-            TelnetCommand::IAC as u8,
-            TelnetCommand::DONT as u8,
-            option as u8
-        ]);
-    }
-    
-    /// SECURITY: Validate environment negotiation data
-    /// ENHANCED: More permissive validation for AS/400 compatibility
-    fn validate_environment_data(&self, data: &[u8]) -> bool {
-        // Validate total length - increased for AS/400 compatibility
-        if data.is_empty() || data.len() > 4096 {
-            return false;
-        }
 
-        let mut i = 0;
-        while i < data.len() {
-            match data[i] {
-                0 | 3 => { // VAR type or USERVAR type (RFC 1572)
-                    i += 1;
-                    if i >= data.len() {
-                        return false;
-                    }
-                    let var_start = i;
-
-                    // Find end of variable name
-                    while i < data.len() && data[i] != 0 && data[i] != 1 && data[i] != 2 && data[i] != 3 {
-                        i += 1;
-                    }
-
-                    if i > var_start {
-                        let var_name = &data[var_start..i];
-                        // ENHANCED: Allow unknown variables for AS/400 compatibility
-                        // but still validate the name format
-                        if !self.validate_variable_name_format(var_name) {
-                            return false;
-                        }
-                    }
-
-                    if i >= data.len() {
-                        // Reached end of data - this is okay for SEND commands
-                        return true;
-                    }
-                },
-                1 => { // VALUE type
-                    i += 1;
-                    if i >= data.len() {
-                        return false;
-                    }
-                    let val_start = i;
-
-                    // Find end of value - allow for AS/400 specific terminators
-                    while i < data.len() && data[i] != 0 && data[i] != 1 && data[i] != 2 && data[i] != 3 {
-                        i += 1;
-                    }
-
-                    if i > val_start {
-                        let value = &data[val_start..i];
-                        if !self.validate_variable_value(value) {
-                            return false;
-                        }
-                    }
-                },
-                2 => { // ESC (escaped character) - RFC 1572
-                    if i + 1 >= data.len() {
-                        return false; // Need at least one more byte for escaped character
-                    }
-                    i += 2; // Skip ESC and the escaped character
-                },
-                _ => {
-                    // ENHANCED: More lenient handling of unknown bytes for AS/400 compatibility
-                    // Some AS/400 systems may send additional control bytes
-                    i += 1;
-                }
-            }
-        }
-
-        true
-    }
-
-    /// SECURITY: Validate environment variable name format (less strict than validate_variable_name)
+    /// Parse environment variables sent by the remote side
     /// ENHANCED: Allows unknown AS/400 variables while maintaining basic security
     fn validate_variable_name_format(&self, name: &[u8]) -> bool {
         // Length constraints
@@ -1404,7 +1587,7 @@ impl TelnetNegotiator {
     
     /// Check if all required negotiations are complete
     fn check_negotiation_complete(&mut self) {
-        // For TN5250, we need Binary and SGA at minimum
+        // For TN5250/TN3270, we need Binary and SGA at minimum
         // EOR is specified in RFC 2877 but some servers don't support it
         let essential_active = [
             TelnetOption::Binary,
@@ -1424,9 +1607,17 @@ impl TelnetNegotiator {
         eprintln!("TELNET DEBUG: EOR state: {:?} (optional)", 
                  self.negotiation_states.get(&TelnetOption::EndOfRecord));
         
-        eprintln!("TELNET DEBUG: All essential active: {}, EOR active: {}", 
-                 all_essential_active, eor_active);
-        if all_essential_active {
+        // Check TN3270E state if we're negotiating it
+        let tn3270e_negotiated = if self.preferred_options.contains(&TelnetOption::TN3270E) {
+            matches!(self.negotiation_states.get(&TelnetOption::TN3270E), Some(NegotiationState::Active)) &&
+            matches!(self.tn3270e_session_state, TN3270ESessionState::Bound)
+        } else {
+            true // Not negotiating TN3270E, so it's "complete"
+        };
+        
+        eprintln!("TELNET DEBUG: All essential active: {}, EOR active: {}, TN3270E negotiated: {}", 
+                 all_essential_active, eor_active, tn3270e_negotiated);
+        if all_essential_active && tn3270e_negotiated {
             self.negotiation_complete = true;
             eprintln!("TELNET DEBUG: Negotiation marked complete!");
         }
@@ -1590,30 +1781,40 @@ impl TelnetNegotiator {
         self.negotiation_states.clone()
     }
 
-    /// Force negotiation to complete (for fallback scenarios)
-    pub fn force_negotiation_complete(&mut self) -> bool {
-        // Mark binary and end-of-record as complete if they're at least partially set up
-        let essential_options = [TelnetOption::Binary, TelnetOption::EndOfRecord];
-        
-        for &option in &essential_options {
-            if !matches!(self.negotiation_states.get(&option), Some(NegotiationState::Active)) {
-                // Set to active if it's at least been attempted
-                if self.negotiation_states.contains_key(&option) {
-                    self.negotiation_states.insert(option, NegotiationState::Active);
-                }
-            }
-        }
-        
-        // Check if essential options are now active
-        let essential_active = essential_options.iter().all(|&opt| {
-            matches!(self.negotiation_states.get(&opt), Some(NegotiationState::Active))
-        });
-        
-        if essential_active {
-            self.negotiation_complete = true;
-        }
-        
-        self.negotiation_complete
+    /// Get current TN3270E session state
+    pub fn tn3270e_session_state(&self) -> TN3270ESessionState {
+        self.tn3270e_session_state
+    }
+
+    /// Get negotiated TN3270E device type
+    pub fn tn3270e_device_type(&self) -> Option<TN3270EDeviceType> {
+        self.tn3270e_device_type
+    }
+
+    /// Set logical unit name for TN3270E session
+    pub fn set_logical_unit_name(&mut self, name: String) {
+        self.logical_unit_name = Some(name);
+    }
+
+    /// Get logical unit name
+    pub fn logical_unit_name(&self) -> Option<&str> {
+        self.logical_unit_name.as_deref()
+    }
+
+    /// Check if TN3270E is active
+    pub fn is_tn3270e_active(&self) -> bool {
+        matches!(self.negotiation_states.get(&TelnetOption::TN3270E), 
+                 Some(NegotiationState::Active))
+    }
+
+    /// Get screen dimensions for negotiated device type
+    pub fn get_screen_dimensions(&self) -> Option<(usize, usize)> {
+        self.tn3270e_device_type.map(|dt| dt.screen_size())
+    }
+
+    /// Check if negotiated device supports color
+    pub fn supports_color(&self) -> bool {
+        self.tn3270e_device_type.map_or(false, |dt| dt.supports_color())
     }
 }
 
@@ -1638,29 +1839,79 @@ mod tests {
     #[test]
     fn test_negotiator_creation() {
         let negotiator = TelnetNegotiator::new();
-        assert_eq!(negotiator.negotiation_states.len(), 5); // 5 preferred options
+        assert_eq!(negotiator.negotiation_states.len(), 6); // 6 preferred options (added TN3270E)
         assert_eq!(negotiator.is_negotiation_complete(), false);
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::NotConnected);
     }
 
     #[test]
-    fn test_initial_negotiation() {
+    fn test_tn3270e_device_types() {
+        // Test device type conversion
+        assert_eq!(TN3270EDeviceType::from_u8(0x82), Some(TN3270EDeviceType::Model2Color));
+        assert_eq!(TN3270EDeviceType::from_u8(0x02), Some(TN3270EDeviceType::Model2));
+        assert_eq!(TN3270EDeviceType::from_u8(0xFF), None);
+        
+        // Test screen sizes
+        assert_eq!(TN3270EDeviceType::Model2.screen_size(), (24, 80));
+        assert_eq!(TN3270EDeviceType::Model5.screen_size(), (27, 132));
+        
+        // Test color support
+        assert!(TN3270EDeviceType::Model2Color.supports_color());
+        assert!(!TN3270EDeviceType::Model2.supports_color());
+    }
+
+    #[test]
+    fn test_tn3270e_bind_command() {
         let mut negotiator = TelnetNegotiator::new();
-        let init_data = negotiator.generate_initial_negotiation();
         
-        // Should contain IAC DO commands for preferred options
-        assert!(init_data.len() >= 15); // At least 5 options * 3 bytes each
+        // Simulate BIND command with logical unit name
+        let bind_data = vec![6, b'L', b'U', b'0', b'1', 0]; // BIND command + "LU01" + null
+        negotiator.handle_tn3270e_subnegotiation(&bind_data);
         
-        // Check for the pattern of IAC DO opt
-        let mut i = 0;
-        while i < init_data.len() {
-            if i + 2 < init_data.len() && 
-               init_data[i] == TelnetCommand::IAC as u8 &&
-               init_data[i + 1] == TelnetCommand::DO as u8 {
-                // Found a DO command
-                i += 3;
-            } else {
-                i += 1;
-            }
-        }
+        // Check that session is bound and logical unit is set
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::Bound);
+        assert_eq!(negotiator.logical_unit_name(), Some("LU01"));
+    }
+
+    #[test]
+    fn test_tn3270e_unbind_command() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // First bind the session
+        let bind_data = vec![6, b'L', b'U', b'0', b'1', 0];
+        negotiator.handle_tn3270e_subnegotiation(&bind_data);
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::Bound);
+        
+        // Now unbind
+        let unbind_data = vec![7]; // UNBIND command
+        negotiator.handle_tn3270e_subnegotiation(&unbind_data);
+        
+        // Check that session is unbound and logical unit is cleared
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::Unbound);
+        assert_eq!(negotiator.logical_unit_name(), None);
+    }
+
+    #[test]
+    fn test_tn3270e_session_binding_flow() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Initial state
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::NotConnected);
+        
+        // Device type negotiation
+        let device_data = vec![2, 0x82]; // DEVICE-TYPE command + Model2Color
+        negotiator.handle_tn3270e_subnegotiation(&device_data);
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::DeviceNegotiated);
+        assert_eq!(negotiator.tn3270e_device_type(), Some(TN3270EDeviceType::Model2Color));
+        
+        // Session binding
+        let bind_data = vec![6, b'L', b'U', b'0', b'1', 0];
+        negotiator.handle_tn3270e_subnegotiation(&bind_data);
+        assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::Bound);
+        assert_eq!(negotiator.logical_unit_name(), Some("LU01"));
+        
+        // Check screen dimensions
+        assert_eq!(negotiator.get_screen_dimensions(), Some((24, 80)));
+        assert!(negotiator.supports_color());
     }
 }

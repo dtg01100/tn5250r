@@ -8,6 +8,7 @@ None
 - [TASK005] Performance optimization and profiling - Benchmark new implementation against original
 - [TASK006] Complete integration testing - Full end-to-end tests with TN5250R
 - [TASK007] Documentation finalization - Update all docs with complete implementation details
+- [TASK012] Protocol enhancement roadmap - Address gaps identified vs other open source implementations
 
 ## Completed
 - [TASK001] Implement complete 5250 protocol parsing - Completed on 2025-01-21 - Successfully implemented session-level structured field processing following canonical lib5250 architecture

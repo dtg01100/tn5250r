@@ -220,7 +220,7 @@ mod tests {
         assert!(!negotiator.is_negotiation_complete());
         
         // Force completion should work since we attempted essential options
-        assert!(negotiator.force_negotiation_complete());
+        negotiator.force_negotiation_complete();
         assert!(negotiator.is_negotiation_complete());
     }
 

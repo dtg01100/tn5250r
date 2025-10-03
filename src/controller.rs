@@ -3,7 +3,8 @@
 //! This module orchestrates the terminal emulator, protocol processor, and network connection.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
@@ -68,10 +69,10 @@ pub struct TerminalController {
     ansi_processor: AnsiProcessor,
     use_ansi_mode: bool,
     field_manager: FieldManager,
-    screen: crate::terminal::TerminalScreen, // Screen management moved to controller level
     pending_input: Vec<u8>,                  // Buffer for queued input to be transmitted
     username: Option<String>,                // Username for AS/400 authentication (RFC 4777)
     password: Option<String>,                // Password for AS/400 authentication (RFC 4777)
+    data_arrival_flag: Arc<AtomicBool>,      // Flag to signal GUI when new data arrives
 }
 
 impl Default for TerminalController {
@@ -85,16 +86,15 @@ impl Default for TerminalController {
             ansi_processor: AnsiProcessor::new(),
             use_ansi_mode: false,
             field_manager: FieldManager::new(),
-            screen: crate::terminal::TerminalScreen::new(),
             pending_input: Vec::new(),
             username: None,
             password: None,
+            data_arrival_flag: Arc::new(AtomicBool::new(false)),
         };
 
-        // Initialize screen with welcome message
-        controller
-            .screen
-            .write_string("TN5250R - IBM AS/400 Terminal Emulator\nReady for connection...\n");
+        // Initialize session display with welcome message
+        controller.session.display_mut().screen().clear();
+        controller.session.display_mut().screen().write_string("TN5250R - IBM AS/400 Terminal Emulator\nReady for connection...\n");
 
         controller
     }
@@ -161,8 +161,8 @@ impl TerminalController {
         self.connected = true;
 
         // SECURITY: Use generic connection message without exposing sensitive details
-        self.screen.clear();
-        self.screen.write_string("Connecting to remote system...\n");
+        self.session.display_mut().screen().clear();
+        self.session.display_mut().screen().write_string("Connecting to remote system...\n");
 
         // Send initial Query command to begin 5250 handshake
         if let Ok(query_data) = self.session.send_initial_5250_data() {
@@ -284,8 +284,8 @@ impl TerminalController {
         self.connected = true;
 
         // SECURITY: Use generic connection message without exposing sensitive details
-        self.screen.clear();
-        self.screen.write_string(&format!(
+        self.session.display_mut().screen().clear();
+        self.session.display_mut().screen().write_string(&format!(
             "Connecting to remote system using {} protocol...\n",
             protocol.to_str()
         ));
@@ -395,18 +395,25 @@ impl TerminalController {
 
         // CRITICAL FIX: Clear screen content that might contain sensitive data
         // Validate screen has content before clearing
-        if self.screen.cursor_x != 0
-            || self.screen.cursor_y != 0
-            || self.screen.buffer.iter().any(|cell| cell.character != ' ')
+        let screen = self.session.display_mut().screen();
+        if screen.cursor_x != 0
+            || screen.cursor_y != 0
+            || screen.buffer.iter().any(|cell| cell.character != ' ')
         {
-            self.screen.clear();
+            screen.clear();
         }
+
+        // CRITICAL FIX: Clear pending input buffer to prevent stale data
+        self.pending_input.clear();
+
+        // Reset data arrival flag for clean state
+        self.data_arrival_flag.store(false, Ordering::SeqCst);
 
         self.connected = false;
         self.use_ansi_mode = false;
 
         // CRITICAL FIX: Safe screen update with bounds checking
-        self.screen
+        self.session.display_mut().screen()
             .write_string("Disconnected from remote system\nReady for new connection...\n");
 
         // Record disconnection in monitoring
@@ -451,7 +458,7 @@ impl TerminalController {
         }
 
         // Validate screen state
-        if let Err(e) = self.screen.validate_buffer_consistency() {
+        if let Err(e) = self.session.display().screen_ref().validate_buffer_consistency() {
             return Err(format!("Screen buffer validation failed: {}", e));
         }
 
@@ -551,21 +558,12 @@ impl TerminalController {
     }
 
     pub fn get_terminal_content(&self) -> String {
-        // Prefer session's display buffer in 5250 mode
-        if !self.use_ansi_mode {
-            return self.session.display_string();
-        }
-        // ANSI mode falls back to screen buffer
-        self.screen.to_string()
+        self.session.display_string()
     }
 
     /// Get the UI cursor position (1-based). In 5250 mode use Session display cursor; in ANSI use screen cursor.
     pub fn ui_cursor_position(&self) -> (usize, usize) {
-        if !self.use_ansi_mode {
-            return self.session.cursor_position();
-        }
-        // ANSI mode: cursor comes from TerminalScreen (convert to 1-based)
-        (self.screen.cursor_y + 1, self.screen.cursor_x + 1)
+        self.session.cursor_position()
     }
 
     /// Check if screen initialization should be sent
@@ -605,17 +603,20 @@ impl TerminalController {
                     self.use_ansi_mode = true;
                     println!("Controller: Detected ANSI/VT100 data - switching to ANSI mode");
                     // Clear screen for ANSI mode
-                    self.screen.clear();
+                    self.session.display_mut().screen().clear();
                 }
 
                 if self.use_ansi_mode {
                     // Process as ANSI terminal data
                     self.ansi_processor
-                        .process_data(&received_data, &mut self.screen);
+                        .process_data(&received_data, self.session.display_mut().screen());
                     println!("DEBUG: Processed data in ANSI mode");
 
                     // Detect fields after processing ANSI data
-                    self.field_manager.detect_fields(&self.screen);
+                    self.field_manager.detect_fields(self.session.display().screen_ref());
+
+                    // Signal GUI that new data has arrived for event-driven updates
+                    self.data_arrival_flag.store(true, Ordering::SeqCst);
                 } else {
                     // Process through the 5250 session processor
                     println!("DEBUG: Processing data through 5250 session");
@@ -643,10 +644,13 @@ impl TerminalController {
                         display_content.chars().take(100).collect::<String>()
                     );
 
-                    // Detect fields after processing 5250 data
-                    // Use the session display's screen snapshot for field detection
-                    let screen_ref = self.session.display().screen_ref();
-                    self.field_manager.detect_fields(screen_ref);
+                // Detect fields after processing 5250 data
+                // Use the session display's screen snapshot for field detection
+                let screen_ref = self.session.display().screen_ref();
+                self.field_manager.detect_fields(screen_ref);
+
+                // Signal GUI that new data has arrived for event-driven updates
+                self.data_arrival_flag.store(true, Ordering::SeqCst);
                 }
 
                 // Check if we received a Query Reply and send screen initialization
@@ -665,9 +669,9 @@ impl TerminalController {
                 }
 
                 // SECURITY: Use generic success message without exposing connection details
-                if !self.use_ansi_mode && self.screen.to_string().contains("Connecting") {
-                    self.screen.clear();
-                    self.screen
+                if !self.use_ansi_mode && self.session.display_string().contains("Connecting") {
+                    self.session.display_mut().screen().clear();
+                    self.session.display_mut().screen()
                         .write_string("Connected to remote system\nReady...\n");
                 }
             }
@@ -966,6 +970,11 @@ impl TerminalController {
         &self.pending_input
     }
 
+    /// Check if new data has arrived and reset the flag
+    pub fn check_data_arrival(&self) -> bool {
+        self.data_arrival_flag.swap(false, Ordering::SeqCst)
+    }
+
     /// Clear pending input buffer
     pub fn clear_pending_input(&mut self) {
         self.pending_input.clear();
@@ -1127,8 +1136,8 @@ impl AsyncTerminalController {
                         ctrl.network_connection = Some(conn);
                         ctrl.connected = true;
                         // Optional: update screen message
-                        ctrl.screen.clear();
-                        ctrl.screen.write_string(&connected_msg);
+                        ctrl.session.display_mut().screen().clear();
+                        ctrl.session.display_mut().screen().write_string(&connected_msg);
                         Ok(())
                     }
                     Err(std::sync::TryLockError::Poisoned(_poisoned)) => {
@@ -1343,8 +1352,8 @@ impl AsyncTerminalController {
                         ctrl.network_connection = Some(conn);
                         ctrl.connected = true;
                         // Optional: update screen message
-                        ctrl.screen.clear();
-                        ctrl.screen.write_string(&connected_msg);
+                        ctrl.session.display_mut().screen().clear();
+                        ctrl.session.display_mut().screen().write_string(&connected_msg);
 
                         // Send initial Query command to begin 5250 handshake
                         if let Ok(query_data) = ctrl.session.send_initial_5250_data() {
@@ -1833,21 +1842,20 @@ impl AsyncTerminalController {
         }
     }
 
-    pub fn set_cursor_position(&self, row: usize, col: usize) -> Result<(), String> {
-        // Use try_lock to avoid blocking the GUI thread
-        if let Ok(mut ctrl) = self.controller.try_lock() {
-            ctrl.field_manager.set_cursor_position(row, col);
-            Ok(())
-        } else {
-            // Can't get lock - return error but don't block
-            Err("Controller busy, try again".to_string())
-        }
-    }
-
     pub fn click_at_position(&self, row: usize, col: usize) -> Result<bool, String> {
         // Use try_lock to avoid brief GUI freezes during mouse clicks
         if let Ok(mut ctrl) = self.controller.try_lock() {
             Ok(ctrl.activate_field_at_position(row, col))
+        } else {
+            // Can't get lock - return false but don't block
+            Ok(false)
+        }
+    }
+
+    pub fn check_data_arrival(&self) -> Result<bool, String> {
+        // Use try_lock to avoid blocking the GUI thread
+        if let Ok(ctrl) = self.controller.try_lock() {
+            Ok(ctrl.check_data_arrival())
         } else {
             // Can't get lock - return false but don't block
             Ok(false)

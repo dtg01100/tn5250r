@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::components::test_harness::TN5250RHarness;
+use crate::test_harness::TN5250RHarness;
 use super::mock_network::{MockAS400Connection, MockScenario};
 
 #[cfg(test)]

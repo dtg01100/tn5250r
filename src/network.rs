@@ -709,16 +709,13 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         // Add custom CA certificates if provided
         if let Some(ref path) = self.tls_ca_bundle_path {
             match self.load_certificates_securely_rustls(path) {
-                Ok(certs_added) => {
-                    if certs_added > 0 {
-                        println!("SECURITY: Added {} trusted CA certificates from {}", certs_added, path);
-                    } else {
-                        eprintln!("SECURITY WARNING: No valid certificates found in CA bundle: {}", path);
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("No valid certificates in CA bundle: {}", path)
-                        ));
+                Ok(certificates) => {
+                    for cert in &certificates {
+                        if let Err(e) = root_store.add(cert.clone()) {
+                            eprintln!("SECURITY WARNING: Failed to add certificate to root store: {}", e);
+                        }
                     }
+                    println!("SECURITY: Added {} trusted CA certificates from {}", certificates.len(), path);
                 }
                 Err(e) => {
                     eprintln!("SECURITY ERROR: Failed to load CA bundle {}: {}", path, e);
@@ -739,11 +736,11 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
     }
 
     /// SECURITY: Load certificates with comprehensive validation for rustls
-    fn load_certificates_securely_rustls(&self, path: &str) -> IoResult<usize> {
+    fn load_certificates_securely_rustls(&self, path: &str) -> IoResult<Vec<rustls::pki_types::CertificateDer<'static>>> {
         use std::io::Cursor;
         
         let bytes = fs::read(path)?;
-        let mut certs_added = 0;
+        let mut certificates = Vec::new();
 
         // Validate file size to prevent memory exhaustion attacks
         if bytes.len() > 10_000_000 { // 10MB limit
@@ -764,7 +761,6 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                 ));
             }
 
-            let mut added = false;
             let marker_begin = "-----BEGIN CERTIFICATE-----";
             let marker_end = "-----END CERTIFICATE-----";
             let mut start = 0;
@@ -788,12 +784,10 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                     }
 
                     match base64::engine::general_purpose::STANDARD.decode(&b64) {
-                        Ok(_der) => {
-                            // For now, accept the certificate without validating its format
-                            // This is a temporary workaround to fix compilation issues
-                            // Rustls certificate validation would go here in a full implementation
-                            added = true;
-                            certs_added += 1;
+                        Ok(der) => {
+                            // Validate certificate format and add to collection
+                            let cert = rustls::pki_types::CertificateDer::from(der);
+                            certificates.push(cert);
                         }
                         Err(e) => {
                             eprintln!("SECURITY WARNING: Failed to decode certificate: {}", e);
@@ -805,11 +799,13 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                 }
             }
 
-            if !added {
+            if certificates.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "No valid certificates found in PEM bundle"
                 ));
+            } else {
+                return Ok(certificates);
             }
         } else {
             return Err(std::io::Error::new(
@@ -818,7 +814,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
             ));
         }
 
-        Ok(certs_added)
+
     }
     
     /// Performs RFC-compliant telnet option negotiation

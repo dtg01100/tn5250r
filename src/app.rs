@@ -54,6 +54,13 @@ impl eframe::App for TN5250RApp {
                     mem.surrender_focus(egui::Id::NULL);
                 });
             }
+
+            // Show error message prominently if present
+            if let Some(ref error) = self.error_message {
+                ui.colored_label(egui::Color32::RED, format!("⚠ Error: {}", error));
+                ui.separator();
+            }
+
             ui.heading("TN5250R - IBM AS/400 Terminal Emulator");
             ui.separator();
 
@@ -230,6 +237,15 @@ impl eframe::App for TN5250RApp {
                         ui.colored_label(egui::Color32::RED, "Disconnected");
                     }
                     ui.separator();
+
+                    // Show input buffer status for feedback
+                    if let Ok(pending_size) = self.controller.get_pending_input_size() {
+                        if pending_size > 0 {
+                            ui.colored_label(egui::Color32::BLUE, &format!("Input buffered ({} bytes)", pending_size));
+                            ui.separator();
+                        }
+                    }
+
                     ui.label("Ready");
                 });
             });
@@ -237,6 +253,9 @@ impl eframe::App for TN5250RApp {
 
         // Process incoming data and update terminal content
         let content_changed = self.update_terminal_content();
+
+        // Check if new data arrived for event-driven repaints
+        let data_arrived = self.controller.check_data_arrival().unwrap_or(false);
 
         // Show debug panel if requested
         if self.show_debug_panel {
@@ -262,8 +281,8 @@ impl eframe::App for TN5250RApp {
             // Check every 100ms while connecting
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         } else if self.connected {
-            if content_changed {
-                // Content just changed, check again soon for more data
+            if content_changed || data_arrived {
+                // Content just changed or data arrived, check again soon for more data
                 ctx.request_repaint_after(std::time::Duration::from_millis(50));
             } else {
                 // No recent changes, check every 500ms for connection status/errors

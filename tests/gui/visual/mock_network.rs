@@ -1,6 +1,15 @@
 use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
-use crate::integration::mock_network::Connection;
+
+/// Simple connection trait for testing
+pub trait Connection {
+    fn connect(&mut self, host: &str, port: u16) -> Result<(), String>;
+    fn disconnect(&mut self) -> Result<(), String>;
+    fn is_connected(&self) -> bool;
+    fn send(&mut self, data: &[u8]) -> Result<(), String>;
+    fn receive(&mut self, buffer: &mut [u8]) -> Result<usize, String>;
+    fn set_timeout(&mut self, timeout_ms: u64);
+}
 
 /// Mock AS/400 connection for visual regression testing
 /// Provides deterministic responses for testing without external dependencies
@@ -138,10 +147,8 @@ impl Connection for MockAS400Connection {
     }
 }
 
-/// Helper for creating test scenarios
-pub struct MockScenario {
-    mock: MockAS400Connection,
-}
+/// Test scenarios for common connection patterns
+pub struct MockScenario;
 
 impl MockScenario {
     /// Create a successful connection scenario

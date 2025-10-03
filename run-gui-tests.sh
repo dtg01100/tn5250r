@@ -66,11 +66,11 @@ run_integration_tests() {
     print_success "Integration tests completed"
 }
 
-run_visual_tests() {
-    print_status "Running visual regression tests..."
-    $XVFB_CMD cargo test tests::gui::visual -- --nocapture
-    print_success "Visual regression tests completed"
-}
+    run_e2e_tests() {
+        print_status "Running E2E tests..."
+        $XVFB_CMD cargo test tests::gui::components::test_e2e_scenarios -- --nocapture
+        print_success "E2E tests completed"
+    }
 
 run_all_tests() {
     print_status "Running all GUI tests..."
@@ -95,6 +95,7 @@ usage() {
     echo "  all          Run all GUI tests (default)"
     echo "  components   Run component tests only"
     echo "  integration  Run integration tests only"
+    echo "  e2e          Run E2E tests only"
     echo "  visual       Run visual regression tests only"
     echo "  update       Update visual regression snapshots"
     echo ""
@@ -122,7 +123,7 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
             ;;
-        all|components|integration|visual|update)
+        all|components|integration|e2e|visual|update)
             COMMAND=$1
             shift
             ;;
@@ -161,6 +162,9 @@ main() {
             ;;
         integration)
             run_integration_tests
+            ;;
+        e2e)
+            run_e2e_tests
             ;;
         visual)
             run_visual_tests

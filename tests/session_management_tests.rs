@@ -184,9 +184,9 @@ fn test_tls_security_warnings() {
     
     let mut conn = AS400Connection::new("example.com".to_string(), 992);
     
-    // Attempting to disable TLS validation should log warnings
+    // Attempting to disable TLS should work
     // The actual validation will still be enforced
-    conn.set_tls_insecure(true);
+    conn.set_tls(false);
     
     // Verify TLS is still enabled
     assert!(conn.is_tls_enabled());

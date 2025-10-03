@@ -40,6 +40,7 @@ pub struct TN5250RApp {
     pub show_debug_panel: bool,  // Show debug information panel
     pub raw_buffer_dump: String,  // Raw hex dump of last received data
     pub last_data_size: usize,  // Size of last data packet
+    pub error_message: Option<String>,  // Current error message for UI feedback
 }
 
 impl TN5250RApp {
@@ -165,6 +166,7 @@ impl TN5250RApp {
             show_debug_panel: debug_mode,  // Auto-show if debug enabled
             raw_buffer_dump: String::new(),
             last_data_size: 0,
+            error_message: None,
             selected_screen_size: {
                 match screen_size_config.as_deref() {
                     Some("Model2") => crate::lib3270::display::ScreenSize::Model2,
@@ -188,16 +190,21 @@ impl TN5250RApp {
     pub fn update_terminal_content(&mut self) -> bool {
         let mut content_changed = false;
 
-        // Update terminal content from controller
-        if let Ok(content) = self.controller.get_terminal_content() {
-            // Only update and log if content has actually changed
-            if content != self.terminal_content {
-                println!("DEBUG: Terminal content changed ({} -> {} chars)",
-                    self.terminal_content.len(),
-                    content.len()
-                );
-                self.terminal_content = content;
-                content_changed = true;
+        // Check if new data has arrived (event-driven)
+        let data_arrived = self.controller.check_data_arrival().unwrap_or(false);
+
+        // Update terminal content from controller if data arrived or on first check
+        if data_arrived || self.terminal_content.is_empty() {
+            if let Ok(content) = self.controller.get_terminal_content() {
+                // Only update and log if content has actually changed
+                if content != self.terminal_content {
+                    println!("DEBUG: Terminal content changed ({} -> {} chars)",
+                        self.terminal_content.len(),
+                        content.len()
+                    );
+                    self.terminal_content = content;
+                    content_changed = true;
+                }
             }
         }
 
@@ -216,6 +223,7 @@ impl TN5250RApp {
         if self.connecting && self.connected && !was_connected {
             self.connecting = false;
             self.terminal_content = format!("Connected to {}:{}\nNegotiating...\n", self.host, self.port);
+            self.error_message = None;  // Clear any previous error on successful connection
             content_changed = true;
 
             // Record successful connection in monitoring
@@ -242,7 +250,8 @@ impl TN5250RApp {
                 } else {
                     format!("Connection failed: {}\n", err)
                 };
-                self.terminal_content = message;
+                self.terminal_content = message.clone();
+                self.error_message = Some(message);
                 self.connection_time = None;
                 self.login_screen_requested = false;
                 content_changed = true;
