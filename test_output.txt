@@ -1,0 +1,5071 @@
+warning: unused import: `std::net::TcpStream as StdTcpStream`
+   --> src/network.rs:517:13
+    |
+517 |         use std::net::TcpStream as StdTcpStream;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `rustls::crypto::ring as provider`
+   --> src/network.rs:695:13
+    |
+695 |         use rustls::crypto::ring as provider;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::io::Cursor`
+   --> src/network.rs:740:13
+    |
+740 |         use std::io::Cursor;
+    |             ^^^^^^^^^^^^^^^
+
+warning: methods `validate_variable_name_format` and `validate_variable_value` are never used
+    --> src/telnet_negotiation.rs:1324:8
+     |
+ 380 | impl TelnetNegotiator {
+     | --------------------- methods in this implementation
+...
+1324 |     fn validate_variable_name_format(&self, name: &[u8]) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1401 |     fn validate_variable_value(&self, value: &[u8]) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: `tn5250r` (lib) generated 4 warnings (run `cargo fix --lib -p tn5250r` to apply 3 suggestions)
+warning: unused import: `Write`
+ --> src/bin/debug_packet_parsing.rs:6:21
+  |
+6 | use std::io::{self, Write};
+  |                     ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `tn5250r` (bin "debug_packet_parsing") generated 1 warning (run `cargo fix --bin "debug_packet_parsing"` to apply 1 suggestion)
+warning: unused import: `std::time::Duration`
+ --> tests/tn3270e_integration.rs:6:5
+  |
+6 | use std::time::Duration;
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `tn5250r::network::ProtocolMode`
+ --> tests/tn3270e_integration.rs:8:5
+  |
+8 | use tn5250r::network::ProtocolMode;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `negotiator`
+   --> tests/tn3270e_integration.rs:199:13
+    |
+199 |     let mut negotiator = TelnetNegotiator::new();
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_negotiator`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: variable does not need to be mutable
+   --> tests/tn3270e_integration.rs:199:9
+    |
+199 |     let mut negotiator = TelnetNegotiator::new();
+    |         ----^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `tn5250r` (test "tn3270e_integration") generated 4 warnings (run `cargo fix --test "tn3270e_integration"` to apply 3 suggestions)
+warning: unused import: `std::collections::HashMap`
+  --> src/bin/comprehensive_protocol_test.rs:19:5
+   |
+19 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `TelnetCommand`
+  --> src/bin/comprehensive_protocol_test.rs:21:67
+   |
+21 | use tn5250r::telnet_negotiation::{TelnetNegotiator, TelnetOption, TelnetCommand};
+   |                                                                   ^^^^^^^^^^^^^
+
+warning: fields `test_server` and `test_port` are never read
+   --> src/bin/comprehensive_protocol_test.rs:105:5
+    |
+103 | struct TestSuite {
+    |        --------- fields in this struct
+104 |     results: Vec<TestResult>,
+105 |     test_server: String,
+    |     ^^^^^^^^^^^
+106 |     test_port: u16,
+    |     ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: unused import: `CommandCode`
+ --> src/bin/protocol_test.rs:9:61
+  |
+9 | use tn5250r::lib5250::protocol::{ProtocolProcessor, Packet, CommandCode};
+  |                                                             ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `tn5250r` (bin "comprehensive_protocol_test") generated 3 warnings (run `cargo fix --bin "comprehensive_protocol_test"` to apply 2 suggestions)
+warning: `tn5250r` (bin "protocol_test") generated 1 warning (run `cargo fix --bin "protocol_test"` to apply 1 suggestion)
+warning: unused imports: `Read` and `Write`
+  --> src/bin/focused_diagnostic_tests.rs:13:15
+   |
+13 | use std::io::{Read, Write};
+   |               ^^^^  ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::net::TcpStream`
+  --> src/bin/focused_diagnostic_tests.rs:14:5
+   |
+14 | use std::net::TcpStream;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::time::Duration`
+  --> src/bin/focused_diagnostic_tests.rs:15:5
+   |
+15 | use std::time::Duration;
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: `tn5250r` (bin "focused_diagnostic_tests") generated 3 warnings (run `cargo fix --bin "focused_diagnostic_tests"` to apply 3 suggestions)
+warning: unused import: `codes::*`
+  --> src/lib5250/mod.rs:12:9
+   |
+12 | pub use codes::*;
+   |         ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `display::Display`
+  --> src/lib5250/mod.rs:13:9
+   |
+13 | pub use display::Display;
+   |         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `field::*`
+  --> src/lib5250/mod.rs:14:9
+   |
+14 | pub use field::*;
+   |         ^^^^^^^^
+
+warning: unused imports: `Packet` and `ProtocolProcessor`
+  --> src/lib5250/mod.rs:16:2
+   |
+16 |     ProtocolProcessor, Packet, FieldAttribute,
+   |     ^^^^^^^^^^^^^^^^^  ^^^^^^
+
+warning: unused import: `session::Session`
+  --> src/lib5250/mod.rs:18:9
+   |
+18 | pub use session::Session;
+   |         ^^^^^^^^^^^^^^^^
+
+warning: unused import: `telnet::*`
+  --> src/lib5250/mod.rs:19:9
+   |
+19 | pub use telnet::*;
+   |         ^^^^^^^^^
+
+warning: unused imports: `ascii_to_ebcdic` and `ebcdic_to_ascii`
+  --> src/lib5250/mod.rs:22:42
+   |
+22 | pub use crate::protocol_common::ebcdic::{ebcdic_to_ascii, ascii_to_ebcdic};
+   |                                          ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `std::net::TcpStream as StdTcpStream`
+   --> src/network.rs:517:13
+    |
+517 |         use std::net::TcpStream as StdTcpStream;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ascii_to_ebcdic_vec`, `ascii_to_ebcdic`, `ebcdic_to_ascii_string`, and `ebcdic_to_ascii`
+  --> src/protocol_common/mod.rs:79:18
+   |
+79 | pub use ebcdic::{ebcdic_to_ascii, ascii_to_ebcdic, ebcdic_to_ascii_string, ascii_to_ebcdic_vec};
+   |                  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `CommandProcessor`, `DisplayBuffer`, `FieldManager`, `ProtocolSession`, `StructuredFieldProcessor`, and `TerminalProtocol`
+  --> src/protocol_common/mod.rs:81:5
+   |
+81 |     TerminalProtocol, ProtocolSession, DisplayBuffer, FieldManager,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^  ^^^^^^^^^^^^
+82 |     CommandProcessor, StructuredFieldProcessor,
+   |     ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `NegotiationState`, `OptionState`, `TelnetCommand`, `TelnetOption`, `build_negotiation`, `build_subnegotiation`, and `parse_telnet_stream`
+  --> src/protocol_common/mod.rs:85:5
+   |
+85 |     TelnetCommand, TelnetOption, NegotiationState, OptionState,
+   |     ^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
+86 |     build_negotiation, build_subnegotiation, parse_telnet_stream,
+   |     ^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `codes::*`
+  --> src/lib3270/mod.rs:73:9
+   |
+73 | pub use codes::*;
+   |         ^^^^^^^^
+
+warning: unused imports: `Display3270` and `ScreenSize`
+  --> src/lib3270/mod.rs:74:19
+   |
+74 | pub use display::{Display3270, ScreenSize};
+   |                   ^^^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused import: `field::*`
+  --> src/lib3270/mod.rs:75:9
+   |
+75 | pub use field::*;
+   |         ^^^^^^^^
+
+warning: unused import: `protocol::ProtocolProcessor3270`
+  --> src/lib3270/mod.rs:76:9
+   |
+76 | pub use protocol::ProtocolProcessor3270;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ascii_to_ebcdic` and `ebcdic_to_ascii`
+  --> src/lib3270/mod.rs:79:42
+   |
+79 | pub use crate::protocol_common::ebcdic::{ascii_to_ebcdic, ebcdic_to_ascii};
+   |                                          ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^
+
+warning: unused import: `controller::AsyncTerminalController`
+  --> src/main.rs:31:5
+   |
+31 | use controller::AsyncTerminalController;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `field_manager::FieldDisplayInfo`
+  --> src/main.rs:32:5
+   |
+32 | use field_manager::FieldDisplayInfo;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable `verbose_mode` is assigned to, but never used
+  --> src/main.rs:64:13
+   |
+64 |     let mut verbose_mode = false;
+   |             ^^^^^^^^^^^^
+   |
+   = note: consider using `_verbose_mode` instead
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: value assigned to `verbose_mode` is never read
+   --> src/main.rs:130:17
+    |
+130 |                 verbose_mode = true;
+    |                 ^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: constant `DEFINE_SELECTION_FIELD` is never used
+  --> src/lib5250/codes.rs:52:11
+   |
+52 | pub const DEFINE_SELECTION_FIELD: u8 = 0x50;
+   |           ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: constant `CREATE_WINDOW` is never used
+  --> src/lib5250/codes.rs:53:11
+   |
+53 | pub const CREATE_WINDOW: u8 = 0x51;
+   |           ^^^^^^^^^^^^^
+
+warning: constant `UNREST_WIN_CURS_MOVE` is never used
+  --> src/lib5250/codes.rs:54:11
+   |
+54 | pub const UNREST_WIN_CURS_MOVE: u8 = 0x52;
+   |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_SCROLL_BAR_FIELD` is never used
+  --> src/lib5250/codes.rs:55:11
+   |
+55 | pub const DEFINE_SCROLL_BAR_FIELD: u8 = 0x53;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `WRITE_DATA` is never used
+  --> src/lib5250/codes.rs:56:11
+   |
+56 | pub const WRITE_DATA: u8 = 0x54;
+   |           ^^^^^^^^^^
+
+warning: constant `PROGRAMMABLE_MOUSE_BUT` is never used
+  --> src/lib5250/codes.rs:57:11
+   |
+57 | pub const PROGRAMMABLE_MOUSE_BUT: u8 = 0x55;
+   |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REM_GUI_SEL_FIELD` is never used
+  --> src/lib5250/codes.rs:58:11
+   |
+58 | pub const REM_GUI_SEL_FIELD: u8 = 0x58;
+   |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `REM_GUI_WINDOW` is never used
+  --> src/lib5250/codes.rs:59:11
+   |
+59 | pub const REM_GUI_WINDOW: u8 = 0x59;
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `REM_GUI_SCROLL_BAR_FIELD` is never used
+  --> src/lib5250/codes.rs:60:11
+   |
+60 | pub const REM_GUI_SCROLL_BAR_FIELD: u8 = 0x5B;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `REM_ALL_GUI_CONSTRUCTS` is never used
+  --> src/lib5250/codes.rs:61:11
+   |
+61 | pub const REM_ALL_GUI_CONSTRUCTS: u8 = 0x5F;
+   |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DRAW_ERASE_GRID_LINES` is never used
+  --> src/lib5250/codes.rs:62:11
+   |
+62 | pub const DRAW_ERASE_GRID_LINES: u8 = 0x60;
+   |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CLEAR_GRID_LINE_BUFFER` is never used
+  --> src/lib5250/codes.rs:63:11
+   |
+63 | pub const CLEAR_GRID_LINE_BUFFER: u8 = 0x61;
+   |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_AUDIT_WINDOW_TABLE` is never used
+  --> src/lib5250/codes.rs:66:11
+   |
+66 | pub const DEFINE_AUDIT_WINDOW_TABLE: u8 = 0x30;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_COMMAND_KEY_FUNCTION` is never used
+  --> src/lib5250/codes.rs:67:11
+   |
+67 | pub const DEFINE_COMMAND_KEY_FUNCTION: u8 = 0x31;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `READ_TEXT_SCREEN` is never used
+  --> src/lib5250/codes.rs:68:11
+   |
+68 | pub const READ_TEXT_SCREEN: u8 = 0x32;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_PENDING_OPERATIONS` is never used
+  --> src/lib5250/codes.rs:69:11
+   |
+69 | pub const DEFINE_PENDING_OPERATIONS: u8 = 0x33;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_TEXT_SCREEN_FORMAT` is never used
+  --> src/lib5250/codes.rs:70:11
+   |
+70 | pub const DEFINE_TEXT_SCREEN_FORMAT: u8 = 0x34;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_SCALE_TIME` is never used
+  --> src/lib5250/codes.rs:71:11
+   |
+71 | pub const DEFINE_SCALE_TIME: u8 = 0x35;
+   |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `WRITE_TEXT_SCREEN` is never used
+  --> src/lib5250/codes.rs:72:11
+   |
+72 | pub const WRITE_TEXT_SCREEN: u8 = 0x36;
+   |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_SPECIAL_CHARACTERS` is never used
+  --> src/lib5250/codes.rs:73:11
+   |
+73 | pub const DEFINE_SPECIAL_CHARACTERS: u8 = 0x37;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `PENDING_DATA` is never used
+  --> src/lib5250/codes.rs:74:11
+   |
+74 | pub const PENDING_DATA: u8 = 0x38;
+   |           ^^^^^^^^^^^^
+
+warning: constant `DEFINE_OPERATOR_ERROR_MSGS` is never used
+  --> src/lib5250/codes.rs:75:11
+   |
+75 | pub const DEFINE_OPERATOR_ERROR_MSGS: u8 = 0x39;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_PITCH_TABLE` is never used
+  --> src/lib5250/codes.rs:76:11
+   |
+76 | pub const DEFINE_PITCH_TABLE: u8 = 0x3A;
+   |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `DEFINE_FAKE_DP_CMD_KEY_FUNC` is never used
+  --> src/lib5250/codes.rs:77:11
+   |
+77 | pub const DEFINE_FAKE_DP_CMD_KEY_FUNC: u8 = 0x3B;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `PASS_THROUGH` is never used
+  --> src/lib5250/codes.rs:78:11
+   |
+78 | pub const PASS_THROUGH: u8 = 0x3F;
+   |           ^^^^^^^^^^^^
+
+warning: constant `ERR_DONT_KNOW` is never used
+  --> src/lib5250/codes.rs:88:11
+   |
+88 | pub const ERR_DONT_KNOW: u8 = 0x01;
+   |           ^^^^^^^^^^^^^
+
+warning: constant `ERR_BYPASS_FIELD` is never used
+  --> src/lib5250/codes.rs:89:11
+   |
+89 | pub const ERR_BYPASS_FIELD: u8 = 0x04;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_NO_FIELD` is never used
+  --> src/lib5250/codes.rs:90:11
+   |
+90 | pub const ERR_NO_FIELD: u8 = 0x05;
+   |           ^^^^^^^^^^^^
+
+warning: constant `ERR_INVALID_SYSREQ` is never used
+  --> src/lib5250/codes.rs:91:11
+   |
+91 | pub const ERR_INVALID_SYSREQ: u8 = 0x06;
+   |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_MANDATORY_ENTRY` is never used
+  --> src/lib5250/codes.rs:92:11
+   |
+92 | pub const ERR_MANDATORY_ENTRY: u8 = 0x07;
+   |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_ALPHA_ONLY` is never used
+  --> src/lib5250/codes.rs:93:11
+   |
+93 | pub const ERR_ALPHA_ONLY: u8 = 0x08;
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `ERR_NUMERIC_ONLY` is never used
+  --> src/lib5250/codes.rs:94:11
+   |
+94 | pub const ERR_NUMERIC_ONLY: u8 = 0x09;
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_DIGITS_ONLY` is never used
+  --> src/lib5250/codes.rs:95:11
+   |
+95 | pub const ERR_DIGITS_ONLY: u8 = 0x10;
+   |           ^^^^^^^^^^^^^^^
+
+warning: constant `ERR_LAST_SIGNED` is never used
+  --> src/lib5250/codes.rs:96:11
+   |
+96 | pub const ERR_LAST_SIGNED: u8 = 0x11;
+   |           ^^^^^^^^^^^^^^^
+
+warning: constant `ERR_NO_ROOM` is never used
+  --> src/lib5250/codes.rs:97:11
+   |
+97 | pub const ERR_NO_ROOM: u8 = 0x12;
+   |           ^^^^^^^^^^^
+
+warning: constant `ERR_MANADATORY_FILL` is never used
+  --> src/lib5250/codes.rs:98:11
+   |
+98 | pub const ERR_MANADATORY_FILL: u8 = 0x14;
+   |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_CHECK_DIGIT` is never used
+  --> src/lib5250/codes.rs:99:11
+   |
+99 | pub const ERR_CHECK_DIGIT: u8 = 0x15;
+   |           ^^^^^^^^^^^^^^^
+
+warning: constant `ERR_NOT_SIGNED` is never used
+   --> src/lib5250/codes.rs:100:11
+    |
+100 | pub const ERR_NOT_SIGNED: u8 = 0x16;
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `ERR_EXIT_NOT_VALID` is never used
+   --> src/lib5250/codes.rs:101:11
+    |
+101 | pub const ERR_EXIT_NOT_VALID: u8 = 0x18;
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_DUP_NOT_ENABLED` is never used
+   --> src/lib5250/codes.rs:102:11
+    |
+102 | pub const ERR_DUP_NOT_ENABLED: u8 = 0x19;
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_NO_FIELD_EXIT` is never used
+   --> src/lib5250/codes.rs:103:11
+    |
+103 | pub const ERR_NO_FIELD_EXIT: u8 = 0x20;
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_NO_INPUT` is never used
+   --> src/lib5250/codes.rs:104:11
+    |
+104 | pub const ERR_NO_INPUT: u8 = 0x26;
+    |           ^^^^^^^^^^^^
+
+warning: constant `ERR_BAD_CHAR` is never used
+   --> src/lib5250/codes.rs:105:11
+    |
+105 | pub const ERR_BAD_CHAR: u8 = 0x27;
+    |           ^^^^^^^^^^^^
+
+warning: constant `MSG_DONT_KNOW` is never used
+   --> src/lib5250/codes.rs:108:11
+    |
+108 | pub const MSG_DONT_KNOW: &str = "Keyboard overrun.";
+    |           ^^^^^^^^^^^^^
+
+warning: constant `MSG_BYPASS_FIELD` is never used
+   --> src/lib5250/codes.rs:109:11
+    |
+109 | pub const MSG_BYPASS_FIELD: &str = "Entry of data not allowed in this input/output field.";
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_NO_FIELD` is never used
+   --> src/lib5250/codes.rs:110:11
+    |
+110 | pub const MSG_NO_FIELD: &str = "Cursor in protected area of display.";
+    |           ^^^^^^^^^^^^
+
+warning: constant `MSG_INVALID_SYSREQ` is never used
+   --> src/lib5250/codes.rs:111:11
+    |
+111 | pub const MSG_INVALID_SYSREQ: &str = "Key pressed following System Request key was not valid.";
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_MANDATORY_ENTRY` is never used
+   --> src/lib5250/codes.rs:112:11
+    |
+112 | pub const MSG_MANDATORY_ENTRY: &str = "Mandatory data entry field. Must have data entered.";
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_ALPHA_ONLY` is never used
+   --> src/lib5250/codes.rs:113:11
+    |
+113 | pub const MSG_ALPHA_ONLY: &str = "Field requires alphabetic characters.";
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `MSG_NUMERIC_ONLY` is never used
+   --> src/lib5250/codes.rs:114:11
+    |
+114 | pub const MSG_NUMERIC_ONLY: &str = "Field requires numeric characters.";
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_DIGITS_ONLY` is never used
+   --> src/lib5250/codes.rs:115:11
+    |
+115 | pub const MSG_DIGITS_ONLY: &str = "Only characters 0 through 9 allowed.";
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `MSG_LAST_SIGNED` is never used
+   --> src/lib5250/codes.rs:116:11
+    |
+116 | pub const MSG_LAST_SIGNED: &str = "Key for sign position of field not valid.";
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `MSG_NO_ROOM` is never used
+   --> src/lib5250/codes.rs:117:11
+    |
+117 | pub const MSG_NO_ROOM: &str = "No room to insert data.";
+    |           ^^^^^^^^^^^
+
+warning: constant `MSG_MANADATORY_FILL` is never used
+   --> src/lib5250/codes.rs:118:11
+    |
+118 | pub const MSG_MANADATORY_FILL: &str = "Mandatory fill field. Must fill to exit.";
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_CHECK_DIGIT` is never used
+   --> src/lib5250/codes.rs:119:11
+    |
+119 | pub const MSG_CHECK_DIGIT: &str = "Modulo 10 or 11 check digit error.";
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `MSG_NOT_SIGNED` is never used
+   --> src/lib5250/codes.rs:120:11
+    |
+120 | pub const MSG_NOT_SIGNED: &str = "Field Minus key not valid in field.";
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `MSG_EXIT_NOT_VALID` is never used
+   --> src/lib5250/codes.rs:121:11
+    |
+121 | pub const MSG_EXIT_NOT_VALID: &str = "The key used to exit field not valid.";
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_DUP_NOT_ENABLED` is never used
+   --> src/lib5250/codes.rs:122:11
+    |
+122 | pub const MSG_DUP_NOT_ENABLED: &str = "Duplicate key or Field Mark key not allowed in field.";
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_NO_FIELD_EXIT` is never used
+   --> src/lib5250/codes.rs:123:11
+    |
+123 | pub const MSG_NO_FIELD_EXIT: &str = "Enter key not allowed in field.";
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_NO_INPUT` is never used
+   --> src/lib5250/codes.rs:124:11
+    |
+124 | pub const MSG_NO_INPUT: &str = "Field- entry not allowed.";
+    |           ^^^^^^^^^^^^
+
+warning: constant `MSG_BAD_CHAR` is never used
+   --> src/lib5250/codes.rs:125:11
+    |
+125 | pub const MSG_BAD_CHAR: &str = "Cannot use undefined key.";
+    |           ^^^^^^^^^^^^
+
+warning: constant `MSG_NO_HELP` is never used
+   --> src/lib5250/codes.rs:126:11
+    |
+126 | pub const MSG_NO_HELP: &str = "No help text is available.";
+    |           ^^^^^^^^^^^
+
+warning: constant `ERR_DBCS_WRONG_TYPE` is never used
+   --> src/lib5250/codes.rs:129:11
+    |
+129 | pub const ERR_DBCS_WRONG_TYPE: u8 = 0x60;
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ERR_SBCS_WRONG_TYPE` is never used
+   --> src/lib5250/codes.rs:130:11
+    |
+130 | pub const ERR_SBCS_WRONG_TYPE: u8 = 0x61;
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_DBCS_WRONG_TYPE` is never used
+   --> src/lib5250/codes.rs:131:11
+    |
+131 | pub const MSG_DBCS_WRONG_TYPE: &str = "Field requires alphanumeric characters.";
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MSG_SBCS_WRONG_TYPE` is never used
+   --> src/lib5250/codes.rs:132:11
+    |
+132 | pub const MSG_SBCS_WRONG_TYPE: &str = "Field requires double-byte characters.";
+    |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DSNR_RESEQ_ERR` is never used
+   --> src/lib5250/codes.rs:136:11
+    |
+136 | pub const DSNR_RESEQ_ERR: u8 = 0x03;
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `DSNR_INVCURSPOS` is never used
+   --> src/lib5250/codes.rs:137:11
+    |
+137 | pub const DSNR_INVCURSPOS: u8 = 0x22;
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `DSNR_RAB4WSA` is never used
+   --> src/lib5250/codes.rs:138:11
+    |
+138 | pub const DSNR_RAB4WSA: u8 = 0x23;
+    |           ^^^^^^^^^^^^
+
+warning: constant `DSNR_INVSFA` is never used
+   --> src/lib5250/codes.rs:139:11
+    |
+139 | pub const DSNR_INVSFA: u8 = 0x26;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_FLDEOD` is never used
+   --> src/lib5250/codes.rs:140:11
+    |
+140 | pub const DSNR_FLDEOD: u8 = 0x28;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_FMTOVF` is never used
+   --> src/lib5250/codes.rs:141:11
+    |
+141 | pub const DSNR_FMTOVF: u8 = 0x29;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_WRTEOD` is never used
+   --> src/lib5250/codes.rs:142:11
+    |
+142 | pub const DSNR_WRTEOD: u8 = 0x2A;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_SOHLEN` is never used
+   --> src/lib5250/codes.rs:143:11
+    |
+143 | pub const DSNR_SOHLEN: u8 = 0x2B;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_ROLLPARM` is never used
+   --> src/lib5250/codes.rs:144:11
+    |
+144 | pub const DSNR_ROLLPARM: u8 = 0x2C;
+    |           ^^^^^^^^^^^^^
+
+warning: constant `DSNR_NO_ESC` is never used
+   --> src/lib5250/codes.rs:145:11
+    |
+145 | pub const DSNR_NO_ESC: u8 = 0x31;
+    |           ^^^^^^^^^^^
+
+warning: constant `DSNR_INV_WECW` is never used
+   --> src/lib5250/codes.rs:146:11
+    |
+146 | pub const DSNR_INV_WECW: u8 = 0x32;
+    |           ^^^^^^^^^^^^^
+
+warning: constant `DSNR_UNKNOWN` is never used
+   --> src/lib5250/codes.rs:147:11
+    |
+147 | pub const DSNR_UNKNOWN: i8 = -1;
+    |           ^^^^^^^^^^^^
+
+warning: constant `EMSG_RESEQ_ERR` is never used
+   --> src/lib5250/codes.rs:150:11
+    |
+150 | pub const EMSG_RESEQ_ERR: &str = "Format table resequencing error.";
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `EMSG_INVCURSPOS` is never used
+   --> src/lib5250/codes.rs:151:11
+    |
+151 | pub const EMSG_INVCURSPOS: &str = "Write to display order row/col address is not valid";
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `EMSG_RAB4WSA` is never used
+   --> src/lib5250/codes.rs:152:11
+    |
+152 | pub const EMSG_RAB4WSA: &str = "Repeat to Address less than the current WS address.";
+    |           ^^^^^^^^^^^^
+
+warning: constant `EMSG_INVSFA` is never used
+   --> src/lib5250/codes.rs:153:11
+    |
+153 | pub const EMSG_INVSFA: &str = "Start-of-field order address not valid";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_FLDEOD` is never used
+   --> src/lib5250/codes.rs:154:11
+    |
+154 | pub const EMSG_FLDEOD: &str = "Field extends past the end of the display.";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_FMTOVF` is never used
+   --> src/lib5250/codes.rs:155:11
+    |
+155 | pub const EMSG_FMTOVF: &str = "Format table overflow.";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_WRTEOD` is never used
+   --> src/lib5250/codes.rs:156:11
+    |
+156 | pub const EMSG_WRTEOD: &str = "Attempted to write past the end of display.";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_SOHLEN` is never used
+   --> src/lib5250/codes.rs:157:11
+    |
+157 | pub const EMSG_SOHLEN: &str = "Start-of-header length not valid.";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_ROLLPARM` is never used
+   --> src/lib5250/codes.rs:158:11
+    |
+158 | pub const EMSG_ROLLPARM: &str = "Invalid ROLL command parameter.";
+    |           ^^^^^^^^^^^^^
+
+warning: constant `EMSG_NO_ESC` is never used
+   --> src/lib5250/codes.rs:159:11
+    |
+159 | pub const EMSG_NO_ESC: &str = "No escape code was found where it was expected.";
+    |           ^^^^^^^^^^^
+
+warning: constant `EMSG_INV_WECW` is never used
+   --> src/lib5250/codes.rs:160:11
+    |
+160 | pub const EMSG_INV_WECW: &str = "Invalid row/col address on WEC TO WINDOW command.";
+    |           ^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_GREEN` is never used
+   --> src/lib5250/codes.rs:165:11
+    |
+165 | pub const ATTR_5250_GREEN: u8 = 0x20;   // Default
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_WHITE` is never used
+   --> src/lib5250/codes.rs:166:11
+    |
+166 | pub const ATTR_5250_WHITE: u8 = 0x22;
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_NONDISP` is never used
+   --> src/lib5250/codes.rs:167:11
+    |
+167 | pub const ATTR_5250_NONDISP: u8 = 0x27; // Nondisplay
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_RED` is never used
+   --> src/lib5250/codes.rs:168:11
+    |
+168 | pub const ATTR_5250_RED: u8 = 0x28;
+    |           ^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_TURQ` is never used
+   --> src/lib5250/codes.rs:169:11
+    |
+169 | pub const ATTR_5250_TURQ: u8 = 0x30;
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_YELLOW` is never used
+   --> src/lib5250/codes.rs:170:11
+    |
+170 | pub const ATTR_5250_YELLOW: u8 = 0x32;
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_PINK` is never used
+   --> src/lib5250/codes.rs:171:11
+    |
+171 | pub const ATTR_5250_PINK: u8 = 0x38;
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_BLUE` is never used
+   --> src/lib5250/codes.rs:172:11
+    |
+172 | pub const ATTR_5250_BLUE: u8 = 0x3A;
+    |           ^^^^^^^^^^^^^^
+
+warning: constant `ATTR_5250_NORMAL` is never used
+   --> src/lib5250/codes.rs:174:11
+    |
+174 | pub const ATTR_5250_NORMAL: u8 = ATTR_5250_GREEN;
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KEYSTATE_UNLOCKED` is never used
+   --> src/lib5250/codes.rs:177:11
+    |
+177 | pub const TN5250_KEYSTATE_UNLOCKED: u8 = 0;
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KEYSTATE_LOCKED` is never used
+   --> src/lib5250/codes.rs:178:11
+    |
+178 | pub const TN5250_KEYSTATE_LOCKED: u8 = 1;
+    |           ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KEYSTATE_HARDWARE` is never used
+   --> src/lib5250/codes.rs:179:11
+    |
+179 | pub const TN5250_KEYSTATE_HARDWARE: u8 = 2;
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KEYSTATE_PREHELP` is never used
+   --> src/lib5250/codes.rs:180:11
+    |
+180 | pub const TN5250_KEYSTATE_PREHELP: u8 = 3;
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KEYSTATE_POSTHELP` is never used
+   --> src/lib5250/codes.rs:181:11
+    |
+181 | pub const TN5250_KEYSTATE_POSTHELP: u8 = 4;
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_NONE` is never used
+   --> src/lib5250/codes.rs:184:11
+    |
+184 | pub const TN5250_KBDSRC_NONE: u16 = 0x0000;            // No Error
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_INVALID_CMD` is never used
+   --> src/lib5250/codes.rs:185:11
+    |
+185 | pub const TN5250_KBDSRC_INVALID_CMD: u16 = 0x0003;     // Bad key following CMD key
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_DATA_DISALLOWED` is never used
+   --> src/lib5250/codes.rs:186:11
+    |
+186 | pub const TN5250_KBDSRC_DATA_DISALLOWED: u16 = 0x0004; // Keyboard in MSR field
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_PROTECT` is never used
+   --> src/lib5250/codes.rs:187:11
+    |
+187 | pub const TN5250_KBDSRC_PROTECT: u16 = 0x0005;         // Cursor in protected area
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_ALPHAONLY` is never used
+   --> src/lib5250/codes.rs:188:11
+    |
+188 | pub const TN5250_KBDSRC_ALPHAONLY: u16 = 0x0008;       // Field Requires Alpha
+    |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_NUMONLY` is never used
+   --> src/lib5250/codes.rs:189:11
+    |
+189 | pub const TN5250_KBDSRC_NUMONLY: u16 = 0x0009;         // Field Requires Numeric
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_ONLY09` is never used
+   --> src/lib5250/codes.rs:190:11
+    |
+190 | pub const TN5250_KBDSRC_ONLY09: u16 = 0x0010;          // Only chars 0-9 allowed
+    |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_SIGNPOS` is never used
+   --> src/lib5250/codes.rs:191:11
+    |
+191 | pub const TN5250_KBDSRC_SIGNPOS: u16 = 0x0011;         // Sign position invalid
+    |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_NOROOM` is never used
+   --> src/lib5250/codes.rs:192:11
+    |
+192 | pub const TN5250_KBDSRC_NOROOM: u16 = 0x0012;          // No room for insert
+    |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_FLDM_DISALLOWED` is never used
+   --> src/lib5250/codes.rs:193:11
+    |
+193 | pub const TN5250_KBDSRC_FLDM_DISALLOWED: u16 = 0x0016; // Field- Not Allowed
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_FER` is never used
+   --> src/lib5250/codes.rs:194:11
+    |
+194 | pub const TN5250_KBDSRC_FER: u16 = 0x0018;             // Field Exit Required
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_KBDSRC_DUP_DISALLOWED` is never used
+   --> src/lib5250/codes.rs:195:11
+    |
+195 | pub const TN5250_KBDSRC_DUP_DISALLOWED: u16 = 0x0019;  // Dup Key Not Allowed
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_error_message` is never used
+   --> src/lib5250/codes.rs:198:8
+    |
+198 | pub fn get_error_message(error_code: u8) -> Option<&'static str> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: method `to_u8` is never used
+   --> src/lib5250/codes.rs:284:12
+    |
+252 | impl CommandCode {
+    | ---------------- method in this implementation
+...
+284 |     pub fn to_u8(self) -> u8 {
+    |            ^^^^^
+
+warning: enum `OrderCode` is never used
+   --> src/lib5250/codes.rs:291:10
+    |
+291 | pub enum OrderCode {
+    |          ^^^^^^^^^
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/lib5250/codes.rs:302:12
+    |
+300 | impl OrderCode {
+    | -------------- associated items in this implementation
+301 |     /// Convert a byte value to an OrderCode enum
+302 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+315 |     pub fn to_u8(self) -> u8 {
+    |            ^^^^^
+
+warning: constant `TN5250_DISPLAY_IND_MESSAGE_WAITING` is never used
+  --> src/lib5250/display.rs:37:11
+   |
+37 | pub const TN5250_DISPLAY_IND_MESSAGE_WAITING: u32 = 0x0002;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_DISPLAY_IND_X_CLOCK` is never used
+  --> src/lib5250/display.rs:39:11
+   |
+39 | pub const TN5250_DISPLAY_IND_X_CLOCK: u32 = 0x0008;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `TN5250_DISPLAY_IND_MACRO` is never used
+  --> src/lib5250/display.rs:42:11
+   |
+42 | pub const TN5250_DISPLAY_IND_MACRO: u32 = 0x0040;
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `height`, `set_cursor_home`, `add_5250_data`, `indicators`, and `keyboard_locked` are never used
+   --> src/lib5250/display.rs:87:12
+    |
+ 44 | impl Display {
+    | ------------ methods in this implementation
+...
+ 87 |     pub fn height(&self) -> usize {
+    |            ^^^^^^
+...
+138 |     pub fn set_cursor_home(&mut self) {
+    |            ^^^^^^^^^^^^^^^
+...
+290 |     pub fn add_5250_data(&mut self, data: &[u8]) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^
+...
+335 |     pub fn indicators(&self) -> u32 {
+    |            ^^^^^^^^^^
+...
+340 |     pub fn keyboard_locked(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^
+
+warning: function `parse_field_attribute` is never used
+  --> src/lib5250/field.rs:36:8
+   |
+36 | pub fn parse_field_attribute(attribute_byte: u8) -> FieldAttribute {
+   |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `detect_fields_from_protocol_data` is never used
+  --> src/lib5250/field.rs:41:8
+   |
+41 | pub fn detect_fields_from_protocol_data(data: &[u8]) -> Vec<Field> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `get_response_command` is never used
+  --> src/lib5250/protocol.rs:39:12
+   |
+36 | impl CommandCode {
+   | ---------------- method in this implementation
+...
+39 |     pub fn get_response_command(&self) -> Option<Self> {
+   |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+  --> src/lib5250/protocol.rs:72:5
+   |
+70 | pub enum FieldAttribute {
+   |          -------------- variants in this enum
+71 |     /// Normal unprotected field
+72 |     Normal = 0x00,
+   |     ^^^^^^
+...
+75 |     Intensified = 0x20,
+   |     ^^^^^^^^^^^
+...
+81 |     Numeric = 0x10,
+   |     ^^^^^^^
+...
+84 |     Skip = 0x08,
+   |     ^^^^
+...
+87 |     Mandatory = 0x0C,
+   |     ^^^^^^^^^
+...
+90 |     DupEnable = 0x04,
+   |     ^^^^^^^^^
+...
+93 |     Hidden = 0x0D,
+   |     ^^^^^^
+   |
+   = note: `FieldAttribute` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/lib5250/protocol.rs:97:12
+    |
+ 96 | impl FieldAttribute {
+    | ------------------- associated items in this implementation
+ 97 |     pub fn from_u8(value: u8) -> Self {
+    |            ^^^^^^^
+...
+112 |     pub fn to_u8(&self) -> u8 {
+    |            ^^^^^
+
+warning: enum `StructuredFieldID` is never used
+   --> src/lib5250/protocol.rs:128:10
+    |
+128 | pub enum StructuredFieldID {
+    |          ^^^^^^^^^^^^^^^^^
+
+warning: associated function `from_u8` is never used
+   --> src/lib5250/protocol.rs:176:12
+    |
+175 | impl StructuredFieldID {
+    | ---------------------- associated function in this implementation
+176 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+
+warning: fields `connected`, `pending_responses`, and `device_id` are never read
+   --> src/lib5250/protocol.rs:339:9
+    |
+337 | pub struct ProtocolProcessor {
+    |            ----------------- fields in this struct
+338 |     sequence_number: u8,
+339 |     pub connected: bool,
+    |         ^^^^^^^^^
+...
+343 |     pending_responses: Vec<Packet>,
+    |     ^^^^^^^^^^^^^^^^^
+344 |     // Configurable device identification
+345 |     device_id: String,
+    |     ^^^^^^^^^
+    |
+    = note: `ProtocolProcessor` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: methods `set_device_id`, `get_device_id`, `create_write_to_display_packet`, `add_input`, `connect`, and `disconnect` are never used
+   --> src/lib5250/protocol.rs:439:12
+    |
+348 | impl ProtocolProcessor {
+    | ---------------------- methods in this implementation
+...
+439 |     pub fn set_device_id(&mut self, device_id: String) {
+    |            ^^^^^^^^^^^^^
+...
+444 |     pub fn get_device_id(&self) -> &str {
+    |            ^^^^^^^^^^^^^
+...
+449 |     pub fn create_write_to_display_packet(&mut self, text: &str) -> Packet {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+461 |     pub fn add_input(&mut self, input: &[u8]) {
+    |            ^^^^^^^^^
+...
+470 |     pub fn connect(&mut self) {
+    |            ^^^^^^^
+...
+478 |     pub fn disconnect(&mut self) {
+    |            ^^^^^^^^^^
+
+warning: struct `ProtocolParser` is never constructed
+   --> src/lib5250/protocol.rs:487:12
+    |
+487 | pub struct ProtocolParser {
+    |            ^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib5250/protocol.rs:493:12
+    |
+492 | impl ProtocolParser {
+    | ------------------- associated items in this implementation
+493 |     pub fn new(data: &[u8]) -> Self {
+    |            ^^^
+...
+497 |     pub fn parse(&mut self) -> Result<(), String> {
+    |            ^^^^^
+...
+525 |     fn parse_write_to_display(&mut self) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+574 |     fn parse_order(&mut self, order: u8) -> Result<(), String> {
+    |        ^^^^^^^^^^^
+...
+687 |     fn parse_read_buffer(&mut self) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^
+...
+710 |     fn parse_write_structured_field(&mut self) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+831 |     fn parse_save_screen(&mut self) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^
+...
+856 |     fn parse_restore_screen(&mut self) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: trait `ProtocolState` is never used
+   --> src/lib5250/protocol.rs:888:11
+    |
+888 | pub trait ProtocolState {
+    |           ^^^^^^^^^^^^^
+
+warning: function `parse_5250_stream` is never used
+   --> src/lib5250/protocol.rs:897:8
+    |
+897 | pub fn parse_5250_stream<T: ProtocolState>(data: &[u8], state: &mut T) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: multiple methods are never used
+    --> src/lib5250/protocol.rs:907:12
+     |
+ 905 | impl ProtocolParser {
+     | ------------------- methods in this implementation
+ 906 |
+ 907 |     pub fn parse_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+ 935 |     fn parse_write_to_display_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 989 |     fn parse_read_buffer_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 993 |     fn parse_read_immediate_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 999 |     fn parse_write_structured_field_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1024 |     fn parse_save_screen_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1028 |     fn parse_restore_screen_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1032 |     fn parse_read_modified_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1036 |     fn parse_read_modified_all_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variant `Complete` is never constructed
+  --> src/lib5250/session.rs:58:5
+   |
+53 | pub enum HandshakeState {
+   |          -------------- variant in this enum
+...
+58 |     Complete,
+   |     ^^^^^^^^
+   |
+   = note: `HandshakeState` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple methods are never used
+    --> src/lib5250/session.rs:156:12
+     |
+ 121 | impl Session {
+     | ------------ methods in this implementation
+...
+ 156 |     pub fn mark_telnet_negotiation_complete(&mut self) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 193 |     pub fn set_enhanced(&mut self, enhanced: bool) {
+     |            ^^^^^^^^^^^^
+...
+ 712 |     pub fn handle_aid_key(&mut self, aid_code: u8) -> Result<Vec<u8>, String> {
+     |            ^^^^^^^^^^^^^^
+...
+ 721 |     fn create_field_response(&mut self, aid_code: u8) -> Result<Vec<u8>, String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^
+...
+ 986 |     pub fn encode_field_data(&self, field_data: &[(usize, usize, String)]) -> Vec<u8> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1009 |     pub fn send_input_fields(&mut self, aid_code: u8, modified_fields: &[(usize, usize, String)]) -> Result<Vec<u8>, String> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1033 |     pub fn get_modified_fields(&self) -> Vec<(usize, usize, String)> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1041 |     pub fn send_field_input(&mut self, aid_code: u8, pending_input: &[u8]) -> Result<Vec<u8>, String> {
+     |            ^^^^^^^^^^^^^^^^
+...
+1063 |     pub fn authenticate(&mut self, username: &str, password: &str) -> Result<bool, String> {
+     |            ^^^^^^^^^^^^
+...
+1086 |     fn validate_credentials(&self, username: &str, password: &str) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+1141 |     pub fn is_authenticated(&self) -> bool {
+     |            ^^^^^^^^^^^^^^^^
+...
+1146 |     pub fn get_session_token(&self) -> Option<&str> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1151 |     pub fn invalidate_session(&mut self) {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+1159 |     pub fn set_max_command_size(&mut self, size: usize) {
+     |            ^^^^^^^^^^^^^^^^^^^^
+...
+1164 |     pub fn set_protocol_mode(&mut self, mode: ProtocolMode) {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1170 |     pub fn get_protocol_mode(&self) -> ProtocolMode {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1342 |     pub fn send_5250_handshake(&mut self) -> Result<Vec<u8>, String> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1357 |     fn create_write_to_display_packet(&mut self) -> Vec<u8> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1564 |     pub fn set_component_enabled(&mut self, component: &str, enabled: bool) {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+1586 |     pub fn get_fallback_data(&mut self) -> Vec<u8> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1591 |     pub fn check_integration_health(&self) -> IntegrationHealth {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `IntegrationHealth` is never constructed
+    --> src/lib5250/session.rs:1621:12
+     |
+1621 | pub struct IntegrationHealth {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: enum `TelnetError` is never used
+ --> src/lib5250/telnet.rs:5:10
+  |
+5 | pub enum TelnetError {
+  |          ^^^^^^^^^^^
+
+warning: enum `TelnetOption` is never used
+  --> src/lib5250/telnet.rs:15:10
+   |
+15 | pub enum TelnetOption {
+   |          ^^^^^^^^^^^^
+
+warning: enum `TerminalType` is never used
+  --> src/lib5250/telnet.rs:27:10
+   |
+27 | pub enum TerminalType {
+   |          ^^^^^^^^^^^^
+
+warning: methods `as_str` and `get_capabilities` are never used
+  --> src/lib5250/telnet.rs:42:12
+   |
+41 | impl TerminalType {
+   | ----------------- methods in this implementation
+42 |     pub fn as_str(&self) -> &str {
+   |            ^^^^^^
+...
+58 |     pub fn get_capabilities(&self) -> DeviceCapabilities {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: struct `DeviceCapabilities` is never constructed
+  --> src/lib5250/telnet.rs:72:12
+   |
+72 | pub struct DeviceCapabilities {
+   |            ^^^^^^^^^^^^^^^^^^
+
+warning: associated functions `standard_5250`, `enhanced_5250`, `printer_5250`, `color_5250`, and `basic_5250` are never used
+   --> src/lib5250/telnet.rs:83:12
+    |
+ 82 | impl DeviceCapabilities {
+    | ----------------------- associated functions in this implementation
+ 83 |     pub fn standard_5250() -> Self {
+    |            ^^^^^^^^^^^^^
+...
+ 95 |     pub fn enhanced_5250() -> Self {
+    |            ^^^^^^^^^^^^^
+...
+107 |     pub fn printer_5250() -> Self {
+    |            ^^^^^^^^^^^^
+...
+119 |     pub fn color_5250() -> Self {
+    |            ^^^^^^^^^^
+...
+131 |     pub fn basic_5250() -> Self {
+    |            ^^^^^^^^^^
+
+warning: enum `TelnetCommand` is never used
+   --> src/lib5250/telnet.rs:145:10
+    |
+145 | pub enum TelnetCommand {
+    |          ^^^^^^^^^^^^^
+
+warning: enum `NegotiationState` is never used
+   --> src/lib5250/telnet.rs:155:10
+    |
+155 | pub enum NegotiationState {
+    |          ^^^^^^^^^^^^^^^^
+
+warning: struct `TelnetNegotiator` is never constructed
+   --> src/lib5250/telnet.rs:164:12
+    |
+164 | pub struct TelnetNegotiator {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib5250/telnet.rs:176:12
+    |
+175 | impl TelnetNegotiator {
+    | --------------------- associated items in this implementation
+176 |     pub fn new() -> Self {
+    |            ^^^
+...
+180 |     pub fn with_terminal_type(terminal_type: TerminalType) -> Self {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+202 |     pub fn process_command(&mut self, command: u8, option: u8) -> Result<Option<Vec<u8>>, TelnetError> {
+    |            ^^^^^^^^^^^^^^^
+...
+242 |     pub fn process_subnegotiation(&mut self, option: u8, data: &[u8]) -> Result<Option<Vec<u8>>, TelnetError> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+304 |     fn create_environment_response(&self) -> Result<Option<Vec<u8>>, TelnetError> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+345 |     pub fn is_negotiation_complete(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+353 |     pub fn get_active_options(&self) -> Vec<TelnetOption> {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+362 |     pub fn set_environment_var(&mut self, name: &str, value: &str) {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+367 |     pub fn get_environment_vars(&self) -> &std::collections::HashMap<String, String> {
+    |            ^^^^^^^^^^^^^^^^^^^^
+...
+372 |     pub fn set_device_name(&mut self, device_name: &str) -> Result<(), TelnetError> {
+    |            ^^^^^^^^^^^^^^^
+...
+381 |     pub fn get_device_name(&self) -> Option<&str> {
+    |            ^^^^^^^^^^^^^^^
+...
+386 |     pub fn get_device_capabilities(&self) -> &DeviceCapabilities {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+391 |     pub fn set_window_size(&mut self, cols: u16, rows: u16) {
+    |            ^^^^^^^^^^^^^^^
+...
+396 |     pub fn get_window_size(&self) -> Option<(u16, u16)> {
+    |            ^^^^^^^^^^^^^^^
+...
+401 |     pub fn set_charset(&mut self, charset: &str) {
+    |            ^^^^^^^^^^^
+...
+406 |     pub fn get_charset(&self) -> Option<&str> {
+    |            ^^^^^^^^^^^
+...
+410 |     fn should_accept_option(&self, option: TelnetOption) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^
+...
+422 |     fn should_offer_option(&self, option: TelnetOption) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+433 |     fn parse_environment_vars(&mut self, data: &[u8]) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+480 |     fn extract_null_terminated_string(&self, data: &[u8], start: usize) -> Option<(String, usize)> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `from_u8` is never used
+   --> src/lib5250/telnet.rs:503:12
+    |
+502 | impl TelnetOption {
+    | ----------------- associated function in this implementation
+503 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+
+warning: associated function `from_u8` is never used
+   --> src/lib5250/telnet.rs:519:12
+    |
+518 | impl TelnetCommand {
+    | ------------------ associated function in this implementation
+519 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+
+warning: function `negotiate_options` is never used
+   --> src/lib5250/telnet.rs:533:8
+    |
+533 | pub fn negotiate_options(options: &[TelnetOption]) -> bool {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: method `get_cursor_position` is never used
+   --> src/ansi_processor.rs:341:12
+    |
+ 24 | impl AnsiProcessor {
+    | ------------------ method in this implementation
+...
+341 |     pub fn get_cursor_position(&self) -> (usize, usize) {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: fields `auto_reconnect`, `max_reconnect_attempts`, and `reconnect_backoff_multiplier` are never read
+   --> src/network.rs:118:9
+    |
+110 | pub struct SessionConfig {
+    |            ------------- fields in this struct
+...
+118 |     pub auto_reconnect: bool,
+    |         ^^^^^^^^^^^^^^
+119 |     /// Maximum reconnection attempts (default: 3)
+120 |     pub max_reconnect_attempts: u32,
+    |         ^^^^^^^^^^^^^^^^^^^^^^
+121 |     /// Reconnection backoff multiplier (default: 2)
+122 |     pub reconnect_backoff_multiplier: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `SessionConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple methods are never used
+    --> src/network.rs:388:12
+     |
+ 362 | impl AS400Connection {
+     | -------------------- methods in this implementation
+...
+ 388 |     pub fn set_session_config(&mut self, config: SessionConfig) {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+ 393 |     pub fn session_config(&self) -> &SessionConfig {
+     |            ^^^^^^^^^^^^^^
+...
+ 413 |     pub fn time_since_last_activity(&self) -> Option<Duration> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 423 |     pub fn is_tls_enabled(&self) -> bool {
+     |            ^^^^^^^^^^^^^^
+...
+1468 |     pub fn is_connected(&self) -> bool {
+     |            ^^^^^^^^^^^^
+...
+1473 |     pub fn is_negotiation_complete(&self) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+1478 |     pub fn get_detected_protocol_mode(&self) -> ProtocolMode {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1483 |     pub fn is_protocol_detection_complete(&self) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1488 |     pub fn set_protocol_mode(&mut self, mode: ProtocolMode) {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1504 |     pub fn set_credentials(&mut self, username: &str, password: &str) {
+     |            ^^^^^^^^^^^^^^^
+...
+1510 |     pub fn get_host(&self) -> &str {
+     |            ^^^^^^^^
+...
+1515 |     pub fn get_port(&self) -> u16 {
+     |            ^^^^^^^^
+...
+1521 |     pub fn validate_connection_integrity(&self) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1562 |     pub fn safe_cleanup(&mut self) {
+     |            ^^^^^^^^^^^^
+
+warning: variants `NonDisplay`, `Protected`, `Numeric`, `FieldExit`, `DupEnable`, and `Hidden` are never constructed
+  --> src/terminal.rs:17:5
+   |
+14 | pub enum CharAttribute {
+   |          ------------- variants in this enum
+...
+17 |     NonDisplay,       // Hidden characters (password fields)
+   |     ^^^^^^^^^^
+18 |     Protected,        // Non-editable fields
+   |     ^^^^^^^^^
+19 |     Numeric,          // Numeric-only input
+   |     ^^^^^^^
+20 |     FieldExit,        // Field-exit attribute
+   |     ^^^^^^^^^
+21 |     DupEnable,        // Duplicate enable
+   |     ^^^^^^^^^
+22 |     Hidden,           // Hidden field
+   |     ^^^^^^
+   |
+   = note: `CharAttribute` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple methods are never used
+   --> src/terminal.rs:105:12
+    |
+ 52 | impl TerminalScreen {
+    | ------------------- methods in this implementation
+...
+105 |     pub fn write_chars_to_row(&mut self, row: usize, col_start: usize, chars: &[char], attr: CharAttribute) {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+131 |     pub fn set_region_attributes(&mut self, start_row: usize, start_col: usize,
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+154 |     pub fn copy_region(&mut self, src: &TerminalScreen, src_row: usize, src_col: usize,
+    |            ^^^^^^^^^^^
+...
+263 |     pub fn write_char_at(&mut self, x: usize, y: usize, ch: char) {
+    |            ^^^^^^^^^^^^^
+...
+295 |     pub fn get_char_at(&self, x: usize, y: usize) -> Option<char> {
+    |            ^^^^^^^^^^^
+...
+319 |     pub fn validate_buffer_consistency(&self) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+395 |     pub fn add_char(&mut self, _ch: u8) {
+    |            ^^^^^^^^
+
+warning: struct `TerminalEmulator` is never constructed
+   --> src/terminal.rs:446:12
+    |
+446 | pub struct TerminalEmulator {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/terminal.rs:454:12
+    |
+453 | impl TerminalEmulator {
+    | --------------------- associated items in this implementation
+454 |     pub fn new() -> Self {
+    |            ^^^
+...
+464 |     pub fn connect(&mut self, host: String) -> Result<(), String> {
+    |            ^^^^^^^
+...
+476 |     pub fn disconnect(&mut self) {
+    |            ^^^^^^^^^^
+...
+485 |     pub fn process_data(&mut self, data: &[u8]) -> Result<(), String> {
+    |            ^^^^^^^^^^^^
+...
+506 |     pub fn process_input(&mut self, input: &str) -> Result<Vec<u8>, String> {
+    |            ^^^^^^^^^^^^^
+...
+514 |     pub fn is_dirty(&self) -> bool {
+    |            ^^^^^^^^
+...
+519 |     pub fn mark_clean(&mut self) {
+    |            ^^^^^^^^^^
+
+warning: variants `RequestedDont` and `RequestedWont` are never constructed
+  --> src/telnet_negotiation.rs:93:5
+   |
+87 | pub enum NegotiationState {
+   |          ---------------- variants in this enum
+...
+93 |     RequestedDont,
+   |     ^^^^^^^^^^^^^
+...
+97 |     RequestedWont,
+   |     ^^^^^^^^^^^^^
+   |
+   = note: `NegotiationState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `screen_size` and `supports_color` are never used
+   --> src/telnet_negotiation.rs:144:12
+    |
+125 | impl TN3270EDeviceType {
+    | ---------------------- methods in this implementation
+...
+144 |     pub fn screen_size(&self) -> (usize, usize) {
+    |            ^^^^^^^^^^^
+...
+153 |     pub fn supports_color(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+
+warning: variant `TN3270ENegotiated` is never constructed
+   --> src/telnet_negotiation.rs:169:5
+    |
+165 | pub enum TN3270ESessionState {
+    |          ------------------- variant in this enum
+...
+169 |     TN3270ENegotiated,
+    |     ^^^^^^^^^^^^^^^^^
+    |
+    = note: `TN3270ESessionState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `small_buffers`, `medium_buffers`, `large_buffers`, and `pool_metrics` are never read
+   --> src/telnet_negotiation.rs:182:5
+    |
+180 | pub struct BufferPool {
+    |            ---------- fields in this struct
+181 |     /// Small buffers (up to 64 bytes) for telnet commands
+182 |     small_buffers: Arc<Mutex<Vec<Vec<u8>>>>,
+    |     ^^^^^^^^^^^^^
+183 |     /// Medium buffers (up to 512 bytes) for structured fields
+184 |     medium_buffers: Arc<Mutex<Vec<Vec<u8>>>>,
+    |     ^^^^^^^^^^^^^^
+185 |     /// Large buffers (up to 4KB) for complex subnegotiations
+186 |     large_buffers: Arc<Mutex<Vec<Vec<u8>>>>,
+    |     ^^^^^^^^^^^^^
+187 |     /// Performance metrics for buffer pool usage
+188 |     pool_metrics: Arc<Mutex<BufferPoolMetrics>>,
+    |     ^^^^^^^^^^^^
+    |
+    = note: `BufferPool` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+   --> src/telnet_negotiation.rs:194:9
+    |
+193 | pub struct BufferPoolMetrics {
+    |            ----------------- fields in this struct
+194 |     pub small_allocations: usize,
+    |         ^^^^^^^^^^^^^^^^^
+195 |     pub medium_allocations: usize,
+    |         ^^^^^^^^^^^^^^^^^^
+196 |     pub large_allocations: usize,
+    |         ^^^^^^^^^^^^^^^^^
+197 |     pub small_reuses: usize,
+    |         ^^^^^^^^^^^^
+198 |     pub medium_reuses: usize,
+    |         ^^^^^^^^^^^^^
+199 |     pub large_reuses: usize,
+    |         ^^^^^^^^^^^^
+200 |     pub total_bytes_allocated: usize,
+    |         ^^^^^^^^^^^^^^^^^^^^^
+201 |     pub total_bytes_reused: usize,
+    |         ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `BufferPoolMetrics` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+
+warning: methods `record_allocation`, `record_reuse`, and `get_efficiency_ratio` are never used
+   --> src/telnet_negotiation.rs:211:12
+    |
+204 | impl BufferPoolMetrics {
+    | ---------------------- methods in this implementation
+...
+211 |     pub fn record_allocation(&mut self, size: usize) {
+    |            ^^^^^^^^^^^^^^^^^
+...
+221 |     pub fn record_reuse(&mut self, size: usize) {
+    |            ^^^^^^^^^^^^
+...
+231 |     pub fn get_efficiency_ratio(&self) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: methods `get_buffer`, `return_buffer`, `get_metrics`, and `reset_metrics` are never used
+   --> src/telnet_negotiation.rs:250:12
+    |
+238 | impl BufferPool {
+    | --------------- methods in this implementation
+...
+250 |     pub fn get_buffer(&self, required_size: usize) -> Vec<u8> {
+    |            ^^^^^^^^^^
+...
+301 |     pub fn return_buffer(&self, mut buffer: Vec<u8>) {
+    |            ^^^^^^^^^^^^^
+...
+328 |     pub fn get_metrics(&self) -> BufferPoolMetrics {
+    |            ^^^^^^^^^^^
+...
+336 |     pub fn reset_metrics(&self) {
+    |            ^^^^^^^^^^^^^
+
+warning: field `buffer_pool` is never read
+   --> src/telnet_negotiation.rs:362:5
+    |
+345 | pub struct TelnetNegotiator {
+    |            ---------------- field in this struct
+...
+362 |     buffer_pool: BufferPool,
+    |     ^^^^^^^^^^^
+    |
+    = note: `TelnetNegotiator` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple associated items are never used
+    --> src/telnet_negotiation.rs:421:12
+     |
+ 380 | impl TelnetNegotiator {
+     | --------------------- associated items in this implementation
+...
+ 421 |     pub fn set_credentials(&mut self, username: &str, password: &str) {
+     |            ^^^^^^^^^^^^^^^
+...
+ 427 |     pub fn escape_iac_in_data(data: &[u8]) -> Vec<u8> {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+ 444 |     pub fn unescape_iac_in_data(data: &[u8]) -> Vec<u8> {
+     |            ^^^^^^^^^^^^^^^^^^^^
+...
+ 661 |     pub fn is_option_active(&self, option: TelnetOption) -> bool {
+     |            ^^^^^^^^^^^^^^^^
+...
+1324 |     fn validate_variable_name_format(&self, name: &[u8]) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1347 |     pub fn validate_variable_name(&self, name: &[u8]) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+1401 |     fn validate_variable_value(&self, value: &[u8]) -> bool {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^
+...
+1627 |     pub fn get_buffer_pool_metrics(&self) -> BufferPoolMetrics {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+1632 |     pub fn reset_buffer_pool_metrics(&self) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1637 |     pub fn process_incoming_data_optimized(&mut self, data: &[u8]) -> Vec<u8> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1674 |     pub async fn process_concurrent_negotiations(&mut self, data_sequences: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1705 |     async fn process_sequence_async(data: Vec<u8>, buffer_pool: BufferPool, _task_id: usize) -> Vec<u8> {
+     |              ^^^^^^^^^^^^^^^^^^^^^^
+...
+1733 |     pub async fn process_parallel_options(&mut self, options: Vec<TelnetOption>) -> HashMap<TelnetOption, bool> {
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1763 |     async fn negotiate_option_async(
+     |              ^^^^^^^^^^^^^^^^^^^^^^
+...
+1785 |     pub fn tn3270e_session_state(&self) -> TN3270ESessionState {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+1790 |     pub fn tn3270e_device_type(&self) -> Option<TN3270EDeviceType> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1795 |     pub fn set_logical_unit_name(&mut self, name: String) {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+1800 |     pub fn logical_unit_name(&self) -> Option<&str> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1805 |     pub fn is_tn3270e_active(&self) -> bool {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1811 |     pub fn get_screen_dimensions(&self) -> Option<(usize, usize)> {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+1816 |     pub fn supports_color(&self) -> bool {
+     |            ^^^^^^^^^^^^^^
+
+warning: enum `KeyboardInput` is never used
+  --> src/keyboard.rs:72:10
+   |
+72 | pub enum KeyboardInput {
+   |          ^^^^^^^^^^^^^
+
+warning: enum `SpecialKey` is never used
+  --> src/keyboard.rs:83:10
+   |
+83 | pub enum SpecialKey {
+   |          ^^^^^^^^^^
+
+warning: function `map_virtual_key_to_function_key` is never used
+  --> src/keyboard.rs:99:8
+   |
+99 | pub fn map_virtual_key_to_function_key(key: egui::Key) -> Option<FunctionKey> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `map_virtual_key_to_special_key` is never used
+   --> src/keyboard.rs:131:8
+    |
+131 | pub fn map_virtual_key_to_special_key(key: egui::Key) -> Option<SpecialKey> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `process_keyboard_event` is never used
+   --> src/keyboard.rs:149:8
+    |
+149 | pub fn process_keyboard_event(event: &egui::Event) -> Option<KeyboardInput> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_special_as400_key` is never used
+   --> src/keyboard.rs:188:8
+    |
+188 | pub fn is_special_as400_key(key_event: &egui::Event) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_valid_input_char` is never used
+   --> src/keyboard.rs:198:8
+    |
+198 | pub fn is_valid_input_char(ch: char) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: enum `ProtocolType` is never used
+  --> src/controller.rs:19:10
+   |
+19 | pub enum ProtocolType {
+   |          ^^^^^^^^^^^^
+
+warning: methods `to_str` and `to_protocol_mode` are never used
+  --> src/controller.rs:45:12
+   |
+43 | impl ProtocolType {
+   | ----------------- methods in this implementation
+44 |     /// Convert protocol type to string
+45 |     pub fn to_str(&self) -> &str {
+   |            ^^^^^^
+...
+53 |     pub fn to_protocol_mode(&self) -> network::ProtocolMode {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/controller.rs:196:12
+    |
+103 | impl TerminalController {
+    | ----------------------- associated items in this implementation
+...
+196 |     pub fn connect(&mut self, host: String, port: u16) -> Result<(), String> {
+    |            ^^^^^^^
+...
+203 |     pub fn connect_with_protocol(
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+322 |     fn is_protocol_available(protocol: ProtocolType) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+...
+337 |     fn validate_protocol_mode(mode: network::ProtocolMode) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+348 |     pub fn get_protocol_mode(&self) -> Option<network::ProtocolMode> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+443 |     pub fn validate_controller_consistency(&self) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+570 |     pub fn should_send_screen_initialization(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+575 |     pub fn mark_screen_initialization_sent(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+686 |     pub fn check_and_request_login_screen(&mut self) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+697 |     pub fn get_host(&self) -> &str {
+    |            ^^^^^^^^
+...
+701 |     pub fn get_port(&self) -> u16 {
+    |            ^^^^^^^^
+...
+821 |     pub fn clear_active_field(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+896 |     pub fn get_field_values(&self) -> std::collections::HashMap<String, String> {
+    |            ^^^^^^^^^^^^^^^^
+...
+901 |     pub fn validate_fields(&self) -> Vec<(String, String)> {
+    |            ^^^^^^^^^^^^^^^
+...
+979 |     pub fn clear_pending_input(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: multiple methods are never used
+    --> src/controller.rs:1039:12
+     |
+1008 | impl AsyncTerminalController {
+     | ---------------------------- methods in this implementation
+...
+1039 |     pub fn connect(&mut self, host: String, port: u16) -> Result<(), String> {
+     |            ^^^^^^^
+...
+1062 |     pub fn connect_async(&mut self, host: String, port: u16) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^
+...
+1067 |     pub fn connect_async_with_tls(
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+1246 |     pub fn connect_with_protocol(
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+1273 |     pub async fn connect_async_with_protocol(
+     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1516 |     pub fn get_protocol_mode(&self) -> Result<Option<network::ProtocolMode>, String> {
+     |            ^^^^^^^^^^^^^^^^^
+...
+1671 |     pub fn is_connecting(&self) -> bool {
+     |            ^^^^^^^^^^^^^
+...
+1732 |     pub fn flush_pending_input(&self) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1754 |     pub fn clear_pending_input(&self) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1825 |     pub fn activate_field_at_position(&self, row: usize, col: usize) -> Result<bool, String> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+  --> src/field_manager.rs:25:5
+   |
+23 | pub enum FieldType {
+   |          --------- variants in this enum
+24 |     /// Regular input field
+25 |     Input,
+   |     ^^^^^
+26 |     /// Password field (hidden input)
+27 |     Password,
+   |     ^^^^^^^^
+28 |     /// Numeric only field
+29 |     Numeric,
+   |     ^^^^^^^
+...
+33 |     Selection,
+   |     ^^^^^^^^^
+34 |     /// Automatically send ENTER when field fills
+35 |     AutoEnter,
+   |     ^^^^^^^^^
+36 |     /// Must be filled before proceeding
+37 |     Mandatory,
+   |     ^^^^^^^^^
+38 |     /// Visual highlighting when active
+39 |     Highlighted,
+   |     ^^^^^^^^^^^
+...
+43 |     Continued,
+   |     ^^^^^^^^^
+44 |     /// Signed numeric field
+45 |     NumericSigned,
+   |     ^^^^^^^^^^^^^
+46 |     /// Letters, comma, dash, period, space only
+47 |     AlphaOnly,
+   |     ^^^^^^^^^
+48 |     /// Digits only (stricter than Numeric)
+49 |     DigitsOnly,
+   |     ^^^^^^^^^^
+   |
+   = note: `FieldType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple fields are never read
+  --> src/field_manager.rs:57:9
+   |
+55 | pub struct FieldBehavior {
+   |            ------------- fields in this struct
+56 |     /// FER - must use Field Exit key to leave field
+57 |     pub field_exit_required: bool,
+   |         ^^^^^^^^^^^^^^^^^^^
+58 |     /// Auto-send ENTER when field is full
+59 |     pub auto_enter: bool,
+   |         ^^^^^^^^^^
+60 |     /// Required field - must be filled
+61 |     pub mandatory: bool,
+   |         ^^^^^^^^^
+...
+65 |     pub right_adjust: bool,
+   |         ^^^^^^^^^^^^
+66 |     /// Fill with zeros vs spaces
+67 |     pub zero_fill: bool,
+   |         ^^^^^^^^^
+...
+71 |     pub dup_enabled: bool,
+   |         ^^^^^^^^^^^
+72 |     /// Custom next field ID for progression
+73 |     pub cursor_progression: Option<usize>,
+   |         ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `FieldBehavior` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `InvalidSignPosition`, `FieldExitRequired`, `FieldExitInvalid`, and `MandatoryEnter` are never constructed
+   --> src/field_manager.rs:100:5
+    |
+ 93 | pub enum FieldError {
+    |          ---------- variants in this enum
+...
+100 |     InvalidSignPosition,
+    |     ^^^^^^^^^^^^^^^^^^^
+...
+103 |     FieldExitRequired,
+    |     ^^^^^^^^^^^^^^^^^
+104 |     FieldExitInvalid,
+    |     ^^^^^^^^^^^^^^^^
+105 |     MandatoryEnter,
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: `FieldError` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `required` and `cursor_position` are never read
+   --> src/field_manager.rs:156:9
+    |
+137 | pub struct Field {
+    |            ----- fields in this struct
+...
+156 |     pub required: bool,
+    |         ^^^^^^^^
+...
+174 |     pub cursor_position: usize,
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: `Field` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple associated items are never used
+   --> src/field_manager.rs:178:12
+    |
+177 | impl Field {
+    | ---------- associated items in this implementation
+178 |     pub fn new(id: usize, field_type: FieldType, row: usize, col: usize, length: usize) -> Self {
+    |            ^^^
+...
+211 |     pub fn set_enhanced_attributes(&mut self, attribute: u8) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+227 |     pub fn get_cursor_offset(&self, row: usize, col: usize) -> Option<usize> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+335 |     pub fn clear(&mut self) {
+    |            ^^^^^
+...
+343 |     pub fn set_content(&mut self, content: String) {
+    |            ^^^^^^^^^^^
+...
+360 |     pub fn validate(&self) -> Result<(), String> {
+    |            ^^^^^^^^
+...
+378 |     pub fn set_behavior(&mut self, behavior: FieldBehavior) {
+    |            ^^^^^^^^^^^^
+...
+393 |     pub fn is_continued(&self) -> bool {
+    |            ^^^^^^^^^^^^
+...
+429 |     pub fn should_auto_enter(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^
+...
+434 |     pub fn is_mandatory(&self) -> bool {
+    |            ^^^^^^^^^^^^
+...
+444 |     pub fn apply_transformations(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+494 |     fn sanitize_field_content(&self, content: &str) -> String {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `next_field_id` and `error_state` are never read
+   --> src/field_manager.rs:512:5
+    |
+506 | pub struct FieldManager {
+    |            ------------ fields in this struct
+...
+512 |     next_field_id: usize,
+    |     ^^^^^^^^^^^^^
+...
+520 |     error_state: Option<FieldError>,
+    |     ^^^^^^^^^^^
+    |
+    = note: `FieldManager` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple methods are never used
+    --> src/field_manager.rs:675:12
+     |
+ 523 | impl FieldManager {
+     | ----------------- methods in this implementation
+...
+ 675 |     pub fn get_field_at_position(&self, row: usize, col: usize) -> Option<&Field> {
+     |            ^^^^^^^^^^^^^^^^^^^^^
+...
+ 680 |     pub fn get_fields_slice(&self) -> &[Field] {
+     |            ^^^^^^^^^^^^^^^^
+...
+ 713 |     pub fn validate_all(&self) -> Vec<(usize, String)> {
+     |            ^^^^^^^^^^^^
+...
+ 724 |     pub fn get_field_values(&self) -> std::collections::HashMap<String, String> {
+     |            ^^^^^^^^^^^^^^^^
+...
+ 734 |     pub fn clear_all_fields(&mut self) {
+     |            ^^^^^^^^^^^^^^^^
+...
+ 742 |     pub fn type_char(&mut self, ch: char) -> Result<(), String> {
+     |            ^^^^^^^^^
+...
+ 785 |     pub fn backspace(&mut self) -> Result<(), String> {
+     |            ^^^^^^^^^
+...
+ 806 |     pub fn delete(&mut self) -> Result<(), String> {
+     |            ^^^^^^
+...
+ 832 |     pub fn get_cursor_position(&self) -> (usize, usize) {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+ 837 |     pub fn activate_field_at_cursor(&mut self) -> bool {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 880 |     pub fn click_at_position(&mut self, row: usize, col: usize) -> bool {
+     |            ^^^^^^^^^^^^^^^^^
+...
+ 886 |     pub fn update_terminal_display(&self, terminal: &mut crate::terminal::TerminalScreen) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 985 |     pub fn add_field_to_continued_group(&mut self, field_idx: usize, group_id: usize) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 993 |     pub fn remove_field_from_continued_group(&mut self, field_idx: usize, group_id: usize) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1006 |     pub fn set_error(&mut self, error: FieldError) {
+     |            ^^^^^^^^^
+...
+1011 |     pub fn clear_error(&mut self) {
+     |            ^^^^^^^^^^^
+...
+1016 |     pub fn get_error(&self) -> Option<&FieldError> {
+     |            ^^^^^^^^^
+...
+1021 |     pub fn field_count(&self) -> usize {
+     |            ^^^^^^^^^^^
+...
+1046 |     pub fn add_field_for_test(&mut self, field: Field) {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+1055 |     pub fn get_active_field_index(&self) -> Option<usize> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+1060 |     pub fn get_continued_groups(&self) -> &HashMap<usize, Vec<usize>> {
+     |            ^^^^^^^^^^^^^^^^^^^^
+...
+1065 |     pub fn get_error_state(&self) -> Option<&FieldError> {
+     |            ^^^^^^^^^^^^^^^
+...
+1070 |     pub fn set_active_field_for_test(&mut self, index: Option<usize>) {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1076 |     pub fn validate_field_manager_consistency(&self) -> Result<(), String> {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `property_name`, `old_value`, and `new_value` are never read
+  --> src/config.rs:18:9
+   |
+17 | pub struct ConfigChangeEvent {
+   |            ----------------- fields in this struct
+18 |     pub property_name: String,
+   |         ^^^^^^^^^^^^^
+19 |     pub old_value: Option<ConfigValue>,
+   |         ^^^^^^^^^
+20 |     pub new_value: ConfigValue,
+   |         ^^^^^^^^^
+   |
+   = note: `ConfigChangeEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `as_float` and `as_string_array` are never used
+  --> src/config.rs:53:12
+   |
+38 | impl ConfigValue {
+   | ---------------- methods in this implementation
+...
+53 |     pub fn as_float(&self) -> Option<f64> {
+   |            ^^^^^^^^
+...
+67 |     pub fn as_string_array(&self) -> Option<&Vec<String>> {
+   |            ^^^^^^^^^^^^^^^
+
+warning: field `session_name` is never read
+   --> src/config.rs:115:5
+    |
+112 | pub struct SessionConfig {
+    |            ------------- field in this struct
+...
+115 |     session_name: String,
+    |     ^^^^^^^^^^^^
+
+warning: multiple methods are never used
+   --> src/config.rs:194:12
+    |
+119 | impl SessionConfig {
+    | ------------------ methods in this implementation
+...
+194 |     pub fn get_int_property_or(&self, key: &str, default: i64) -> i64 {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+199 |     pub fn get_float_property(&self, key: &str) -> Option<f64> {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+204 |     pub fn get_float_property_or(&self, key: &str, default: f64) -> f64 {
+    |            ^^^^^^^^^^^^^^^^^^^^^
+...
+219 |     pub fn get_string_array_property(&self, key: &str) -> Option<&Vec<String>> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+241 |     pub fn add_listener(&mut self, listener: Box<dyn ConfigChangeListener>) {
+    |            ^^^^^^^^^^^^
+...
+253 |     pub fn get_session_name(&self) -> &str {
+    |            ^^^^^^^^^^^^^^^^
+...
+289 |     pub fn get_all_keys(&self) -> Vec<String> {
+    |            ^^^^^^^^^^^^
+...
+294 |     pub fn has_property(&self, key: &str) -> bool {
+    |            ^^^^^^^^^^^^
+...
+299 |     pub fn remove_property(&mut self, key: &str) -> Option<ConfigValue> {
+    |            ^^^^^^^^^^^^^^^
+...
+316 |     pub fn get_protocol_mode(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^^
+...
+322 |     pub fn set_protocol_mode(&mut self, mode: &str) -> Result<(), TN5250Error> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+337 |     pub fn get_terminal_type(&self) -> String {
+    |            ^^^^^^^^^^^^^^^^^
+...
+344 |     pub fn set_terminal_type(&mut self, terminal_type: &str) -> Result<(), TN5250Error> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+362 |     pub fn validate_protocol_terminal_combination(&self) -> Result<(), TN5250Error> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_protocol_string` is never used
+   --> src/config.rs:399:8
+    |
+399 | pub fn parse_protocol_string(protocol: &str) -> Result<crate::network::ProtocolMode, TN5250Error> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `protocol_mode_to_string` is never used
+   --> src/config.rs:413:8
+    |
+413 | pub fn protocol_mode_to_string(mode: crate::network::ProtocolMode) -> String {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `get_protocol_mode_from_config` is never used
+   --> src/config.rs:423:8
+    |
+423 | pub fn get_protocol_mode_from_config(config: &SessionConfig) -> Result<crate::network::ProtocolMode, TN5250Error> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `apply_protocol_config_to_connection` is never used
+   --> src/config.rs:429:8
+    |
+429 | pub fn apply_protocol_config_to_connection(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `memory_usage` is never read
+  --> src/monitoring.rs:60:9
+   |
+48 | pub struct SystemHealth {
+   |            ------------ field in this struct
+...
+60 |     pub memory_usage: MemoryInfo,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `SystemHealth` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `name` and `last_success` are never read
+  --> src/monitoring.rs:67:9
+   |
+65 | pub struct ComponentHealth {
+   |            --------------- fields in this struct
+66 |     /// Component name
+67 |     pub name: String,
+   |         ^^^^
+...
+71 |     pub last_success: Option<Instant>,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `ComponentHealth` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `current_usage`, `peak_usage`, `allocations`, and `deallocations` are never read
+  --> src/monitoring.rs:82:9
+   |
+80 | pub struct MemoryInfo {
+   |            ---------- fields in this struct
+81 |     /// Current memory usage in bytes
+82 |     pub current_usage: u64,
+   |         ^^^^^^^^^^^^^
+83 |     /// Peak memory usage in bytes
+84 |     pub peak_usage: u64,
+   |         ^^^^^^^^^^
+85 |     /// Memory allocation count
+86 |     pub allocations: u64,
+   |         ^^^^^^^^^^^
+87 |     /// Memory deallocation count
+88 |     pub deallocations: u64,
+   |         ^^^^^^^^^^^^^
+   |
+   = note: `MemoryInfo` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `component_results`, `timestamp`, and `check_duration_ms` are never read
+   --> src/monitoring.rs:342:9
+    |
+338 | pub struct HealthCheckResult {
+    |            ----------------- fields in this struct
+...
+342 |     pub component_results: Vec<(String, ComponentHealthCheck)>,
+    |         ^^^^^^^^^^^^^^^^^
+343 |     /// Timestamp when the check was performed
+344 |     pub timestamp: Instant,
+    |         ^^^^^^^^^
+345 |     /// Duration of the health check in milliseconds
+346 |     pub check_duration_ms: u64,
+    |         ^^^^^^^^^^^^^^^^^
+    |
+    = note: `HealthCheckResult` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `message` is never read
+   --> src/monitoring.rs:355:9
+    |
+351 | pub struct ComponentHealthCheck {
+    |            -------------------- field in this struct
+...
+355 |     pub message: String,
+    |         ^^^^^^^
+    |
+    = note: `ComponentHealthCheck` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `performance_metrics` are never read
+   --> src/monitoring.rs:364:9
+    |
+362 | pub struct MonitoringReport {
+    |            ---------------- fields in this struct
+363 |     /// Report generation timestamp
+364 |     pub timestamp: Instant,
+    |         ^^^^^^^^^
+...
+370 |     pub performance_metrics: PerformanceMetrics,
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `MonitoringReport` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `validation_interval_seconds` is never read
+  --> src/monitoring/runtime_validator.rs:69:9
+   |
+61 | pub struct ValidationConfig {
+   |            ---------------- field in this struct
+...
+69 |     pub validation_interval_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `ValidationConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `update_config`, `should_validate`, and `quick_validate` are never used
+   --> src/monitoring/runtime_validator.rs:316:12
+    |
+ 92 | impl RuntimeValidator {
+    | --------------------- methods in this implementation
+...
+316 |     pub fn update_config(&mut self, config: ValidationConfig) {
+    |            ^^^^^^^^^^^^^
+...
+321 |     pub fn should_validate(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^
+...
+333 |     pub fn quick_validate(&self) -> Result<ComponentHealthCheck, String> {
+    |            ^^^^^^^^^^^^^^
+
+warning: field `enable_detailed_tracking` is never read
+   --> src/monitoring/performance_monitor.rs:178:9
+    |
+176 | pub struct PerformanceConfig {
+    |            ----------------- field in this struct
+177 |     /// Enable detailed performance tracking
+178 |     pub enable_detailed_tracking: bool,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `PerformanceConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp`, `system_load`, and `memory_usage` are never read
+   --> src/monitoring/performance_monitor.rs:217:9
+    |
+215 | pub struct PerformanceSnapshot {
+    |            ------------------- fields in this struct
+216 |     /// Snapshot timestamp
+217 |     pub timestamp: Instant,
+    |         ^^^^^^^^^
+...
+221 |     pub system_load: f64,
+    |         ^^^^^^^^^^^
+222 |     /// Memory usage at snapshot time
+223 |     pub memory_usage: u64,
+    |         ^^^^^^^^^^^^
+    |
+    = note: `PerformanceSnapshot` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `detection_sensitivity`, `enable_auto_mitigation`, `scan_interval_seconds`, and `pattern_analysis_window_seconds` are never read
+  --> src/monitoring/security_monitor.rs:77:9
+   |
+67 | pub struct SecurityConfig {
+   |            -------------- fields in this struct
+...
+77 |     pub detection_sensitivity: f64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+78 |     /// Enable automatic threat mitigation
+79 |     pub enable_auto_mitigation: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^
+80 |     /// Security scan interval in seconds
+81 |     pub scan_interval_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+82 |     /// Network pattern analysis window in seconds
+83 |     pub pattern_analysis_window_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `SecurityConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+   --> src/monitoring/security_monitor.rs:105:5
+    |
+103 | pub enum SecurityEventType {
+    |          ----------------- variants in this enum
+104 |     /// Authentication failure
+105 |     AuthenticationFailure,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+106 |     /// Authorization failure
+107 |     AuthorizationFailure,
+    |     ^^^^^^^^^^^^^^^^^^^^
+...
+111 |     InvalidDataFormat,
+    |     ^^^^^^^^^^^^^^^^^
+112 |     /// Buffer overflow attempt
+113 |     BufferOverflowAttempt,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+114 |     /// Injection attack attempt
+115 |     InjectionAttempt,
+    |     ^^^^^^^^^^^^^^^^
+116 |     /// Protocol violation
+117 |     ProtocolViolation,
+    |     ^^^^^^^^^^^^^^^^^
+118 |     /// Threat detected
+119 |     ThreatDetected,
+    |     ^^^^^^^^^^^^^^
+120 |     /// Threat mitigated
+121 |     ThreatMitigated,
+    |     ^^^^^^^^^^^^^^^
+122 |     /// Policy violation
+123 |     PolicyViolation,
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `SecurityEventType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variant `High` is never constructed
+   --> src/monitoring/security_monitor.rs:134:5
+    |
+128 | pub enum SecurityEventSeverity {
+    |          --------------------- variant in this enum
+...
+134 |     High,
+    |     ^^^^
+    |
+    = note: `SecurityEventSeverity` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `source_ip` and `details` are never read
+   --> src/monitoring/security_monitor.rs:151:9
+    |
+141 | pub struct SecurityEvent {
+    |            ------------- fields in this struct
+...
+151 |     pub source_ip: Option<String>,
+    |         ^^^^^^^^^
+152 |     /// Additional event details
+153 |     pub details: HashMap<String, String>,
+    |         ^^^^^^^
+    |
+    = note: `SecurityEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `enable_event_logging`, `health_check_interval_seconds`, `component_timeout_threshold_seconds`, and `dependency_check_interval_seconds` are never read
+  --> src/monitoring/integration_monitor.rs:72:9
+   |
+68 | pub struct IntegrationConfig {
+   |            ----------------- fields in this struct
+...
+72 |     pub enable_event_logging: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^
+...
+76 |     pub health_check_interval_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+82 |     pub component_timeout_threshold_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+83 |     /// Dependency check interval in seconds
+84 |     pub dependency_check_interval_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `IntegrationConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `name`, `component_type`, `last_health_check`, and `avg_response_time_us` are never read
+   --> src/monitoring/integration_monitor.rs:106:9
+    |
+104 | pub struct ComponentStatus {
+    |            --------------- fields in this struct
+105 |     /// Component name
+106 |     pub name: String,
+    |         ^^^^
+107 |     /// Component type
+108 |     pub component_type: String,
+    |         ^^^^^^^^^^^^^^
+...
+112 |     pub last_health_check: Instant,
+    |         ^^^^^^^^^^^^^^^^^
+...
+118 |     pub avg_response_time_us: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `ComponentStatus` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `Starting`, `Stopped`, and `Restarting` are never constructed
+   --> src/monitoring/integration_monitor.rs:129:5
+    |
+127 | pub enum ComponentState {
+    |          -------------- variants in this enum
+128 |     /// Component is starting up
+129 |     Starting,
+    |     ^^^^^^^^
+...
+137 |     Stopped,
+    |     ^^^^^^^
+138 |     /// Component is restarting
+139 |     Restarting,
+    |     ^^^^^^^^^^
+    |
+    = note: `ComponentState` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `CommunicationError`, `StateSyncIssue`, and `ResourceContention` are never constructed
+   --> src/monitoring/integration_monitor.rs:150:5
+    |
+144 | pub enum IntegrationEventType {
+    |          -------------------- variants in this enum
+...
+150 |     CommunicationError,
+    |     ^^^^^^^^^^^^^^^^^^
+...
+154 |     StateSyncIssue,
+    |     ^^^^^^^^^^^^^^
+155 |     /// Resource contention
+156 |     ResourceContention,
+    |     ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `IntegrationEventType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: field `details` is never read
+   --> src/monitoring/integration_monitor.rs:179:9
+    |
+167 | pub struct IntegrationEvent {
+    |            ---------------- field in this struct
+...
+179 |     pub details: HashMap<String, String>,
+    |         ^^^^^^^
+    |
+    = note: `IntegrationEvent` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `validation_interval_seconds`, `min_test_coverage_threshold`, `quality_score_warning_threshold`, and `enable_performance_regression_detection` are never read
+  --> src/monitoring/quality_assurance.rs:76:9
+   |
+66 | pub struct QualityConfig {
+   |            ------------- fields in this struct
+...
+76 |     pub validation_interval_seconds: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+77 |     /// Minimum test coverage threshold (percentage)
+78 |     pub min_test_coverage_threshold: f64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+79 |     /// Quality score warning threshold
+80 |     pub quality_score_warning_threshold: f64,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+81 |     /// Enable performance regression detection
+82 |     pub enable_performance_regression_detection: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `QualityConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `name`, `description`, and `timeout_seconds` are never read
+   --> src/monitoring/quality_assurance.rs:106:9
+    |
+104 | pub struct TestSuite {
+    |            --------- fields in this struct
+105 |     /// Suite name
+106 |     pub name: String,
+    |         ^^^^
+107 |     /// Suite description
+108 |     pub description: String,
+    |         ^^^^^^^^^^^
+...
+114 |     pub timeout_seconds: u64,
+    |         ^^^^^^^^^^^^^^^
+
+warning: fields `name`, `description`, `category`, and `expected_duration_ms` are never read
+   --> src/monitoring/quality_assurance.rs:120:9
+    |
+118 | pub struct TestCase {
+    |            -------- fields in this struct
+119 |     /// Test name
+120 |     pub name: String,
+    |         ^^^^
+121 |     /// Test description
+122 |     pub description: String,
+    |         ^^^^^^^^^^^
+...
+126 |     pub category: TestCategory,
+    |         ^^^^^^^^
+127 |     /// Expected execution time in milliseconds
+128 |     pub expected_duration_ms: u64,
+    |         ^^^^^^^^^^^^^^^^^^^^
+
+warning: variants `Performance`, `Security`, and `Smoke` are never constructed
+   --> src/monitoring/quality_assurance.rs:139:5
+    |
+133 | pub enum TestCategory {
+    |          ------------ variants in this enum
+...
+139 |     Performance,
+    |     ^^^^^^^^^^^
+140 |     /// Security tests
+141 |     Security,
+    |     ^^^^^^^^
+...
+145 |     Smoke,
+    |     ^^^^^
+    |
+    = note: `TestCategory` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `test_name`, `execution_time_us`, `error_message`, and `details` are never read
+   --> src/monitoring/quality_assurance.rs:152:9
+    |
+150 | pub struct TestResult {
+    |            ---------- fields in this struct
+151 |     /// Test name
+152 |     pub test_name: String,
+    |         ^^^^^^^^^
+...
+156 |     pub execution_time_us: u64,
+    |         ^^^^^^^^^^^^^^^^^
+157 |     /// Error message if test failed
+158 |     pub error_message: Option<String>,
+    |         ^^^^^^^^^^^^^
+159 |     /// Additional test details
+160 |     pub details: HashMap<String, String>,
+    |         ^^^^^^^
+    |
+    = note: `TestResult` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `timestamp` and `details` are never read
+   --> src/monitoring/quality_assurance.rs:167:9
+    |
+165 | pub struct ValidationResult {
+    |            ---------------- fields in this struct
+166 |     /// Validation timestamp
+167 |     pub timestamp: Instant,
+    |         ^^^^^^^^^
+...
+173 |     pub details: HashMap<String, String>,
+    |         ^^^^^^^
+    |
+    = note: `ValidationResult` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `enable_email_notifications`, `enable_logging_notifications`, `enable_dashboard_notifications`, and `critical_alert_threshold` are never read
+  --> src/monitoring/alerting_system.rs:57:9
+   |
+49 | pub struct AlertConfig {
+   |            ----------- fields in this struct
+...
+57 |     pub enable_email_notifications: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+58 |     /// Enable logging notifications
+59 |     pub enable_logging_notifications: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+60 |     /// Enable dashboard notifications
+61 |     pub enable_dashboard_notifications: bool,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+62 |     /// Critical alert threshold for escalation
+63 |     pub critical_alert_threshold: u32,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `AlertConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `Info` and `Emergency` are never constructed
+  --> src/monitoring/alerting_system.rs:87:5
+   |
+85 | pub enum AlertLevel {
+   |          ---------- variants in this enum
+86 |     /// Informational alert
+87 |     Info,
+   |     ^^^^
+...
+93 |     Emergency,
+   |     ^^^^^^^^^
+   |
+   = note: `AlertLevel` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `details` and `acknowledged_at` are never read
+   --> src/monitoring/alerting_system.rs:110:9
+    |
+ 98 | pub struct Alert {
+    |            ----- fields in this struct
+...
+110 |     pub details: HashMap<String, String>,
+    |         ^^^^^^^
+...
+114 |     pub acknowledged_at: Option<Instant>,
+    |         ^^^^^^^^^^^^^^^
+    |
+    = note: `Alert` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `acknowledge_alert`, `update_average_response_time`, `get_alerts_by_level`, `mark_false_positive`, and `get_metrics` are never used
+   --> src/monitoring/alerting_system.rs:313:12
+    |
+164 | impl AlertingSystem {
+    | ------------------- methods in this implementation
+...
+313 |     pub fn acknowledge_alert(&self, alert_id: &str) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+363 |     fn update_average_response_time(&self, response_time: u64) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+409 |     pub fn get_alerts_by_level(&self, level: &AlertLevel) -> Vec<Alert> {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+421 |     pub fn mark_false_positive(&self, alert_id: &str) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+439 |     pub fn get_metrics(&self) -> &AlertMetrics {
+    |            ^^^^^^^^^^^
+
+warning: variants `DnsResolution`, `NetworkUnreachable`, `InvalidAddress`, and `SslError` are never constructed
+  --> src/error.rs:39:5
+   |
+33 | pub enum NetworkError {
+   |          ------------ variants in this enum
+...
+39 |     DnsResolution { host: String },
+   |     ^^^^^^^^^^^^^
+40 |     /// Network unreachable
+41 |     NetworkUnreachable { host: String },
+   |     ^^^^^^^^^^^^^^^^^^
+...
+45 |     InvalidAddress { address: String },
+   |     ^^^^^^^^^^^^^^
+46 |     /// SSL/TLS errors for secure connections
+47 |     SslError { message: String },
+   |     ^^^^^^^^
+   |
+   = note: `NetworkError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+  --> src/error.rs:54:5
+   |
+52 | pub enum TelnetError {
+   |          ----------- variants in this enum
+53 |     /// Invalid IAC command sequence
+54 |     InvalidCommand { command: Vec<u8> },
+   |     ^^^^^^^^^^^^^^
+55 |     /// Negotiation timeout
+56 |     NegotiationTimeout { option: u8, timeout_ms: u64 },
+   |     ^^^^^^^^^^^^^^^^^^
+57 |     /// Option negotiation failed
+58 |     OptionNegotiationFailed { option: u8, reason: String },
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+59 |     /// Required option not supported by server
+60 |     RequiredOptionUnsupported { option: u8 },
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+61 |     /// Malformed subnegotiation data
+62 |     MalformedSubnegotiation { option: u8, data: Vec<u8> },
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+63 |     /// Protocol state machine error
+64 |     StateMachineError { current_state: String, invalid_transition: String },
+   |     ^^^^^^^^^^^^^^^^^
+65 |     /// Buffer pool exhaustion during negotiation
+66 |     BufferPoolExhausted { pool_type: String },
+   |     ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `TelnetError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+  --> src/error.rs:73:5
+   |
+71 | pub enum ProtocolError {
+   |          ------------- variants in this enum
+72 |     /// Invalid 5250 command code
+73 |     InvalidCommandCode { code: u8 },
+   |     ^^^^^^^^^^^^^^^^^^
+74 |     /// Incomplete data stream
+75 |     IncompleteData { expected: usize, received: usize },
+   |     ^^^^^^^^^^^^^^
+76 |     /// EBCDIC conversion error
+77 |     EbcdicConversion { byte: u8, context: String },
+   |     ^^^^^^^^^^^^^^^^
+78 |     /// Invalid structured field
+79 |     InvalidStructuredField { field_id: u8, reason: String },
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+80 |     /// Cursor positioning error
+81 |     InvalidCursorPosition { row: usize, col: usize },
+   |     ^^^^^^^^^^^^^^^^^^^^^
+82 |     /// Screen buffer overflow
+83 |     ScreenBufferOverflow { position: usize, buffer_size: usize },
+   |     ^^^^^^^^^^^^^^^^^^^^
+84 |     /// Invalid field attributes
+85 |     InvalidFieldAttribute { attribute: u8 },
+   |     ^^^^^^^^^^^^^^^^^^^^^
+86 |     /// Device identification error
+87 |     DeviceIdError { message: String },
+   |     ^^^^^^^^^^^^^
+88 |     /// Unsupported protocol requested
+89 |     UnsupportedProtocol { protocol: String, reason: String },
+   |     ^^^^^^^^^^^^^^^^^^^
+90 |     /// Protocol mismatch between configured and detected
+91 |     ProtocolMismatch { configured: String, detected: String },
+   |     ^^^^^^^^^^^^^^^^
+92 |     /// Protocol switch operation failed
+93 |     ProtocolSwitchFailed { from: String, to: String, reason: String },
+   |     ^^^^^^^^^^^^^^^^^^^^
+94 |     /// Invalid protocol configuration
+95 |     InvalidProtocolConfiguration { parameter: String, value: String, reason: String },
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `ProtocolError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: variants `ScreenSizeMismatch`, `CharsetConversion`, `DisplayRender`, `InputProcessing`, `FunctionKeyMapping`, and `StateCorruption` are never constructed
+   --> src/error.rs:102:5
+    |
+100 | pub enum TerminalError {
+    |          ------------- variants in this enum
+101 |     /// Screen size mismatch
+102 |     ScreenSizeMismatch { expected: (usize, usize), actual: (usize, usize) },
+    |     ^^^^^^^^^^^^^^^^^^
+103 |     /// Character set conversion error
+104 |     CharsetConversion { char: char, target_charset: String },
+    |     ^^^^^^^^^^^^^^^^^
+105 |     /// Display rendering error
+106 |     DisplayRender { message: String },
+    |     ^^^^^^^^^^^^^
+107 |     /// Input processing error
+108 |     InputProcessing { input: String, reason: String },
+    |     ^^^^^^^^^^^^^^^
+109 |     /// Function key mapping error
+110 |     FunctionKeyMapping { key_code: u32 },
+    |     ^^^^^^^^^^^^^^^^^^
+111 |     /// Terminal state corruption
+112 |     StateCorruption { component: String, details: String },
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `TerminalError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: multiple variants are never constructed
+   --> src/error.rs:119:5
+    |
+117 | pub enum FieldError {
+    |          ---------- variants in this enum
+118 |     /// Field not found at position
+119 |     FieldNotFound { row: usize, col: usize },
+    |     ^^^^^^^^^^^^^
+120 |     /// Invalid field type
+121 |     InvalidFieldType { field_type: String },
+    |     ^^^^^^^^^^^^^^^^
+122 |     /// Field validation failure
+123 |     ValidationFailure { field_id: usize, message: String },
+    |     ^^^^^^^^^^^^^^^^^
+124 |     /// Field input out of bounds
+125 |     InputOutOfBounds { field_id: usize, input_length: usize, max_length: usize },
+    |     ^^^^^^^^^^^^^^^^
+126 |     /// Required field empty
+127 |     RequiredFieldEmpty { field_id: usize, field_name: String },
+    |     ^^^^^^^^^^^^^^^^^^
+128 |     /// Field format error
+129 |     FormatError { field_id: usize, expected_format: String, actual_input: String },
+    |     ^^^^^^^^^^^
+130 |     /// Field continuation error
+131 |     ContinuationError { field_id: usize, reason: String },
+    |     ^^^^^^^^^^^^^^^^^
+    |
+    = note: `FieldError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: variants `AllocationFailure`, `SizeExceeded`, `Corruption`, `ConcurrentAccessViolation`, and `MemoryPressure` are never constructed
+   --> src/error.rs:138:5
+    |
+136 | pub enum BufferError {
+    |          ----------- variants in this enum
+137 |     /// Buffer pool allocation failure
+138 |     AllocationFailure { requested_size: usize, pool_type: String },
+    |     ^^^^^^^^^^^^^^^^^
+139 |     /// Buffer size exceeded
+140 |     SizeExceeded { size: usize, max_size: usize },
+    |     ^^^^^^^^^^^^
+141 |     /// Buffer corruption detected
+142 |     Corruption { buffer_id: String, checksum_mismatch: bool },
+    |     ^^^^^^^^^^
+143 |     /// Concurrent access violation
+144 |     ConcurrentAccessViolation { buffer_id: String },
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+145 |     /// Memory pressure
+146 |     MemoryPressure { current_usage: usize, max_usage: usize },
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: `BufferError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: variants `InvalidParameter`, `MissingRequired`, `FileError`, `EnvironmentError`, and `VersionMismatch` are never constructed
+   --> src/error.rs:153:5
+    |
+151 | pub enum ConfigError {
+    |          ----------- variants in this enum
+152 |     /// Invalid configuration parameter
+153 |     InvalidParameter { parameter: String, value: String, reason: String },
+    |     ^^^^^^^^^^^^^^^^
+154 |     /// Missing required configuration
+155 |     MissingRequired { parameter: String },
+    |     ^^^^^^^^^^^^^^^
+156 |     /// Configuration file error
+157 |     FileError { path: String, error: String },
+    |     ^^^^^^^^^
+158 |     /// Environment variable error
+159 |     EnvironmentError { variable: String, error: String },
+    |     ^^^^^^^^^^^^^^^^
+160 |     /// Version compatibility error
+161 |     VersionMismatch { expected: String, actual: String },
+    |     ^^^^^^^^^^^^^^^
+    |
+    = note: `ConfigError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: variants `RecoveryFailed`, `RecoveryTimeout`, `StrategyUnavailable`, and `StateInconsistent` are never constructed
+   --> src/error.rs:168:5
+    |
+166 | pub enum RecoveryError {
+    |          ------------- variants in this enum
+167 |     /// Recovery attempt failed
+168 |     RecoveryFailed { attempt: u32, max_attempts: u32, reason: String },
+    |     ^^^^^^^^^^^^^^
+169 |     /// Recovery timeout
+170 |     RecoveryTimeout { operation: String, timeout_seconds: u64 },
+    |     ^^^^^^^^^^^^^^^
+171 |     /// Recovery strategy not available
+172 |     StrategyUnavailable { strategy: String, context: String },
+    |     ^^^^^^^^^^^^^^^^^^^
+173 |     /// Recovery state inconsistent
+174 |     StateInconsistent { expected_state: String, actual_state: String },
+    |     ^^^^^^^^^^^^^^^^^
+    |
+    = note: `RecoveryError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: type alias `TN5250Result` is never used
+   --> src/error.rs:456:10
+    |
+456 | pub type TN5250Result<T> = Result<T, TN5250Error>;
+    |          ^^^^^^^^^^^^
+
+warning: type alias `NetworkResult` is never used
+   --> src/error.rs:459:10
+    |
+459 | pub type NetworkResult<T> = Result<T, NetworkError>;
+    |          ^^^^^^^^^^^^^
+
+warning: type alias `TelnetResult` is never used
+   --> src/error.rs:460:10
+    |
+460 | pub type TelnetResult<T> = Result<T, TelnetError>;
+    |          ^^^^^^^^^^^^
+
+warning: type alias `ProtocolResult` is never used
+   --> src/error.rs:461:10
+    |
+461 | pub type ProtocolResult<T> = Result<T, ProtocolError>;
+    |          ^^^^^^^^^^^^^^
+
+warning: type alias `TerminalResult` is never used
+   --> src/error.rs:462:10
+    |
+462 | pub type TerminalResult<T> = Result<T, TerminalError>;
+    |          ^^^^^^^^^^^^^^
+
+warning: type alias `FieldResult` is never used
+   --> src/error.rs:463:10
+    |
+463 | pub type FieldResult<T> = Result<T, FieldError>;
+    |          ^^^^^^^^^^^
+
+warning: type alias `BufferResult` is never used
+   --> src/error.rs:464:10
+    |
+464 | pub type BufferResult<T> = Result<T, BufferError>;
+    |          ^^^^^^^^^^^^
+
+warning: type alias `ConfigResult` is never used
+   --> src/error.rs:465:10
+    |
+465 | pub type ConfigResult<T> = Result<T, ConfigError>;
+    |          ^^^^^^^^^^^^
+
+warning: type alias `RecoveryResult` is never used
+   --> src/error.rs:466:10
+    |
+466 | pub type RecoveryResult<T> = Result<T, RecoveryError>;
+    |          ^^^^^^^^^^^^^^
+
+warning: constant `EBCDIC_CP037_TO_ASCII` is never used
+ --> src/protocol_state.rs:7:7
+  |
+7 | const EBCDIC_CP037_TO_ASCII: [char; 256] = [
+  |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ebcdic_to_ascii` is never used
+  --> src/protocol_state.rs:42:8
+   |
+42 | pub fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
+   |        ^^^^^^^^^^^^^^^
+
+warning: enum `ProtocolState` is never used
+  --> src/protocol_state.rs:47:10
+   |
+47 | pub enum ProtocolState {
+   |          ^^^^^^^^^^^^^
+
+warning: struct `DeviceAttributes` is never constructed
+  --> src/protocol_state.rs:56:12
+   |
+56 | pub struct DeviceAttributes {
+   |            ^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+  --> src/protocol_state.rs:66:12
+   |
+65 | impl DeviceAttributes {
+   | --------------------- associated function in this implementation
+66 |     pub fn new() -> Self {
+   |            ^^^
+
+warning: struct `ProtocolStateMachine` is never constructed
+  --> src/protocol_state.rs:79:12
+   |
+79 | pub struct ProtocolStateMachine {
+   |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/protocol_state.rs:93:12
+    |
+ 92 | impl ProtocolStateMachine {
+    | ------------------------- associated items in this implementation
+ 93 |     pub fn new() -> Self {
+    |            ^^^
+...
+108 |     pub fn set_cursor(&mut self, row: usize, col: usize) {
+    |            ^^^^^^^^^^
+...
+123 |     pub fn get_cursor(&self) -> (usize, usize) {
+    |            ^^^^^^^^^^
+...
+127 |     pub fn detect_fields(&mut self) {
+    |            ^^^^^^^^^^^^^
+...
+131 |     pub fn add_field(&mut self, row: usize, col: usize, length: usize, field_type: FieldType, attribute: u8) {
+    |            ^^^^^^^^^
+...
+137 |     pub fn exists_at_pos(&self, pos: usize) -> bool {
+    |            ^^^^^^^^^^^^^
+...
+143 |     pub fn find_field_at_pos(&self, pos: usize) -> Option<&FmField> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+149 |     pub fn determine_field_type(&self, attribute: u8) -> FieldType {
+    |            ^^^^^^^^^^^^^^^^^^^^
+...
+165 |     pub fn read_buffer(&self) -> Vec<u8> {
+    |            ^^^^^^^^^^^
+...
+175 |     pub fn connect(&mut self) {
+    |            ^^^^^^^
+...
+183 |     pub fn disconnect(&mut self) {
+    |            ^^^^^^^^^^
+...
+191 |     pub fn process_data(&mut self, data: &[u8]) -> Result<Vec<u8>, ProtocolError> {
+    |            ^^^^^^^^^^^^
+...
+232 |     fn handle_negotiation(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
+    |        ^^^^^^^^^^^^^^^^^^
+...
+293 |     fn create_device_identification_response(&self) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+300 |     pub fn set_cursor_position(&mut self, col: usize, row: usize) {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+313 |     pub fn get_cursor_position(&self) -> (usize, usize) {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+317 |     pub fn save_screen_state(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^
+...
+322 |     pub fn restore_screen_state(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+...
+337 |     pub fn validate_state_consistency(&self) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+382 |     pub fn transition_to_state(&mut self, new_state: ProtocolState) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+411 |     pub fn comprehensive_validation(&self) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `PROTOCOL_COMMON_VERSION` is never used
+  --> src/protocol_common/mod.rs:90:11
+   |
+90 | pub const PROTOCOL_COMMON_VERSION: &str = env!("CARGO_PKG_VERSION");
+   |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `version` is never used
+  --> src/protocol_common/mod.rs:93:8
+   |
+93 | pub fn version() -> &'static str {
+   |        ^^^^^^^
+
+warning: function `ebcdic_to_ascii` is never used
+  --> src/protocol_common/ebcdic.rs:89:8
+   |
+89 | pub fn ebcdic_to_ascii(byte: u8) -> char {
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `ebcdic_to_ascii_string` is never used
+   --> src/protocol_common/ebcdic.rs:377:8
+    |
+377 | pub fn ebcdic_to_ascii_string(bytes: &[u8]) -> String {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `ascii_to_ebcdic_vec` is never used
+   --> src/protocol_common/ebcdic.rs:403:8
+    |
+403 | pub fn ascii_to_ebcdic_vec(s: &str) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: trait `TerminalProtocol` is never used
+  --> src/protocol_common/traits.rs:12:11
+   |
+12 | pub trait TerminalProtocol {
+   |           ^^^^^^^^^^^^^^^^
+
+warning: trait `ProtocolSession` is never used
+  --> src/protocol_common/traits.rs:57:11
+   |
+57 | pub trait ProtocolSession {
+   |           ^^^^^^^^^^^^^^^
+
+warning: trait `DisplayBuffer` is never used
+   --> src/protocol_common/traits.rs:107:11
+    |
+107 | pub trait DisplayBuffer {
+    |           ^^^^^^^^^^^^^
+
+warning: trait `FieldManager` is never used
+   --> src/protocol_common/traits.rs:185:11
+    |
+185 | pub trait FieldManager {
+    |           ^^^^^^^^^^^^
+
+warning: trait `CommandProcessor` is never used
+   --> src/protocol_common/traits.rs:239:11
+    |
+239 | pub trait CommandProcessor {
+    |           ^^^^^^^^^^^^^^^^
+
+warning: trait `StructuredFieldProcessor` is never used
+   --> src/protocol_common/traits.rs:266:11
+    |
+266 | pub trait StructuredFieldProcessor {
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `TelnetCommand` is never used
+ --> src/protocol_common/telnet_base.rs:9:10
+  |
+9 | pub enum TelnetCommand {
+  |          ^^^^^^^^^^^^^
+
+warning: associated functions `from_u8` and `is_command` are never used
+  --> src/protocol_common/telnet_base.rs:46:12
+   |
+44 | impl TelnetCommand {
+   | ------------------ associated functions in this implementation
+45 |     /// Convert a byte to a TelnetCommand
+46 |     pub fn from_u8(value: u8) -> Option<Self> {
+   |            ^^^^^^^
+...
+69 |     pub fn is_command(byte: u8) -> bool {
+   |            ^^^^^^^^^^
+
+warning: enum `TelnetOption` is never used
+  --> src/protocol_common/telnet_base.rs:76:10
+   |
+76 | pub enum TelnetOption {
+   |          ^^^^^^^^^^^^
+
+warning: associated items `from_u8` and `name` are never used
+   --> src/protocol_common/telnet_base.rs:109:12
+    |
+107 | impl TelnetOption {
+    | ----------------- associated items in this implementation
+108 |     /// Convert a byte to a TelnetOption
+109 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+130 |     pub fn name(&self) -> &str {
+    |            ^^^^
+
+warning: enum `NegotiationState` is never used
+   --> src/protocol_common/telnet_base.rs:152:10
+    |
+152 | pub enum NegotiationState {
+    |          ^^^^^^^^^^^^^^^^
+
+warning: struct `OptionState` is never constructed
+   --> src/protocol_common/telnet_base.rs:165:12
+    |
+165 | pub struct OptionState {
+    |            ^^^^^^^^^^^
+
+warning: associated items `new` and `is_enabled` are never used
+   --> src/protocol_common/telnet_base.rs:174:12
+    |
+172 | impl OptionState {
+    | ---------------- associated items in this implementation
+173 |     /// Create a new option state with both sides disabled
+174 |     pub fn new() -> Self {
+    |            ^^^
+...
+182 |     pub fn is_enabled(&self) -> bool {
+    |            ^^^^^^^^^^
+
+warning: function `build_negotiation` is never used
+   --> src/protocol_common/telnet_base.rs:213:8
+    |
+213 | pub fn build_negotiation(command: TelnetCommand, option: u8) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: function `build_subnegotiation` is never used
+   --> src/protocol_common/telnet_base.rs:237:8
+    |
+237 | pub fn build_subnegotiation(option: u8, data: &[u8]) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `parse_telnet_stream` is never used
+   --> src/protocol_common/telnet_base.rs:265:8
+    |
+265 | pub fn parse_telnet_stream(data: &[u8]) -> (Vec<u8>, Vec<(TelnetCommand, Option<u8>, Option<Vec<u8>>)>) {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CMD_WRITE` is never used
+  --> src/lib3270/codes.rs:14:11
+   |
+14 | pub const CMD_WRITE: u8 = 0x01;              // Write command
+   |           ^^^^^^^^^
+
+warning: constant `CMD_ERASE_WRITE` is never used
+  --> src/lib3270/codes.rs:15:11
+   |
+15 | pub const CMD_ERASE_WRITE: u8 = 0x05;        // Erase/Write command
+   |           ^^^^^^^^^^^^^^^
+
+warning: constant `CMD_ERASE_WRITE_ALTERNATE` is never used
+  --> src/lib3270/codes.rs:16:11
+   |
+16 | pub const CMD_ERASE_WRITE_ALTERNATE: u8 = 0x0D; // Erase/Write Alternate
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CMD_READ_BUFFER` is never used
+  --> src/lib3270/codes.rs:17:11
+   |
+17 | pub const CMD_READ_BUFFER: u8 = 0x02;        // Read Buffer command
+   |           ^^^^^^^^^^^^^^^
+
+warning: constant `CMD_READ_MODIFIED` is never used
+  --> src/lib3270/codes.rs:18:11
+   |
+18 | pub const CMD_READ_MODIFIED: u8 = 0x06;      // Read Modified command
+   |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `CMD_READ_MODIFIED_ALL` is never used
+  --> src/lib3270/codes.rs:19:11
+   |
+19 | pub const CMD_READ_MODIFIED_ALL: u8 = 0x0E;  // Read Modified All command
+   |           ^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CMD_ERASE_ALL_UNPROTECTED` is never used
+  --> src/lib3270/codes.rs:20:11
+   |
+20 | pub const CMD_ERASE_ALL_UNPROTECTED: u8 = 0x0F; // Erase All Unprotected
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `CMD_WRITE_STRUCTURED_FIELD` is never used
+  --> src/lib3270/codes.rs:21:11
+   |
+21 | pub const CMD_WRITE_STRUCTURED_FIELD: u8 = 0x11; // Write Structured Field
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ORDER_SF` is never used
+  --> src/lib3270/codes.rs:25:11
+   |
+25 | pub const ORDER_SF: u8 = 0x1D;    // Start Field
+   |           ^^^^^^^^
+
+warning: constant `ORDER_SFE` is never used
+  --> src/lib3270/codes.rs:26:11
+   |
+26 | pub const ORDER_SFE: u8 = 0x29;   // Start Field Extended
+   |           ^^^^^^^^^
+
+warning: constant `ORDER_SBA` is never used
+  --> src/lib3270/codes.rs:27:11
+   |
+27 | pub const ORDER_SBA: u8 = 0x11;   // Set Buffer Address
+   |           ^^^^^^^^^
+
+warning: constant `ORDER_SA` is never used
+  --> src/lib3270/codes.rs:28:11
+   |
+28 | pub const ORDER_SA: u8 = 0x28;    // Set Attribute
+   |           ^^^^^^^^
+
+warning: constant `ORDER_MF` is never used
+  --> src/lib3270/codes.rs:29:11
+   |
+29 | pub const ORDER_MF: u8 = 0x2C;    // Modify Field
+   |           ^^^^^^^^
+
+warning: constant `ORDER_IC` is never used
+  --> src/lib3270/codes.rs:30:11
+   |
+30 | pub const ORDER_IC: u8 = 0x13;    // Insert Cursor
+   |           ^^^^^^^^
+
+warning: constant `ORDER_PT` is never used
+  --> src/lib3270/codes.rs:31:11
+   |
+31 | pub const ORDER_PT: u8 = 0x05;    // Program Tab
+   |           ^^^^^^^^
+
+warning: constant `ORDER_RA` is never used
+  --> src/lib3270/codes.rs:32:11
+   |
+32 | pub const ORDER_RA: u8 = 0x3C;    // Repeat to Address
+   |           ^^^^^^^^
+
+warning: constant `ORDER_EUA` is never used
+  --> src/lib3270/codes.rs:33:11
+   |
+33 | pub const ORDER_EUA: u8 = 0x12;   // Erase Unprotected to Address
+   |           ^^^^^^^^^
+
+warning: constant `ORDER_GE` is never used
+  --> src/lib3270/codes.rs:34:11
+   |
+34 | pub const ORDER_GE: u8 = 0x08;    // Graphic Escape
+   |           ^^^^^^^^
+
+warning: constant `WCC_RESET` is never used
+  --> src/lib3270/codes.rs:38:11
+   |
+38 | pub const WCC_RESET: u8 = 0x40;           // Reset bit
+   |           ^^^^^^^^^
+
+warning: constant `WCC_ALARM` is never used
+  --> src/lib3270/codes.rs:39:11
+   |
+39 | pub const WCC_ALARM: u8 = 0x04;           // Sound alarm
+   |           ^^^^^^^^^
+
+warning: constant `WCC_RESTORE` is never used
+  --> src/lib3270/codes.rs:40:11
+   |
+40 | pub const WCC_RESTORE: u8 = 0x02;         // Restore keyboard
+   |           ^^^^^^^^^^^
+
+warning: constant `WCC_RESET_MDT` is never used
+  --> src/lib3270/codes.rs:41:11
+   |
+41 | pub const WCC_RESET_MDT: u8 = 0x01;       // Reset MDT bits
+   |           ^^^^^^^^^^^^^
+
+warning: constant `AID_NO_AID` is never used
+  --> src/lib3270/codes.rs:45:11
+   |
+45 | pub const AID_NO_AID: u8 = 0x60;          // No AID generated
+   |           ^^^^^^^^^^
+
+warning: constant `AID_STRUCTURED_FIELD` is never used
+  --> src/lib3270/codes.rs:46:11
+   |
+46 | pub const AID_STRUCTURED_FIELD: u8 = 0x88; // Structured field
+   |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `AID_READ_PARTITION` is never used
+  --> src/lib3270/codes.rs:47:11
+   |
+47 | pub const AID_READ_PARTITION: u8 = 0x61;   // Read partition
+   |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `AID_TRIGGER` is never used
+  --> src/lib3270/codes.rs:48:11
+   |
+48 | pub const AID_TRIGGER: u8 = 0x7F;          // Trigger action
+   |           ^^^^^^^^^^^
+
+warning: constant `AID_PF1` is never used
+  --> src/lib3270/codes.rs:51:11
+   |
+51 | pub const AID_PF1: u8 = 0xF1;
+   |           ^^^^^^^
+
+warning: constant `AID_PF2` is never used
+  --> src/lib3270/codes.rs:52:11
+   |
+52 | pub const AID_PF2: u8 = 0xF2;
+   |           ^^^^^^^
+
+warning: constant `AID_PF3` is never used
+  --> src/lib3270/codes.rs:53:11
+   |
+53 | pub const AID_PF3: u8 = 0xF3;
+   |           ^^^^^^^
+
+warning: constant `AID_PF4` is never used
+  --> src/lib3270/codes.rs:54:11
+   |
+54 | pub const AID_PF4: u8 = 0xF4;
+   |           ^^^^^^^
+
+warning: constant `AID_PF5` is never used
+  --> src/lib3270/codes.rs:55:11
+   |
+55 | pub const AID_PF5: u8 = 0xF5;
+   |           ^^^^^^^
+
+warning: constant `AID_PF6` is never used
+  --> src/lib3270/codes.rs:56:11
+   |
+56 | pub const AID_PF6: u8 = 0xF6;
+   |           ^^^^^^^
+
+warning: constant `AID_PF7` is never used
+  --> src/lib3270/codes.rs:57:11
+   |
+57 | pub const AID_PF7: u8 = 0xF7;
+   |           ^^^^^^^
+
+warning: constant `AID_PF8` is never used
+  --> src/lib3270/codes.rs:58:11
+   |
+58 | pub const AID_PF8: u8 = 0xF8;
+   |           ^^^^^^^
+
+warning: constant `AID_PF9` is never used
+  --> src/lib3270/codes.rs:59:11
+   |
+59 | pub const AID_PF9: u8 = 0xF9;
+   |           ^^^^^^^
+
+warning: constant `AID_PF10` is never used
+  --> src/lib3270/codes.rs:60:11
+   |
+60 | pub const AID_PF10: u8 = 0x7A;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF11` is never used
+  --> src/lib3270/codes.rs:61:11
+   |
+61 | pub const AID_PF11: u8 = 0x7B;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF12` is never used
+  --> src/lib3270/codes.rs:62:11
+   |
+62 | pub const AID_PF12: u8 = 0x7C;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF13` is never used
+  --> src/lib3270/codes.rs:63:11
+   |
+63 | pub const AID_PF13: u8 = 0xC1;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF14` is never used
+  --> src/lib3270/codes.rs:64:11
+   |
+64 | pub const AID_PF14: u8 = 0xC2;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF15` is never used
+  --> src/lib3270/codes.rs:65:11
+   |
+65 | pub const AID_PF15: u8 = 0xC3;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF16` is never used
+  --> src/lib3270/codes.rs:66:11
+   |
+66 | pub const AID_PF16: u8 = 0xC4;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF17` is never used
+  --> src/lib3270/codes.rs:67:11
+   |
+67 | pub const AID_PF17: u8 = 0xC5;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF18` is never used
+  --> src/lib3270/codes.rs:68:11
+   |
+68 | pub const AID_PF18: u8 = 0xC6;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF19` is never used
+  --> src/lib3270/codes.rs:69:11
+   |
+69 | pub const AID_PF19: u8 = 0xC7;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF20` is never used
+  --> src/lib3270/codes.rs:70:11
+   |
+70 | pub const AID_PF20: u8 = 0xC8;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF21` is never used
+  --> src/lib3270/codes.rs:71:11
+   |
+71 | pub const AID_PF21: u8 = 0xC9;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF22` is never used
+  --> src/lib3270/codes.rs:72:11
+   |
+72 | pub const AID_PF22: u8 = 0x4A;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF23` is never used
+  --> src/lib3270/codes.rs:73:11
+   |
+73 | pub const AID_PF23: u8 = 0x4B;
+   |           ^^^^^^^^
+
+warning: constant `AID_PF24` is never used
+  --> src/lib3270/codes.rs:74:11
+   |
+74 | pub const AID_PF24: u8 = 0x4C;
+   |           ^^^^^^^^
+
+warning: constant `AID_PA1` is never used
+  --> src/lib3270/codes.rs:77:11
+   |
+77 | pub const AID_PA1: u8 = 0x6C;
+   |           ^^^^^^^
+
+warning: constant `AID_PA2` is never used
+  --> src/lib3270/codes.rs:78:11
+   |
+78 | pub const AID_PA2: u8 = 0x6E;
+   |           ^^^^^^^
+
+warning: constant `AID_PA3` is never used
+  --> src/lib3270/codes.rs:79:11
+   |
+79 | pub const AID_PA3: u8 = 0x6B;
+   |           ^^^^^^^
+
+warning: constant `AID_CLEAR` is never used
+  --> src/lib3270/codes.rs:82:11
+   |
+82 | pub const AID_CLEAR: u8 = 0x6D;
+   |           ^^^^^^^^^
+
+warning: constant `AID_ENTER` is never used
+  --> src/lib3270/codes.rs:83:11
+   |
+83 | pub const AID_ENTER: u8 = 0x7D;
+   |           ^^^^^^^^^
+
+warning: constant `AID_SYSREQ` is never used
+  --> src/lib3270/codes.rs:84:11
+   |
+84 | pub const AID_SYSREQ: u8 = 0xF0;
+   |           ^^^^^^^^^^
+
+warning: constant `ATTR_PROTECTED` is never used
+  --> src/lib3270/codes.rs:88:11
+   |
+88 | pub const ATTR_PROTECTED: u8 = 0x20;      // Bit 5: Protected field
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `ATTR_NUMERIC` is never used
+  --> src/lib3270/codes.rs:89:11
+   |
+89 | pub const ATTR_NUMERIC: u8 = 0x10;        // Bit 4: Numeric field
+   |           ^^^^^^^^^^^^
+
+warning: constant `ATTR_DISPLAY` is never used
+  --> src/lib3270/codes.rs:90:11
+   |
+90 | pub const ATTR_DISPLAY: u8 = 0x0C;        // Bits 2-3: Display attributes
+   |           ^^^^^^^^^^^^
+
+warning: constant `ATTR_RESERVED` is never used
+  --> src/lib3270/codes.rs:91:11
+   |
+91 | pub const ATTR_RESERVED: u8 = 0x02;       // Bit 1: Reserved
+   |           ^^^^^^^^^^^^^
+
+warning: constant `ATTR_MDT` is never used
+  --> src/lib3270/codes.rs:92:11
+   |
+92 | pub const ATTR_MDT: u8 = 0x01;            // Bit 0: Modified Data Tag
+   |           ^^^^^^^^
+
+warning: constant `DISPLAY_NORMAL` is never used
+  --> src/lib3270/codes.rs:95:11
+   |
+95 | pub const DISPLAY_NORMAL: u8 = 0x00;      // Normal display
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `DISPLAY_INTENSIFIED` is never used
+  --> src/lib3270/codes.rs:96:11
+   |
+96 | pub const DISPLAY_INTENSIFIED: u8 = 0x08; // Intensified display
+   |           ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `DISPLAY_HIDDEN` is never used
+  --> src/lib3270/codes.rs:97:11
+   |
+97 | pub const DISPLAY_HIDDEN: u8 = 0x0C;      // Non-display (hidden)
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `XA_ALL` is never used
+   --> src/lib3270/codes.rs:100:11
+    |
+100 | pub const XA_ALL: u8 = 0x00;              // All character attributes
+    |           ^^^^^^
+
+warning: constant `XA_3270` is never used
+   --> src/lib3270/codes.rs:101:11
+    |
+101 | pub const XA_3270: u8 = 0xC0;             // 3270 field attribute
+    |           ^^^^^^^
+
+warning: constant `XA_VALIDATION` is never used
+   --> src/lib3270/codes.rs:102:11
+    |
+102 | pub const XA_VALIDATION: u8 = 0xC1;       // Field validation
+    |           ^^^^^^^^^^^^^
+
+warning: constant `XA_OUTLINING` is never used
+   --> src/lib3270/codes.rs:103:11
+    |
+103 | pub const XA_OUTLINING: u8 = 0xC2;        // Field outlining
+    |           ^^^^^^^^^^^^
+
+warning: constant `XA_HIGHLIGHTING` is never used
+   --> src/lib3270/codes.rs:104:11
+    |
+104 | pub const XA_HIGHLIGHTING: u8 = 0x41;     // Highlighting
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `XA_FOREGROUND` is never used
+   --> src/lib3270/codes.rs:105:11
+    |
+105 | pub const XA_FOREGROUND: u8 = 0x42;       // Foreground color
+    |           ^^^^^^^^^^^^^
+
+warning: constant `XA_CHARSET` is never used
+   --> src/lib3270/codes.rs:106:11
+    |
+106 | pub const XA_CHARSET: u8 = 0x43;          // Character set
+    |           ^^^^^^^^^^
+
+warning: constant `XA_BACKGROUND` is never used
+   --> src/lib3270/codes.rs:107:11
+    |
+107 | pub const XA_BACKGROUND: u8 = 0x45;       // Background color
+    |           ^^^^^^^^^^^^^
+
+warning: constant `XA_TRANSPARENCY` is never used
+   --> src/lib3270/codes.rs:108:11
+    |
+108 | pub const XA_TRANSPARENCY: u8 = 0x46;     // Transparency
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `COLOR_DEFAULT` is never used
+   --> src/lib3270/codes.rs:111:11
+    |
+111 | pub const COLOR_DEFAULT: u8 = 0x00;       // Default color
+    |           ^^^^^^^^^^^^^
+
+warning: constant `COLOR_BLUE` is never used
+   --> src/lib3270/codes.rs:112:11
+    |
+112 | pub const COLOR_BLUE: u8 = 0xF1;          // Blue
+    |           ^^^^^^^^^^
+
+warning: constant `COLOR_RED` is never used
+   --> src/lib3270/codes.rs:113:11
+    |
+113 | pub const COLOR_RED: u8 = 0xF2;           // Red
+    |           ^^^^^^^^^
+
+warning: constant `COLOR_PINK` is never used
+   --> src/lib3270/codes.rs:114:11
+    |
+114 | pub const COLOR_PINK: u8 = 0xF3;          // Pink
+    |           ^^^^^^^^^^
+
+warning: constant `COLOR_GREEN` is never used
+   --> src/lib3270/codes.rs:115:11
+    |
+115 | pub const COLOR_GREEN: u8 = 0xF4;         // Green
+    |           ^^^^^^^^^^^
+
+warning: constant `COLOR_TURQUOISE` is never used
+   --> src/lib3270/codes.rs:116:11
+    |
+116 | pub const COLOR_TURQUOISE: u8 = 0xF5;     // Turquoise
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `COLOR_YELLOW` is never used
+   --> src/lib3270/codes.rs:117:11
+    |
+117 | pub const COLOR_YELLOW: u8 = 0xF6;        // Yellow
+    |           ^^^^^^^^^^^^
+
+warning: constant `COLOR_WHITE` is never used
+   --> src/lib3270/codes.rs:118:11
+    |
+118 | pub const COLOR_WHITE: u8 = 0xF7;         // White
+    |           ^^^^^^^^^^^
+
+warning: constant `COLOR_BLACK` is never used
+   --> src/lib3270/codes.rs:119:11
+    |
+119 | pub const COLOR_BLACK: u8 = 0xF8;         // Black
+    |           ^^^^^^^^^^^
+
+warning: constant `COLOR_DEEP_BLUE` is never used
+   --> src/lib3270/codes.rs:120:11
+    |
+120 | pub const COLOR_DEEP_BLUE: u8 = 0xF9;     // Deep blue
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `COLOR_ORANGE` is never used
+   --> src/lib3270/codes.rs:121:11
+    |
+121 | pub const COLOR_ORANGE: u8 = 0xFA;        // Orange
+    |           ^^^^^^^^^^^^
+
+warning: constant `COLOR_PURPLE` is never used
+   --> src/lib3270/codes.rs:122:11
+    |
+122 | pub const COLOR_PURPLE: u8 = 0xFB;        // Purple
+    |           ^^^^^^^^^^^^
+
+warning: constant `COLOR_PALE_GREEN` is never used
+   --> src/lib3270/codes.rs:123:11
+    |
+123 | pub const COLOR_PALE_GREEN: u8 = 0xFC;    // Pale green
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `COLOR_PALE_TURQUOISE` is never used
+   --> src/lib3270/codes.rs:124:11
+    |
+124 | pub const COLOR_PALE_TURQUOISE: u8 = 0xFD; // Pale turquoise
+    |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `COLOR_GREY` is never used
+   --> src/lib3270/codes.rs:125:11
+    |
+125 | pub const COLOR_GREY: u8 = 0xFE;          // Grey
+    |           ^^^^^^^^^^
+
+warning: constant `COLOR_NEUTRAL` is never used
+   --> src/lib3270/codes.rs:126:11
+    |
+126 | pub const COLOR_NEUTRAL: u8 = 0xFF;       // Neutral (white)
+    |           ^^^^^^^^^^^^^
+
+warning: constant `HIGHLIGHT_DEFAULT` is never used
+   --> src/lib3270/codes.rs:129:11
+    |
+129 | pub const HIGHLIGHT_DEFAULT: u8 = 0x00;   // Default (normal)
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `HIGHLIGHT_NORMAL` is never used
+   --> src/lib3270/codes.rs:130:11
+    |
+130 | pub const HIGHLIGHT_NORMAL: u8 = 0xF0;    // Normal
+    |           ^^^^^^^^^^^^^^^^
+
+warning: constant `HIGHLIGHT_BLINK` is never used
+   --> src/lib3270/codes.rs:131:11
+    |
+131 | pub const HIGHLIGHT_BLINK: u8 = 0xF1;     // Blink
+    |           ^^^^^^^^^^^^^^^
+
+warning: constant `HIGHLIGHT_REVERSE` is never used
+   --> src/lib3270/codes.rs:132:11
+    |
+132 | pub const HIGHLIGHT_REVERSE: u8 = 0xF2;   // Reverse video
+    |           ^^^^^^^^^^^^^^^^^
+
+warning: constant `HIGHLIGHT_UNDERSCORE` is never used
+   --> src/lib3270/codes.rs:133:11
+    |
+133 | pub const HIGHLIGHT_UNDERSCORE: u8 = 0xF4; // Underscore
+    |           ^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `VALIDATION_MANDATORY_FILL` is never used
+   --> src/lib3270/codes.rs:136:11
+    |
+136 | pub const VALIDATION_MANDATORY_FILL: u8 = 0x04;    // Mandatory fill
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `VALIDATION_MANDATORY_ENTRY` is never used
+   --> src/lib3270/codes.rs:137:11
+    |
+137 | pub const VALIDATION_MANDATORY_ENTRY: u8 = 0x02;   // Mandatory entry
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `VALIDATION_TRIGGER` is never used
+   --> src/lib3270/codes.rs:138:11
+    |
+138 | pub const VALIDATION_TRIGGER: u8 = 0x01;           // Trigger field
+    |           ^^^^^^^^^^^^^^^^^^
+
+warning: enum `CommandCode` is never used
+   --> src/lib3270/codes.rs:142:10
+    |
+142 | pub enum CommandCode {
+    |          ^^^^^^^^^^^
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/lib3270/codes.rs:155:12
+    |
+153 | impl CommandCode {
+    | ---------------- associated items in this implementation
+154 |     /// Convert a byte value to a CommandCode enum
+155 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+170 |     pub fn to_u8(self) -> u8 {
+    |            ^^^^^
+
+warning: enum `OrderCode` is never used
+   --> src/lib3270/codes.rs:177:10
+    |
+177 | pub enum OrderCode {
+    |          ^^^^^^^^^
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/lib3270/codes.rs:192:12
+    |
+190 | impl OrderCode {
+    | -------------- associated items in this implementation
+191 |     /// Convert a byte value to an OrderCode enum
+192 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+209 |     pub fn to_u8(self) -> u8 {
+    |            ^^^^^
+
+warning: enum `AidKey` is never used
+   --> src/lib3270/codes.rs:216:10
+    |
+216 | pub enum AidKey {
+    |          ^^^^^^
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/lib3270/codes.rs:235:12
+    |
+233 | impl AidKey {
+    | ----------- associated items in this implementation
+234 |     /// Convert a byte value to an AidKey enum
+235 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+276 |     pub fn to_u8(self) -> u8 {
+    |            ^^^^^
+
+warning: methods `address_to_coords` and `coords_to_address` are never used
+  --> src/lib3270/display.rs:49:12
+   |
+22 | impl ScreenSize {
+   | --------------- methods in this implementation
+...
+49 |     pub fn address_to_coords(&self, address: u16) -> (usize, usize) {
+   |            ^^^^^^^^^^^^^^^^^
+...
+58 |     pub fn coords_to_address(&self, row: usize, col: usize) -> u16 {
+   |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `DisplayCell` is never constructed
+  --> src/lib3270/display.rs:65:12
+   |
+65 | pub struct DisplayCell {
+   |            ^^^^^^^^^^^
+
+warning: struct `Display3270` is never constructed
+  --> src/lib3270/display.rs:91:12
+   |
+91 | pub struct Display3270 {
+   |            ^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/display.rs:113:12
+    |
+111 | impl Display3270 {
+    | ---------------- associated items in this implementation
+112 |     /// Create a new display with Model 2 (24x80) size
+113 |     pub fn new() -> Self {
+    |            ^^^
+...
+118 |     pub fn with_size(size: ScreenSize) -> Self {
+    |            ^^^^^^^^^
+...
+131 |     pub fn screen_size(&self) -> ScreenSize {
+    |            ^^^^^^^^^^^
+...
+136 |     pub fn rows(&self) -> usize {
+    |            ^^^^
+...
+141 |     pub fn cols(&self) -> usize {
+    |            ^^^^
+...
+146 |     pub fn buffer_size(&self) -> usize {
+    |            ^^^^^^^^^^^
+...
+151 |     pub fn clear(&mut self) {
+    |            ^^^^^
+...
+160 |     pub fn clear_unprotected(&mut self) {
+    |            ^^^^^^^^^^^^^^^^^
+...
+167 |     pub fn set_cursor(&mut self, address: u16) {
+    |            ^^^^^^^^^^
+...
+174 |     pub fn cursor_address(&self) -> u16 {
+    |            ^^^^^^^^^^^^^^
+...
+179 |     pub fn cursor_position(&self) -> (usize, usize) {
+    |            ^^^^^^^^^^^^^^^
+...
+185 |     pub fn write_char(&mut self, ch: u8) {
+    |            ^^^^^^^^^^
+...
+203 |     pub fn write_char_at(&mut self, address: u16, ch: u8) {
+    |            ^^^^^^^^^^^^^
+...
+218 |     pub fn read_char_at(&self, address: u16) -> Option<u8> {
+    |            ^^^^^^^^^^^^
+...
+228 |     pub fn set_field_attribute(&mut self, address: u16, attr: FieldAttribute) {
+    |            ^^^^^^^^^^^^^^^^^^^
+...
+238 |     pub fn field_manager(&self) -> &FieldManager {
+    |            ^^^^^^^^^^^^^
+...
+243 |     pub fn field_manager_mut(&mut self) -> &mut FieldManager {
+    |            ^^^^^^^^^^^^^^^^^
+...
+249 |     pub fn find_next_unprotected_field(&self) -> Option<u16> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+273 |     pub fn tab_to_next_field(&mut self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^
+...
+283 |     pub fn repeat_to_address(&mut self, ch: u8, target_address: u16) {
+    |            ^^^^^^^^^^^^^^^^^
+...
+296 |     pub fn erase_unprotected_to_address(&mut self, target_address: u16) {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+313 |     pub fn lock_keyboard(&mut self) {
+    |            ^^^^^^^^^^^^^
+...
+318 |     pub fn unlock_keyboard(&mut self) {
+    |            ^^^^^^^^^^^^^^^
+...
+323 |     pub fn is_keyboard_locked(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+328 |     pub fn set_alarm(&mut self, alarm: bool) {
+    |            ^^^^^^^^^
+...
+333 |     pub fn is_alarm(&self) -> bool {
+    |            ^^^^^^^^
+...
+338 |     pub fn to_string(&self) -> String {
+    |            ^^^^^^^^^
+...
+363 |     pub fn get_row(&self, row: usize) -> Option<String> {
+    |            ^^^^^^^
+...
+393 |     pub fn get_buffer_data(&self) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^
+...
+398 |     pub fn get_modified_data(&self) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: function `decode_12bit_address` is never used
+   --> src/lib3270/display.rs:421:12
+    |
+421 |     pub fn decode_12bit_address(byte1: u8, byte2: u8) -> u16 {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decode_14bit_address` is never used
+   --> src/lib3270/display.rs:430:12
+    |
+430 |     pub fn decode_14bit_address(byte1: u8, byte2: u8) -> u16 {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_12bit_address` is never used
+   --> src/lib3270/display.rs:437:12
+    |
+437 |     pub fn encode_12bit_address(address: u16) -> (u8, u8) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_14bit_address` is never used
+   --> src/lib3270/display.rs:444:12
+    |
+444 |     pub fn encode_14bit_address(address: u16) -> (u8, u8) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `decode_address_byte` is never used
+   --> src/lib3270/display.rs:451:8
+    |
+451 |     fn decode_address_byte(byte: u8) -> u8 {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_address_byte` is never used
+   --> src/lib3270/display.rs:466:8
+    |
+466 |     fn encode_address_byte(value: u8) -> u8 {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `FieldAttribute` is never constructed
+  --> src/lib3270/field.rs:13:12
+   |
+13 | pub struct FieldAttribute {
+   |            ^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/field.rs:29:12
+    |
+ 27 | impl FieldAttribute {
+    | ------------------- associated items in this implementation
+ 28 |     /// Create a new field attribute with base attribute only
+ 29 |     pub fn new(address: u16, base_attr: u8) -> Self {
+    |            ^^^
+...
+ 39 |     pub fn new_extended(address: u16, base_attr: u8, extended_attrs: ExtendedAttributes) -> Self {
+    |            ^^^^^^^^^^^^
+...
+ 49 |     pub fn is_protected(&self) -> bool {
+    |            ^^^^^^^^^^^^
+...
+ 54 |     pub fn is_numeric(&self) -> bool {
+    |            ^^^^^^^^^^
+...
+ 59 |     pub fn is_hidden(&self) -> bool {
+    |            ^^^^^^^^^
+...
+ 64 |     pub fn is_intensified(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+...
+ 69 |     pub fn is_modified(&self) -> bool {
+    |            ^^^^^^^^^^^
+...
+ 74 |     pub fn set_modified(&mut self, modified: bool) {
+    |            ^^^^^^^^^^^^
+...
+ 83 |     pub fn display_attr(&self) -> u8 {
+    |            ^^^^^^^^^^^^
+...
+ 88 |     pub fn is_mandatory_fill(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^
+...
+ 97 |     pub fn is_mandatory_entry(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^^
+...
+106 |     pub fn is_trigger(&self) -> bool {
+    |            ^^^^^^^^^^
+...
+116 |     pub fn validate_content(&self, content: &[u8]) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^
+
+warning: struct `ExtendedAttributes` is never constructed
+   --> src/lib3270/field.rs:157:12
+    |
+157 | pub struct ExtendedAttributes {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/field.rs:182:12
+    |
+180 | impl ExtendedAttributes {
+    | ----------------------- associated items in this implementation
+181 |     /// Create new extended attributes with all fields set to None
+182 |     pub fn new() -> Self {
+    |            ^^^
+...
+187 |     pub fn with_highlighting(mut self, highlighting: u8) -> Self {
+    |            ^^^^^^^^^^^^^^^^^
+...
+193 |     pub fn with_foreground(mut self, color: u8) -> Self {
+    |            ^^^^^^^^^^^^^^^
+...
+199 |     pub fn with_background(mut self, color: u8) -> Self {
+    |            ^^^^^^^^^^^^^^^
+...
+205 |     pub fn with_charset(mut self, charset: u8) -> Self {
+    |            ^^^^^^^^^^^^
+...
+211 |     pub fn with_validation(mut self, validation: u8) -> Self {
+    |            ^^^^^^^^^^^^^^^
+...
+222 |     pub fn parse_from_sfe(data: &[u8]) -> Result<(Self, usize), String> {
+    |            ^^^^^^^^^^^^^^
+
+warning: function `parse_base_attribute` is never used
+   --> src/lib3270/field.rs:263:8
+    |
+263 | pub fn parse_base_attribute(attr_byte: u8) -> FieldAttributeInfo {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `FieldAttributeInfo` is never constructed
+   --> src/lib3270/field.rs:275:12
+    |
+275 | pub struct FieldAttributeInfo {
+    |            ^^^^^^^^^^^^^^^^^^
+
+warning: methods `is_hidden`, `is_intensified`, and `is_normal` are never used
+   --> src/lib3270/field.rs:285:12
+    |
+283 | impl FieldAttributeInfo {
+    | ----------------------- methods in this implementation
+284 |     /// Check if field is hidden
+285 |     pub fn is_hidden(&self) -> bool {
+    |            ^^^^^^^^^
+...
+290 |     pub fn is_intensified(&self) -> bool {
+    |            ^^^^^^^^^^^^^^
+...
+295 |     pub fn is_normal(&self) -> bool {
+    |            ^^^^^^^^^
+
+warning: struct `FieldManager` is never constructed
+   --> src/lib3270/field.rs:305:12
+    |
+305 | pub struct FieldManager {
+    |            ^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/field.rs:311:12
+    |
+309 | impl FieldManager {
+    | ----------------- associated items in this implementation
+310 |     /// Create a new field manager
+311 |     pub fn new() -> Self {
+    |            ^^^
+...
+318 |     pub fn add_field(&mut self, field: FieldAttribute) {
+    |            ^^^^^^^^^
+...
+325 |     pub fn clear(&mut self) {
+    |            ^^^^^
+...
+330 |     pub fn fields(&self) -> &[FieldAttribute] {
+    |            ^^^^^^
+...
+335 |     pub fn find_field_at(&self, address: u16) -> Option<&FieldAttribute> {
+    |            ^^^^^^^^^^^^^
+...
+342 |     pub fn find_field_at_mut(&mut self, address: u16) -> Option<&mut FieldAttribute> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+349 |     pub fn next_field(&self, address: u16) -> Option<&FieldAttribute> {
+    |            ^^^^^^^^^^
+...
+356 |     pub fn calculate_field_lengths(&mut self, buffer_size: usize) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^
+...
+399 |     pub fn modified_fields(&self) -> Vec<&FieldAttribute> {
+    |            ^^^^^^^^^^^^^^^
+...
+406 |     pub fn reset_mdt(&mut self) {
+    |            ^^^^^^^^^
+...
+414 |     pub fn validate_field_at(&self, address: u16, content: &[u8]) -> Result<(), String> {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `ProtocolProcessor3270` is never constructed
+  --> src/lib3270/protocol.rs:17:12
+   |
+17 | pub struct ProtocolProcessor3270 {
+   |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `ProcessorState` is never used
+  --> src/lib3270/protocol.rs:27:6
+   |
+27 | enum ProcessorState {
+   |      ^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/protocol.rs:37:12
+    |
+ 35 | impl ProtocolProcessor3270 {
+    | -------------------------- associated items in this implementation
+ 36 |     /// Create a new protocol processor
+ 37 |     pub fn new() -> Self {
+    |            ^^^
+...
+ 45 |     pub fn set_14bit_addressing(&mut self, enabled: bool) {
+    |            ^^^^^^^^^^^^^^^^^^^^
+...
+ 52 |     pub fn process_data(&mut self, data: &[u8], display: &mut Display3270) -> Result<(), String> {
+    |            ^^^^^^^^^^^^
+...
+ 64 |     pub fn create_read_buffer_response(&self, display: &Display3270, aid: AidKey) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 89 |     pub fn create_read_modified_response(&self, display: &Display3270, aid: AidKey) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+115 |     pub fn encode_field_data(&self, field_data: &[(u16, String)]) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+143 |     pub fn send_input_fields(&self, display: &Display3270, aid: AidKey, modified_fields: &[(u16, String)]) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^^
+...
+168 |     pub fn send_field_input(&self, display: &Display3270, aid: AidKey, pending_input: &[u8]) -> Vec<u8> {
+    |            ^^^^^^^^^^^^^^^^
+...
+192 |     pub fn get_modified_fields(&self, display: &Display3270) -> Vec<(u16, String)> {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+warning: struct `DataStreamParser` is never constructed
+   --> src/lib3270/protocol.rs:231:8
+    |
+231 | struct DataStreamParser<'a> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> src/lib3270/protocol.rs:239:8
+    |
+237 | impl<'a> DataStreamParser<'a> {
+    | ----------------------------- associated items in this implementation
+238 |     /// Create a new parser
+239 |     fn new(data: &'a [u8], use_14bit_addressing: bool) -> Self {
+    |        ^^^
+...
+248 |     fn parse(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^
+...
+264 |     fn process_command(&mut self, command: CommandCode, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^
+...
+278 |     fn process_write(&mut self, display: &mut Display3270, erase: bool, _alternate: bool) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^
+...
+334 |     fn process_order(&mut self, order: OrderCode, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^
+...
+350 |     fn process_start_field(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+369 |     fn process_start_field_extended(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+416 |     fn process_set_buffer_address(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+423 |     fn process_set_attribute(&mut self, _display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+...
+439 |     fn process_modify_field(&mut self, _display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^
+...
+458 |     fn process_insert_cursor(&mut self, _display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+...
+466 |     fn process_program_tab(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^
+...
+476 |     fn process_repeat_to_address(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+492 |     fn process_erase_unprotected_to_address(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+499 |     fn process_graphic_escape(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+...
+514 |     fn process_erase_all_unprotected(&mut self, display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+521 |     fn process_write_structured_field(&mut self, _display: &mut Display3270) -> Result<(), String> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+536 |     fn read_buffer_address(&mut self) -> Result<u16, String> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: static `EBCDIC_TO_ASCII` is never used
+  --> src/protocol.rs:17:8
+   |
+17 | static EBCDIC_TO_ASCII: [char; 256] = [
+   |        ^^^^^^^^^^^^^^^
+
+warning: function `ebcdic_to_ascii` is never used
+  --> src/protocol.rs:74:4
+   |
+74 | fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
+   |    ^^^^^^^^^^^^^^^
+
+warning: enum `CommandCode` is never used
+  --> src/protocol.rs:80:10
+   |
+80 | pub enum CommandCode {
+   |          ^^^^^^^^^^^
+
+warning: associated items `from_u8` and `get_response_command` are never used
+   --> src/protocol.rs:131:12
+    |
+130 | impl CommandCode {
+    | ---------------- associated items in this implementation
+131 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+...
+154 |     pub fn get_response_command(&self) -> Option<Self> {
+    |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `FieldAttribute` is never used
+   --> src/protocol.rs:178:10
+    |
+178 | pub enum FieldAttribute {
+    |          ^^^^^^^^^^^^^^
+
+warning: associated items `from_u8` and `to_u8` are never used
+   --> src/protocol.rs:205:12
+    |
+204 | impl FieldAttribute {
+    | ------------------- associated items in this implementation
+205 |     pub fn from_u8(value: u8) -> Self {
+    |            ^^^^^^^
+...
+220 |     pub fn to_u8(&self) -> u8 {
+    |            ^^^^^
+
+warning: enum `CharAttribute5250` is never used
+   --> src/protocol.rs:236:10
+    |
+236 | pub enum CharAttribute5250 {
+    |          ^^^^^^^^^^^^^^^^^
+
+warning: associated items `from_u8` and `to_char_attribute` are never used
+   --> src/protocol.rs:254:12
+    |
+253 | impl CharAttribute5250 {
+    | ---------------------- associated items in this implementation
+254 |     pub fn from_u8(value: u8) -> Self {
+    |            ^^^^^^^
+...
+267 |     pub fn to_char_attribute(&self) -> CharAttribute {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: enum `StructuredFieldID` is never used
+   --> src/protocol.rs:280:10
+    |
+280 | pub enum StructuredFieldID {
+    |          ^^^^^^^^^^^^^^^^^
+
+warning: associated function `from_u8` is never used
+   --> src/protocol.rs:328:12
+    |
+327 | impl StructuredFieldID {
+    | ---------------------- associated function in this implementation
+328 |     pub fn from_u8(value: u8) -> Option<Self> {
+    |            ^^^^^^^
+
+warning: struct `Packet` is never constructed
+   --> src/protocol.rs:352:12
+    |
+352 | pub struct Packet {
+    |            ^^^^^^
+
+warning: associated items `new`, `new_with_flags`, `to_bytes`, and `from_bytes` are never used
+   --> src/protocol.rs:360:12
+    |
+359 | impl Packet {
+    | ----------- associated items in this implementation
+360 |     pub fn new(command: CommandCode, sequence_number: u8, data: Vec<u8>) -> Self {
+    |            ^^^
+...
+370 |     pub fn new_with_flags(command: CommandCode, sequence_number: u8, data: Vec<u8>, flags: u8) -> Self {
+    |            ^^^^^^^^^^^^^^
+...
+381 |     pub fn to_bytes(&self) -> Vec<u8> {
+    |            ^^^^^^^^
+...
+408 |     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    |            ^^^^^^^^^^
+
+warning: struct `CursorPosition` is never constructed
+   --> src/protocol.rs:466:8
+    |
+466 | struct CursorPosition {
+    |        ^^^^^^^^^^^^^^
+
+warning: associated items `new`, `move_right`, `move_down`, `move_to`, `get_position`, and `offset_to_position` are never used
+   --> src/protocol.rs:472:8
+    |
+471 | impl CursorPosition {
+    | ------------------- associated items in this implementation
+472 |     fn new() -> Self {
+    |        ^^^
+...
+476 |     fn move_right(&mut self) {
+    |        ^^^^^^^^^^
+...
+484 |     fn move_down(&mut self) {
+    |        ^^^^^^^^^
+...
+490 |     fn move_to(&mut self, x: usize, y: usize) {
+    |        ^^^^^^^
+...
+497 |     fn get_position(&self) -> (usize, usize) {
+    |        ^^^^^^^^^^^^
+...
+501 |     fn offset_to_position(&self, offset: usize) -> (usize, usize) {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: enum `KeyboardState` is never used
+   --> src/protocol.rs:510:10
+    |
+510 | pub enum KeyboardState {
+    |          ^^^^^^^^^^^^^
+
+warning: constant `DEFAULT_DEVICE_ID` is never used
+   --> src/protocol.rs:528:7
+    |
+528 | const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
+    |       ^^^^^^^^^^^^^^^^^
+
+warning: struct `SavedScreenState` is never constructed
+   --> src/protocol.rs:532:8
+    |
+532 | struct SavedScreenState {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: struct `ProtocolProcessor` is never constructed
+   --> src/protocol.rs:539:12
+    |
+539 | pub struct ProtocolProcessor {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+    --> src/protocol.rs:557:12
+     |
+ 556 | impl ProtocolProcessor {
+     | ---------------------- associated items in this implementation
+ 557 |     pub fn new() -> Self {
+     |            ^^^
+...
+ 572 |     pub fn process_packet(&mut self, packet: &Packet) -> Result<Vec<Packet>, String> {
+     |            ^^^^^^^^^^^^^^
+...
+ 651 |     fn process_write_to_display(&mut self, data: &[u8]) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 752 |     fn process_structured_field(&mut self, data: &[u8]) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 859 |     fn process_create_change_extended_attribute(&mut self, data: &[u8]) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 876 |     fn process_set_extended_attribute_list(&mut self, data: &[u8]) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 893 |     fn process_transfer_data(&mut self, data: &[u8]) -> Result<(), String> {
+     |        ^^^^^^^^^^^^^^^^^^^^^
+...
+ 900 |     fn create_read_buffer_response(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 908 |     fn create_read_modified_response(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 916 |     fn create_read_modified_all_response(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 924 |     fn create_read_immediate_response(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 931 |     fn create_read_structured_field_response(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 939 |     fn create_device_identification(&mut self) -> Packet {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 954 |     pub fn set_device_id(&mut self, device_id: String) {
+     |            ^^^^^^^^^^^^^
+...
+ 959 |     pub fn get_device_id(&self) -> &str {
+     |            ^^^^^^^^^^^^^
+...
+ 964 |     pub fn create_write_to_display_packet(&mut self, text: &str) -> Packet {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 976 |     pub fn add_input(&mut self, input: &[u8]) {
+     |            ^^^^^^^^^
+...
+ 981 |     pub fn set_keyboard_state(&mut self, state: KeyboardState) {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+ 986 |     pub fn get_keyboard_state(&self) -> KeyboardState {
+     |            ^^^^^^^^^^^^^^^^^^
+...
+ 991 |     fn save_screen_state(&mut self) {
+     |        ^^^^^^^^^^^^^^^^^
+...
+1016 |     fn restore_screen_state(&mut self) {
+     |        ^^^^^^^^^^^^^^^^^^^^
+...
+1039 |     fn save_partial_screen_state(&mut self, data: &[u8]) {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1106 |     fn restore_partial_screen_state(&mut self, data: &[u8]) {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1178 |     fn cancel_pending_operations(&mut self) {
+     |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+1185 |     pub fn connect(&mut self) {
+     |            ^^^^^^^
+...
+1199 |     pub fn disconnect(&mut self) {
+     |            ^^^^^^^^^^
+...
+1211 |     pub fn is_dirty(&self) -> bool {
+     |            ^^^^^^^^
+...
+1216 |     pub fn mark_clean(&mut self) {
+     |            ^^^^^^^^^^
+...
+1221 |     pub fn get_cursor_position(&self) -> (usize, usize) {
+     |            ^^^^^^^^^^^^^^^^^^^
+...
+1226 |     pub fn read_buffer(&self) -> Vec<u8> {
+     |            ^^^^^^^^^^^
+
+warning: field `show_field_info` is never read
+  --> src/app_state.rs:30:9
+   |
+15 | pub struct TN5250RApp {
+   |            ---------- field in this struct
+...
+30 |     pub show_field_info: bool,
+   |         ^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+  --> src/app_state.rs:47:12
+   |
+46 | impl TN5250RApp {
+   | --------------- associated function in this implementation
+47 |     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+   |            ^^^
+
+warning: methods `send_function_key` and `parse_function_key_name` are never used
+  --> src/input.rs:10:12
+   |
+ 9 | impl TN5250RApp {
+   | --------------- methods in this implementation
+10 |     pub fn send_function_key(&mut self, key_name: &str) {
+   |            ^^^^^^^^^^^^^^^^^
+...
+29 |     pub fn parse_function_key_name(&self, key_name: &str) -> keyboard::FunctionKey {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: comparison is useless due to type limits
+   --> src/protocol.rs:450:36
+    |
+450 |         if command_byte >= 0x80 && command_byte <= 0xFF {
+    |                                    ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_comparisons)]` on by default
+
+warning: comparison is useless due to type limits
+   --> src/protocol.rs:798:28
+    |
+798 |         if sfid >= 0x80 && sfid <= 0xFF {
+    |                            ^^^^^^^^^^^^
+
+warning: `tn5250r` (bin "tn5250r") generated 442 warnings (2 duplicates) (run `cargo fix --bin "tn5250r"` to apply 18 suggestions)
+warning: unused import: `ebcdic_to_ascii`
+ --> src/bin/field_input_demo.rs:8:57
+  |
+8 | use tn5250r::protocol_common::ebcdic::{ascii_to_ebcdic, ebcdic_to_ascii};
+  |                                                         ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: method `clear` is never used
+  --> src/bin/field_input_demo.rs:72:8
+   |
+62 | impl PendingInputBuffer {
+   | ----------------------- method in this implementation
+...
+72 |     fn clear(&mut self) {
+   |        ^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: unused imports: `CMD_READ_BUFFER`, `CommandCode`, `ORDER_IC`, `ORDER_RA`, and `OrderCode`
+  --> src/bin/tn3270_test.rs:8:5
+   |
+ 8 |     CommandCode, OrderCode, AidKey,
+   |     ^^^^^^^^^^^  ^^^^^^^^^
+ 9 |     CMD_WRITE, CMD_ERASE_WRITE, CMD_READ_BUFFER,
+   |                                 ^^^^^^^^^^^^^^^
+10 |     ORDER_SF, ORDER_SBA, ORDER_IC, ORDER_RA,
+   |                          ^^^^^^^^  ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `FunctionKey`, `KeyboardInput`, and `SpecialKey`
+ --> src/bin/tn3270_field_input_test.rs:9:25
+  |
+9 | use tn5250r::keyboard::{KeyboardInput, FunctionKey, SpecialKey};
+  |                         ^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `ScreenSize`
+  --> src/bin/tn3270_field_input_test.rs:13:46
+   |
+13 | use tn5250r::lib3270::display::{Display3270, ScreenSize, addressing};
+   |                                              ^^^^^^^^^^
+
+warning: variable does not need to be mutable
+   --> src/bin/tn3270_field_input_test.rs:553:9
+    |
+553 |     let mut field3 = FieldAttribute::new(300, 0x00); // Unprotected, no MDT
+    |         ----^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: `tn5250r` (bin "field_input_demo") generated 2 warnings (run `cargo fix --bin "field_input_demo"` to apply 1 suggestion)
+warning: `tn5250r` (bin "tn3270_test") generated 1 warning (run `cargo fix --bin "tn3270_test"` to apply 1 suggestion)
+warning: `tn5250r` (bin "tn3270_field_input_test") generated 3 warnings (run `cargo fix --bin "tn3270_field_input_test"` to apply 3 suggestions)
+warning: unused imports: `KeyboardInput` and `SpecialKey`
+ --> src/bin/tn5250_field_input_test.rs:8:25
+  |
+8 | use tn5250r::keyboard::{KeyboardInput, FunctionKey, SpecialKey};
+  |                         ^^^^^^^^^^^^^               ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/bin/tn5250_field_input_test.rs:204:9
+    |
+204 |     let mut numeric_field = Field::new(1, FieldType::Numeric, 1, 1, 10);
+    |         ----^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> src/bin/tn5250_field_input_test.rs:246:9
+    |
+246 |     let mut upper_field = Field::new(3, FieldType::UppercaseOnly, 3, 1, 10);
+    |         ----^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+warning: variable `overflow_detected` is assigned to, but never used
+   --> src/bin/tn5250_field_input_test.rs:702:13
+    |
+702 |     let mut overflow_detected = false;
+    |             ^^^^^^^^^^^^^^^^^
+    |
+    = note: consider using `_overflow_detected` instead
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: value assigned to `overflow_detected` is never read
+   --> src/bin/tn5250_field_input_test.rs:706:13
+    |
+706 |             overflow_detected = true;
+    |             ^^^^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: `tn5250r` (bin "tn5250_field_input_test") generated 5 warnings (run `cargo fix --bin "tn5250_field_input_test"` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.48s
+     Running tests/tn3270e_integration.rs (target/debug/deps/tn3270e_integration-d3e75a27e5661544)
+
+running 11 tests
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(RequestedDo), active: false
+TELNET DEBUG: EOR state: Some(RequestedDo) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(RequestedDo), active: false
+TELNET DEBUG: EOR state: Some(RequestedDo) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option test test_tn3270e_configuration_integration ... SuppressGoAheadok state: 
+Some(RequestedDo), active: false
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: false, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(RequestedDo), active: false
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: false, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TELNET DEBUG: Option TN3270E: Sending IS response with device type: Model2Color
+Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option TN3270E: Server requested device type: Model2
+BinaryTN3270E: Sending IS response with device type: Model2
+ state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TN3270E: Received BIND command
+TELNET DEBUG: Option TN3270E: Binding to logical unit: LU01
+BinaryTN3270E: Sending BIND response
+ state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option 
+thread 'test_tn3270e_device_type_negotiation' panicked at tests/tn3270e_integration.rs:52:5:
+assertion `left == right` failed
+  left: NotConnected
+ right: TN3270ENegotiated
+Binarynote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active)test test_tn3270e_device_type_negotiation ...  (optional)
+FAILED
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: true
+TELNET DEBUG: Negotiation marked complete!
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option TN3270E: Server requested device type: Model2
+BinaryTN3270E: Sending IS response with device type: Model2
+ state: Some(Initialtest test_complete_tn3270e_session_establishment ... )ok, active: 
+false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TELNET DEBUG: Option TN3270E: Binding to logical unit: LU01
+BinaryTN3270E: Sending BIND response
+ state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Unknown device type requested: 0xFF
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+
+thread 'test_tn3270e_error_handling' panicked at tests/tn3270e_integration.rs:351:5:
+assertion failed: !response.is_empty()
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial)test test_tn3270e_error_handling ...  (optional)
+FAILEDTELNET DEBUG: All essential active: 
+false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TN3270E: Sending IS response with device type: Model2Color
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: test test_tn3270e_option_negotiation ... falseok
+
+TN3270E: Received BIND command
+TELNET DEBUG: Option TN3270E: Binding to logical unit: LU01
+BinaryTN3270E: Sending BIND response
+ state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TELNET DEBUG: Option TN3270E: Binding to logical unit: LU01
+BinaryTN3270E: Sending BIND response
+ state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TELNET DEBUG: Option TN3270E: Sending IS response with device type: Model2Color
+Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Active)test test_tn3270e_color_support ... , active: ok
+true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: false, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+
+thread 'test_tn3270e_session_state_transitions' panicked at tests/tn3270e_integration.rs:311:5:
+assertion `left == right` failed
+  left: NotConnected
+ right: TN3270ENegotiated
+TELNET DEBUG: Option Binary state: Some(Active), active: test test_tn3270e_session_state_transitions ... trueFAILED
+
+TELNET DEBUG: Option SuppressGoAhead state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TELNET DEBUG: All essential active: TN3270E: Sending IS response with device type: Model2Color
+false, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TN3270E: Sending IS response with device type: Model2Color
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Active), active: true
+TELNET DEBUG: Option SuppressGoAhead state: Some(Active), active: true
+TELNET DEBUG: EOR state: Some(Active) (optional)
+TELNET DEBUG: All essential active: true, EOR active: true, TN3270E negotiated: true
+TELNET DEBUG: Negotiation marked complete!
+TELNET DEBUG: Option Binary state: test test_tn3270e_negotiation_completion ... Someok(
+Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+test test_tn3270e_session_binding ... TELNET DEBUG: Option okBinary
+ state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TN3270E: Received UNBIND command
+TN3270E: Unbinding session
+TN3270E: Sending UNBIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+test test_tn3270e_session_unbinding ... ok
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model3
+TN3270E: Sending IS response with device type: Model3
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model4
+TN3270E: Sending IS response with device type: Model4
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model5
+TN3270E: Sending IS response with device type: Model5
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model2Color
+TN3270E: Sending IS response with device type: Model2Color
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model3Color
+TN3270E: Sending IS response with device type: Model3Color
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model4Color
+TN3270E: Sending IS response with device type: Model4Color
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Server requested device type: Model5Color
+TN3270E: Sending IS response with device type: Model5Color
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: false
+TN3270E: Received BIND command
+TN3270E: Binding to logical unit: LU01
+TN3270E: Sending BIND response
+TELNET DEBUG: Option Binary state: Some(Initial), active: false
+TELNET DEBUG: EOR state: Some(Initial) (optional)
+TELNET DEBUG: All essential active: false, EOR active: false, TN3270E negotiated: true
+test test_tn3270e_device_screen_dimensions ... ok
+
+failures:
+
+failures:
+    test_tn3270e_device_type_negotiation
+    test_tn3270e_error_handling
+    test_tn3270e_session_state_transitions
+
+test result: FAILED. 8 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test tn3270e_integration`

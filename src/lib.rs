@@ -34,6 +34,15 @@ pub mod telnet_negotiation;
 pub mod terminal;
 pub mod test_field_detection;
 
+/// Session profile management
+pub mod session_profile;
+
+/// Profile manager for CRUD operations
+pub mod profile_manager;
+
+/// Active session management
+pub mod session;
+
 /// Application state management
 pub mod app_state;
 
@@ -54,6 +63,7 @@ pub mod ui {
     pub mod monitoring_ui;
     pub mod dialogs;
     pub mod function_keys;
+    pub mod profile_manager_ui;
 }
 
 /// Application constants

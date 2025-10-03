@@ -32,6 +32,10 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 futures = "0.3"
 
+# Explicitly enable both Wayland and X11 backends in winit to support host environments
+# Note: eframe depends on winit; enabling these features here ensures runtime compatibility
+winit = { version = "0.30", default-features = false, features = ["x11", "wayland"] }
+
 [dev-dependencies]
 criterion = "0.5"
 egui_kittest = { version = "0.32", features = ["eframe", "snapshot"] }

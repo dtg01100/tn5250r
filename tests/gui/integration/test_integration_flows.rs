@@ -98,7 +98,7 @@ mod integration_tests {
         {
             let app = harness.app();
             let mut app_lock = app.lock().unwrap();
-            app_lock.terminal_content = "Welcome to TN5250R\nThis is a test terminal.\n>".curso".to_string();
+            app_lock.terminal_content = "Welcome to TN5250R\nThis is a test terminal.\n> cursor".to_string();
         }
 
         harness.step();
@@ -173,7 +173,7 @@ mod integration_tests {
         });
 
         // Wait for the text to appear
-        let result = harness.wait_for_text("Async content loaded", Duration::from_secs(1));
+        let result = harness.wait_for_text("Async content loaded ", Duration::from_secs(1));
         assert!(result.is_ok());
     }
 

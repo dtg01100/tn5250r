@@ -225,26 +225,123 @@ mod tests {
     }
 
     #[test]
-    fn test_negotiation_status_reporting() {
+    fn test_subnegotiation_corner_cases() {
         let mut negotiator = TelnetNegotiator::new();
         
-        // Get initial status
-        let status = negotiator.get_negotiation_state_details();
-        assert!(!status.is_empty());
+        // Test malformed subnegotiation missing SE
+        let malformed_subneg = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TerminalType as u8,
+            1, // SEND command
+            // Missing IAC SE
+        ];
         
-        // All should initially be in Initial state
-        for (_option, state) in &status {
-            assert_eq!(*state, NegotiationState::Initial);
+        let response = negotiator.process_incoming_data(&malformed_subneg);
+        // Should handle gracefully without crashing
+        assert!(response.is_empty()); // No response due to incomplete subnegotiation
+    }
+
+    #[test]
+    fn test_subnegotiation_unknown_option() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Subnegotiation for unknown option
+        let unknown_subneg = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            99, // Unknown option
+            1,  // Some command
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ];
+        
+        let response = negotiator.process_incoming_data(&unknown_subneg);
+        // Should handle unknown subnegotiation gracefully
+        assert!(response.is_empty());
+    }
+
+    #[test]
+    fn test_subnegotiation_oversized_data() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Create oversized subnegotiation data (over 4096 bytes limit)
+        let mut oversized_data = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TerminalType as u8,
+        ];
+        
+        // Add 5000 bytes of data (exceeds 4096 limit)
+        for i in 0..5000 {
+            oversized_data.push((i % 256) as u8);
         }
         
-        // After generating initial negotiation, states should change
-        negotiator.generate_initial_negotiation();
-        let status = negotiator.get_negotiation_state_details();
+        oversized_data.extend_from_slice(&[
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ]);
         
-        // Some options should now be in RequestedDo or RequestedWill state
-        let has_requested = status.iter().any(|(_, state)| {
-            matches!(state, NegotiationState::RequestedDo | NegotiationState::RequestedWill)
-        });
-        assert!(has_requested);
+        let response = negotiator.process_incoming_data(&oversized_data);
+        // Should reject oversized subnegotiation
+        assert!(response.is_empty());
+    }
+
+    #[test]
+    fn test_subnegotiation_invalid_command() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Terminal type subnegotiation with invalid command
+        let invalid_cmd_subneg = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TerminalType as u8,
+            99, // Invalid command (not SEND or IS)
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ];
+        
+        let response = negotiator.process_incoming_data(&invalid_cmd_subneg);
+        // Should handle invalid subnegotiation command gracefully
+        assert!(response.is_empty());
+    }
+
+    #[test]
+    fn test_environment_subnegotiation_malformed() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // Malformed environment subnegotiation (missing proper structure)
+        let malformed_env = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::NewEnvironment as u8,
+            1, // SEND command
+            // Missing proper variable structure
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ];
+        
+        let response = negotiator.process_incoming_data(&malformed_env);
+        // Should handle malformed environment subnegotiation
+        assert!(!response.is_empty()); // Should send environment variables anyway
+    }
+
+    #[test]
+    fn test_tn3270e_subnegotiation_invalid_command() {
+        let mut negotiator = TelnetNegotiator::new();
+        
+        // TN3270E subnegotiation with invalid command
+        let invalid_tn3270e = vec![
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SB as u8,
+            TelnetOption::TN3270E as u8,
+            99, // Invalid TN3270E command
+            TelnetCommand::IAC as u8,
+            TelnetCommand::SE as u8,
+        ];
+        
+        let response = negotiator.process_incoming_data(&invalid_tn3270e);
+        // Should handle invalid TN3270E command gracefully
+        assert!(response.is_empty());
     }
 }

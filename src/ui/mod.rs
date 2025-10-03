@@ -5,3 +5,4 @@
 pub mod monitoring_ui;
 pub mod dialogs;
 pub mod function_keys;
+pub mod profile_manager_ui;

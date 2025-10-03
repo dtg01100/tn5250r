@@ -34,7 +34,6 @@
 ///
 /// 6. **Health Monitoring**: IntegrationHealth struct provides visibility into
 ///    component status, enabling proactive maintenance and troubleshooting.
-use super::codes::*;
 use super::display::Display;
 use crate::network::ProtocolMode;
 use crate::telnet_negotiation::TelnetNegotiator;
@@ -46,76 +45,56 @@ const ESC: u8 = 0x04;
 /// Default device identification string
 const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
 
-// Note: Command dispatch table removed due to complexity - keeping original match-based approach
-// for maintainability. The match statement is efficient enough for the current use case.
+use super::codes::*;
 
-#[derive(Debug, PartialEq)]
+/// Handshake state for 5250 protocol initialization
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HandshakeState {
     Initial,
     QuerySent,
     QueryReplyReceived,
     ScreenInitialized,
-    Complete,
 }
 
-/// Session state for 5250 protocol processing
+/// TN5250 Session structure
 #[derive(Debug)]
 pub struct Session {
-    /// Whether session is currently invited (unlocked for input)
+    /// Whether the session has been invited to send data
     pub invited: bool,
-
-    /// Current read operation command code (if any)
+    /// Current read operation opcode
     pub read_opcode: u8,
-
-    /// Current sequence number for 5250 protocol packets
-    sequence_number: u8,
-
-    /// PERFORMANCE OPTIMIZATION: Pre-allocated buffer with capacity hint
-    /// Reduces allocations during data processing
-    data_buffer: Vec<u8>,
-
+    /// Sequence number for commands
+    pub sequence_number: u8,
+    /// Data buffer for processing incoming data
+    pub data_buffer: Vec<u8>,
     /// Current position in data buffer
-    buffer_pos: usize,
-
-    /// Display buffer for terminal operations
-    display: Display,
-
+    pub buffer_pos: usize,
+    /// Display state
+    pub display: Display,
     /// Device identification string
-    #[allow(dead_code)]
-    device_id: String,
-
+    pub device_id: String,
     /// Whether enhanced 5250 features are enabled
-    enhanced: bool,
-
-    /// SECURITY: Authenticate a user session with credentials
-    authenticated: bool,
-
-    /// SECURITY: Session validation token
-    session_token: Option<String>,
-
-    /// SECURITY: Maximum allowed command size to prevent DoS
-    max_command_size: usize,
-
-    /// SECURITY: Command count for rate limiting
-    command_count: usize,
-
-    /// SECURITY: Last command timestamp for timing validation
-    last_command_time: std::time::Instant,
-
-    /// INTEGRATION: Protocol mode for handling different connection types
-    protocol_mode: ProtocolMode,
-
-    /// INTEGRATION: Telnet negotiator for option negotiation
-    telnet_negotiator: Option<TelnetNegotiator>,
-
-    /// INTEGRATION: Protocol processor for 5250 protocol handling
-    protocol_processor: Option<ProtocolProcessor>,
-
-    /// INTEGRATION: Fallback buffer for when components are unavailable
-    fallback_buffer: Vec<u8>,
-
-    /// Handshake state tracking for proper protocol initialization
-    handshake_state: HandshakeState,
+    pub enhanced: bool,
+    /// Authentication status
+    pub authenticated: bool,
+    /// Session token for validation
+    pub session_token: Option<String>,
+    /// Maximum allowed command size
+    pub max_command_size: usize,
+    /// Command count for rate limiting
+    pub command_count: usize,
+    /// Last command time for rate limiting
+    pub last_command_time: std::time::Instant,
+    /// Current protocol mode
+    pub protocol_mode: ProtocolMode,
+    /// Optional telnet negotiator
+    pub telnet_negotiator: Option<TelnetNegotiator>,
+    /// Optional protocol processor
+    pub protocol_processor: Option<ProtocolProcessor>,
+    /// Fallback buffer for unprocessed data
+    pub fallback_buffer: Vec<u8>,
+    /// Handshake state for protocol initialization
+    pub handshake_state: HandshakeState,
 }
 
 impl Session {
@@ -257,72 +236,72 @@ impl Session {
     /// Process a single 5250 command
     fn process_command(&mut self, command: u8) -> Result<Option<Vec<u8>>, String> {
         match command {
-            CMD_CLEAR_UNIT => {
+            super::codes::CMD_CLEAR_UNIT => {
                 self.clear_unit();
                 Ok(None)
             }
             
-            CMD_CLEAR_UNIT_ALTERNATE => {
+            super::codes::CMD_CLEAR_UNIT_ALTERNATE => {
                 self.clear_unit_alternate()?;
                 Ok(None)
             }
             
-            CMD_CLEAR_FORMAT_TABLE => {
+            super::codes::CMD_CLEAR_FORMAT_TABLE => {
                 self.clear_format_table();
                 Ok(None)
             }
             
-            CMD_WRITE_TO_DISPLAY => {
+            super::codes::CMD_WRITE_TO_DISPLAY => {
                 self.write_to_display()?;
                 Ok(None)
             }
             
-            CMD_WRITE_ERROR_CODE | CMD_WRITE_ERROR_CODE_WINDOW => {
+            super::codes::CMD_WRITE_ERROR_CODE | super::codes::CMD_WRITE_ERROR_CODE_WINDOW => {
                 self.write_error_code(command)?;
                 Ok(None)
             }
             
-            CMD_READ_INPUT_FIELDS | CMD_READ_MDT_FIELDS | CMD_READ_MDT_FIELDS_ALT => {
+            super::codes::CMD_READ_INPUT_FIELDS | super::codes::CMD_READ_MDT_FIELDS | super::codes::CMD_READ_MDT_FIELDS_ALT => {
                 self.read_command(command)?;
                 Ok(None) // Response will be sent when AID key is pressed
             }
             
-            CMD_READ_SCREEN_IMMEDIATE => {
+            super::codes::CMD_READ_SCREEN_IMMEDIATE => {
                 let response = self.read_screen_immediate()?;
                 Ok(Some(response))
             }
             
-            CMD_READ_IMMEDIATE => {
+            super::codes::CMD_READ_IMMEDIATE => {
                 let response = self.read_immediate()?;
                 Ok(Some(response))
             }
             
-            CMD_SAVE_SCREEN => {
+            super::codes::CMD_SAVE_SCREEN => {
                 let response = self.save_screen()?;
                 Ok(Some(response))
             }
             
-            CMD_SAVE_PARTIAL_SCREEN => {
+            super::codes::CMD_SAVE_PARTIAL_SCREEN => {
                 let response = self.save_partial_screen()?;
                 Ok(Some(response))
             }
             
-            CMD_RESTORE_SCREEN => {
+            super::codes::CMD_RESTORE_SCREEN => {
                 // Ignored - following data should be valid WriteToDisplay
                 Ok(None)
             }
             
-            CMD_RESTORE_PARTIAL_SCREEN => {
+            super::codes::CMD_RESTORE_PARTIAL_SCREEN => {
                 // Ignored - following data should be valid WriteToDisplay
                 Ok(None)
             }
             
-            CMD_ROLL => {
+            super::codes::CMD_ROLL => {
                 self.roll()?;
                 Ok(None)
             }
             
-            CMD_WRITE_STRUCTURED_FIELD => {
+            super::codes::CMD_WRITE_STRUCTURED_FIELD => {
                 let response = self.write_structured_field()?;
                 Ok(Some(response))
             }
@@ -675,30 +654,62 @@ impl Session {
         }
         
         match sf_type {
-            SF_5250_QUERY | SF_5250_QUERY_STATION_STATE => {
+            super::codes::SF_5250_QUERY | super::codes::SF_5250_QUERY_STATION_STATE => {
                 // Mark Query Reply as received and send Query Reply
                 self.handshake_state = HandshakeState::QueryReplyReceived;
                 self.create_query_reply()
             }
-            SF_QUERY_COMMAND => {
+            super::codes::SF_QUERY_COMMAND => {
                 // Handle QueryCommand (0x84) - respond with SetReplyMode (0x85)
                 self.create_set_reply_mode_response()
             }
-            0x5B => {
+            super::codes::SF_ERASE_RESET => {
                 // Erase/Reset structured field
                 self.handle_erase_reset()
             }
-            0x80 => {
+            super::codes::SF_DEFINE_PENDING_OPERATIONS => {
                 // Define Pending Operations structured field
                 self.handle_define_pending_operations()
             }
-            0x82 => {
+            super::codes::SF_ENABLE_COMMAND_RECOGNITION => {
                 // Enable Command Recognition structured field
                 self.handle_enable_command_recognition()
             }
-            0x83 => {
+            super::codes::SF_REQUEST_TIMESTAMP_INTERVAL => {
                 // Request Minimum Timestamp Interval structured field
                 self.handle_request_timestamp_interval()
+            }
+            super::codes::SF_DEFINE_ROLL_DIRECTION => {
+                // Define Roll Direction structured field
+                self.handle_define_roll_direction()
+            }
+            super::codes::SF_SET_MONITOR_MODE => {
+                // Set Monitor Mode structured field
+                self.handle_set_monitor_mode()
+            }
+            super::codes::SF_CANCEL_RECOVERY => {
+                // Cancel Recovery structured field
+                self.handle_cancel_recovery()
+            }
+            super::codes::SF_CREATE_CHANGE_EXTENDED_ATTRIBUTE => {
+                // Create/Change Extended Attribute structured field
+                self.handle_create_change_extended_attribute()
+            }
+            super::codes::SF_SET_EXTENDED_ATTRIBUTE_LIST => {
+                // Set Extended Attribute List structured field
+                self.handle_set_extended_attribute_list()
+            }
+            super::codes::SF_READ_TEXT => {
+                // Read Text structured field
+                self.handle_read_text()
+            }
+            super::codes::SF_DEFINE_EXTENDED_ATTRIBUTE => {
+                // Define Extended Attribute structured field
+                self.handle_define_extended_attribute()
+            }
+            super::codes::SF_DEFINE_NAMED_LOGICAL_UNIT => {
+                // Define Named Logical Unit structured field
+                self.handle_define_named_logical_unit()
             }
             _ => {
                 // TODO: Handle other structured field types
@@ -937,20 +948,112 @@ impl Session {
         Ok(Vec::new())
     }
     
-    /// Handle Request Minimum Timestamp Interval structured field (0x83)
-    fn handle_request_timestamp_interval(&mut self) -> Result<Vec<u8>, String> {
-        // Parse requested minimum timestamp interval
-        if self.buffer_pos + 1 < self.data_buffer.len() {
-            let interval = u16::from_be_bytes([self.get_byte()?, self.get_byte()?]);
-            println!("5250: Request Minimum Timestamp Interval - {} milliseconds", interval);
+    /// Handle Define Roll Direction structured field (0x86)
+    fn handle_define_roll_direction(&mut self) -> Result<Vec<u8>, String> {
+        // Parse roll direction data
+        if self.buffer_pos < self.data_buffer.len() {
+            let direction = self.get_byte()?;
+            println!("5250: Define Roll Direction - direction: 0x{direction:02X}");
             
-            // TODO: Set timestamp interval for session
-            // For now, acknowledge the request
+            // TODO: Set roll direction in session state
+            // For now, just acknowledge
         } else {
-            println!("5250: Request Minimum Timestamp Interval - insufficient data");
+            println!("5250: Define Roll Direction - no parameters");
         }
         
-        // No response needed for this command
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Set Monitor Mode structured field (0x87)
+    fn handle_set_monitor_mode(&mut self) -> Result<Vec<u8>, String> {
+        // Parse monitor mode data
+        if self.buffer_pos < self.data_buffer.len() {
+            let mode = self.get_byte()?;
+            println!("5250: Set Monitor Mode - mode: 0x{mode:02X}");
+            
+            // TODO: Set monitor mode in session state
+        } else {
+            println!("5250: Set Monitor Mode - no parameters");
+        }
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Cancel Recovery structured field (0x88)
+    fn handle_cancel_recovery(&mut self) -> Result<Vec<u8>, String> {
+        // Cancel any pending recovery operations
+        println!("5250: Cancel Recovery - cancelling recovery operations");
+        
+        // TODO: Cancel any recovery operations in session state
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Create/Change Extended Attribute structured field (0xC1)
+    fn handle_create_change_extended_attribute(&mut self) -> Result<Vec<u8>, String> {
+        // Parse extended attribute data
+        println!("5250: Create/Change Extended Attribute - processing");
+        
+        // TODO: Parse and apply extended attribute changes
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Set Extended Attribute List structured field (0xCA)
+    fn handle_set_extended_attribute_list(&mut self) -> Result<Vec<u8>, String> {
+        // Parse extended attribute list
+        println!("5250: Set Extended Attribute List - processing");
+        
+        // TODO: Parse and set extended attribute list
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Read Text structured field (0xD2)
+    fn handle_read_text(&mut self) -> Result<Vec<u8>, String> {
+        // Read text from screen or buffer
+        println!("5250: Read Text - processing");
+        
+        // TODO: Implement text reading logic
+        // For now, return empty response
+        Ok(Vec::new())
+    }
+    
+    /// Handle Define Extended Attribute structured field (0xD3)
+    fn handle_define_extended_attribute(&mut self) -> Result<Vec<u8>, String> {
+        // Parse extended attribute definition
+        println!("5250: Define Extended Attribute - processing");
+        
+        // TODO: Parse and define extended attributes
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Request Timestamp Interval structured field (0x8A)
+    fn handle_request_timestamp_interval(&mut self) -> Result<Vec<u8>, String> {
+        // Parse timestamp interval data
+        println!("5250: Request Timestamp Interval - processing");
+        
+        // TODO: Parse and set timestamp interval
+        
+        // No response needed
+        Ok(Vec::new())
+    }
+    
+    /// Handle Define Named Logical Unit structured field (0x7E)
+    fn handle_define_named_logical_unit(&mut self) -> Result<Vec<u8>, String> {
+        // Parse named logical unit definition
+        println!("5250: Define Named Logical Unit - processing");
+        
+        // TODO: Parse and define named logical unit
+        
+        // No response needed
         Ok(Vec::new())
     }
     

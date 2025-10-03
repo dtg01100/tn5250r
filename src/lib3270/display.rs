@@ -6,8 +6,10 @@
 use super::field::{FieldAttribute, FieldManager};
 use crate::protocol_common::ebcdic::ebcdic_to_ascii;
 
+use serde::{Deserialize, Serialize};
+
 /// Standard 3270 screen sizes
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ScreenSize {
     /// Model 2: 24 rows x 80 columns (1920 characters)
     Model2,

@@ -33,6 +33,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::collections::VecDeque;
 
+use serde::{Deserialize, Serialize};
+
 use rustls::{ClientConfig, ClientConnection, RootCertStore};
 use rustls::pki_types::{ServerName as TlsServerName};
 
@@ -137,7 +139,7 @@ impl Default for SessionConfig {
 
 /// INTEGRATION: Protocol auto-detection and mode switching
 /// Resolves NVT Mode vs 5250 Protocol Confusion (Issue #1)
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum ProtocolMode {
     /// Auto-detect protocol from initial data patterns
     AutoDetect,
@@ -157,6 +159,7 @@ impl Default for ProtocolMode {
 
 /// INTEGRATION: Protocol detector for automatic mode switching
 /// Analyzes initial data patterns to distinguish NVT from 5250 protocol
+#[derive(Debug)]
 struct ProtocolDetector {
     mode: ProtocolMode,
     detection_buffer: Vec<u8>,
@@ -338,6 +341,7 @@ type DynStream = Box<StreamType>;
 type SharedStream = Arc<Mutex<DynStream>>;
 
 /// Represents a connection to an AS/400 system
+#[derive(Debug)]
 pub struct AS400Connection {
     stream: Option<SharedStream>,
     host: String,

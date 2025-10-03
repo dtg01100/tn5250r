@@ -82,6 +82,18 @@ pub const SF_5250_QUERY_STATION_STATE: u8 = 0x72;
 // Additional structured field types from protocol-level processing
 pub const SF_QUERY_COMMAND: u8 = 0x84;
 pub const SF_SET_REPLY_MODE: u8 = 0x85;
+pub const SF_ERASE_RESET: u8 = 0x5B;
+pub const SF_DEFINE_PENDING_OPERATIONS: u8 = 0x80;
+pub const SF_ENABLE_COMMAND_RECOGNITION: u8 = 0x82;
+pub const SF_REQUEST_TIMESTAMP_INTERVAL: u8 = 0x83;
+pub const SF_DEFINE_ROLL_DIRECTION: u8 = 0x86;
+pub const SF_SET_MONITOR_MODE: u8 = 0x87;
+pub const SF_CANCEL_RECOVERY: u8 = 0x88;
+pub const SF_CREATE_CHANGE_EXTENDED_ATTRIBUTE: u8 = 0xC1;
+pub const SF_SET_EXTENDED_ATTRIBUTE_LIST: u8 = 0xCA;
+pub const SF_READ_TEXT: u8 = 0xD2;
+pub const SF_DEFINE_EXTENDED_ATTRIBUTE: u8 = 0xD3;
+pub const SF_DEFINE_NAMED_LOGICAL_UNIT: u8 = 0x7E;
 
 /// Operator Error Codes
 /// See 5494 User's Guide (GA27-3960-03) 2.3.4

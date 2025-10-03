@@ -19,20 +19,17 @@ mod protocol_state;
 mod protocol_common;
 mod lib3270;
 mod protocol;
-mod app_state;
-mod connection;
-mod terminal_display;
-mod input;
-mod app;
-mod ui;
 mod constants;
 
-use app_state::TN5250RApp;
+use tn5250r::app_state::TN5250RApp;
 use controller::AsyncTerminalController;
 use field_manager::FieldDisplayInfo;
+use tn5250r::profile_manager::ProfileManager;
+use tn5250r::session_profile::SessionProfile;
 
 #[tokio::main]
 async fn main() {
+    println!("TN5250R starting...");
     // Install panic handler to log panics before crashing
     std::panic::set_hook(Box::new(|panic_info| {
         eprintln!("!!! PANIC !!!");
@@ -60,6 +57,8 @@ async fn main() {
     let mut cli_ca_bundle: Option<String> = None;
     let mut cli_username: Option<String> = None;
     let mut cli_password: Option<String> = None;
+    let mut cli_profile: Option<String> = None;
+    let mut cli_save_profile: Option<String> = None;
     let mut debug_mode = false;
     let mut verbose_mode = false;
 
@@ -122,6 +121,24 @@ async fn main() {
                     std::process::exit(1);
                 }
             }
+            "--profile" | "-P" => {
+                if i + 1 < args.len() {
+                    cli_profile = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --profile requires a profile name");
+                    std::process::exit(1);
+                }
+            }
+            "--save-profile" => {
+                if i + 1 < args.len() {
+                    cli_save_profile = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --save-profile requires a profile name");
+                    std::process::exit(1);
+                }
+            }
             "--debug" | "-d" => {
                 debug_mode = true;
                 println!("DEBUG MODE ENABLED: Verbose logging and data dumps active");
@@ -140,6 +157,8 @@ async fn main() {
                 println!("  --port <port> or -p <port>          Set the port to connect to (default: 23)");
                 println!("  --user <username> or -u <username>  AS/400 username for authentication (RFC 4777)");
                 println!("  --password <password> or --pass     AS/400 password for authentication (RFC 4777)");
+                println!("  --profile <name> or -P <name>       Load and connect using named profile");
+                println!("  --save-profile <name>               Save current session as named profile");
                 println!("  --ssl | --no-ssl                    Force TLS on/off for this run (overrides config)");
                 println!("  --insecure                          Accept invalid TLS certs and hostnames (NOT recommended)");
                 println!("  --ca-bundle <path>                  Use a custom CA bundle (PEM or DER) to validate server certs");
@@ -149,6 +168,8 @@ async fn main() {
                 println!();
                 println!("Example:");
                 println!("  tn5250r --server 10.100.200.1 --port 23 --user dave3 --password dave3");
+                println!("  tn5250r --profile production");
+                println!("  tn5250r --server host --save-profile dev");
                 std::process::exit(0);
             }
             _ => { /* ignore unknown */ }
@@ -156,34 +177,90 @@ async fn main() {
         i += 1;
     }
 
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 600.0]),
-        ..Default::default()
+    // Profile resolution logic
+    let session_config = if let Some(profile_name) = cli_profile {
+        // Load named profile
+        let profile_manager = ProfileManager::new()
+            .expect("Failed to initialize profile manager");
+
+        match profile_manager.get_profile_by_name(&profile_name) {
+            Some(profile) => {
+                println!("Loading profile: {}", profile_name);
+                Some(profile.clone())
+            }
+            None => {
+                eprintln!("Error: Profile '{}' not found", profile_name);
+                eprintln!("Available profiles:");
+                for name in profile_manager.get_profile_names() {
+                    eprintln!("  - {}", name);
+                }
+                std::process::exit(1);
+            }
+        }
+    } else if auto_connect {
+        // Create ephemeral profile from CLI args
+        let ephemeral_profile = SessionProfile::new(
+            "Ephemeral Session".to_string(),
+            default_server.clone(),
+            default_port,
+        );
+
+        // Apply CLI credentials if provided
+        let mut profile_to_save = ephemeral_profile.clone();
+        if let Some(username) = &cli_username {
+            profile_to_save.username = Some(username.clone());
+        }
+        if let Some(password) = &cli_password {
+            profile_to_save.password = Some(password.clone());
+        }
+
+        // Save if --save-profile specified
+        if let Some(save_name) = &cli_save_profile {
+            let mut profile_manager = ProfileManager::new()
+                .expect("Failed to initialize profile manager");
+
+            profile_to_save.name = save_name.clone();
+            profile_to_save.id = save_name.clone();
+
+            if let Err(e) = profile_manager.create_profile(profile_to_save.clone()) {
+                eprintln!("Warning: Failed to save profile '{}': {}", save_name, e);
+            } else {
+                println!("Profile '{}' saved successfully", save_name);
+            }
+        }
+
+        Some(profile_to_save)
+    } else {
+        None // No profile, show UI
     };
+
+    let mut options = eframe::NativeOptions::default();
+    options.viewport = egui::ViewportBuilder::default()
+        .with_inner_size([800.0, 600.0])
+        .with_visible(true)
+        .with_active(true);
+
+    println!("Running eframe...");
 
     eframe::run_native(
         "TN5250R",
         options,
         Box::new(move |cc| {
-            let app = TN5250RApp::new_with_server(
+            println!("Creating app...");
+            let app = TN5250RApp::new_with_profile(
                 cc,
-                default_server,
-                default_port,
-                auto_connect,
-                cli_ssl_override,
-                cli_username,
-                cli_password,
+                session_config,
                 debug_mode,
             );
+            println!("App created successfully");
             // Apply CLI TLS extras into config for this run (persist if user later saves/changes)
             if let Some(insec) = cli_insecure {
                 if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.insecure", insec); }
-                let _ = config::save_shared_config(&app.config);
+                let _ = tn5250r::config::save_shared_config(&app.config);
             }
             if let Some(path) = cli_ca_bundle {
                 if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.caBundlePath", path); }
-                let _ = config::save_shared_config(&app.config);
+                let _ = tn5250r::config::save_shared_config(&app.config);
             }
             Ok(Box::new(app))
         }),

@@ -172,6 +172,8 @@ pub struct Field {
     pub modified: bool,
     /// Current cursor position in field
     pub cursor_position: usize,
+    /// Tab order for navigation (lower numbers first)
+    pub tab_order: usize,
 }
 
 impl Field {
@@ -197,6 +199,7 @@ impl Field {
             error_state: None,
             modified: false,
             cursor_position: 0,
+            tab_order: id, // Default tab order same as id
         }
     }
     
@@ -737,9 +740,9 @@ impl FieldManager {
         }
     }
     
-    /// Type a character in the current active field
+    /// Type a character in the current active field with enhanced features
     /// SECURITY: Enhanced with comprehensive input sanitization
-    pub fn type_char(&mut self, ch: char) -> Result<(), String> {
+    pub fn type_char(&mut self, ch: char) -> Result<bool, String> {
         if let Some(field_idx) = self.active_field {
             // CRITICAL FIX: Enhanced field index validation with bounds checking
             if field_idx >= self.fields.len() {
@@ -772,7 +775,16 @@ impl FieldManager {
 
                 let sanitized_ch = field.sanitize_character(ch);
                 field.content.push(sanitized_ch);
-                Ok(())
+                field.modified = true;
+
+                // Auto-advance to next field if field is now full and auto-enter is enabled
+                let field_full = field.content.len() >= field.max_length;
+                if field_full && field.should_auto_enter() {
+                    // Try to advance to next field
+                    let _ = self.tab_to_next_field();
+                }
+
+                Ok(field_full)
             } else {
                 Err("Cannot type in protected field".to_string())
             }
@@ -1051,9 +1063,78 @@ impl FieldManager {
         }
     }
 
-    /// Get the index of the currently active field
-    pub fn get_active_field_index(&self) -> Option<usize> {
-        self.active_field
+    /// Navigate to next field by tab order
+    pub fn tab_to_next_field(&mut self) -> Result<(), FieldError> {
+        if self.fields.is_empty() {
+            return Err(FieldError::NoActiveField);
+        }
+        
+        let current_tab_order = self.active_field
+            .map(|idx| self.fields[idx].tab_order)
+            .unwrap_or(0);
+            
+        // Find next field by tab order, skipping bypass fields
+        let mut candidates: Vec<_> = self.fields.iter()
+            .enumerate()
+            .filter(|(_, field)| !field.should_bypass() && field.tab_order > current_tab_order)
+            .collect();
+        
+        candidates.sort_by_key(|(_, field)| field.tab_order);
+        
+        if let Some((idx, _)) = candidates.first() {
+            return self.activate_field_by_index(*idx);
+        }
+        
+        // Wrap around to first field
+        let mut candidates: Vec<_> = self.fields.iter()
+            .enumerate()
+            .filter(|(_, field)| !field.should_bypass())
+            .collect();
+        
+        candidates.sort_by_key(|(_, field)| field.tab_order);
+        
+        if let Some((idx, _)) = candidates.first() {
+            return self.activate_field_by_index(*idx);
+        }
+        
+        Err(FieldError::InvalidFieldNavigation)
+    }
+    
+    /// Navigate to previous field by tab order
+    pub fn tab_to_previous_field(&mut self) -> Result<(), FieldError> {
+        if self.fields.is_empty() {
+            return Err(FieldError::NoActiveField);
+        }
+        
+        let current_tab_order = self.active_field
+            .map(|idx| self.fields[idx].tab_order)
+            .unwrap_or(usize::MAX);
+            
+        // Find previous field by tab order, skipping bypass fields
+        let mut candidates: Vec<_> = self.fields.iter()
+            .enumerate()
+            .filter(|(_, field)| !field.should_bypass() && field.tab_order < current_tab_order)
+            .collect();
+        
+        candidates.sort_by_key(|(_, field)| std::cmp::Reverse(field.tab_order));
+        
+        if let Some((idx, _)) = candidates.first() {
+            return self.activate_field_by_index(*idx);
+        }
+        
+        // Wrap around to last field
+        let mut candidates: Vec<_> = self.fields.iter()
+            .enumerate()
+            .filter(|(_, field)| !field.should_bypass())
+            .collect();
+        
+        candidates.sort_by_key(|(_, field)| std::cmp::Reverse(field.tab_order));
+        
+        if let Some((idx, _)) = candidates.first() {
+            return self.activate_field_by_index(*idx);
+        }
+        
+        Err(FieldError::InvalidFieldNavigation)
     }
 
     /// Test helper: Get continued groups
@@ -1064,6 +1145,83 @@ impl FieldManager {
     /// Test helper: Get error state
     pub fn get_error_state(&self) -> Option<&FieldError> {
         self.error_state.as_ref()
+    }
+
+    /// Validate field exit (called when leaving a field)
+    pub fn validate_field_exit(&self, field_idx: usize) -> Result<(), FieldError> {
+        if field_idx >= self.fields.len() {
+            return Err(FieldError::FieldNotFound(field_idx));
+        }
+        
+        let field = &self.fields[field_idx];
+        
+        // Check mandatory fields
+        if field.is_mandatory() && field.content.trim().is_empty() {
+            return Err(FieldError::MandatoryEnter);
+        }
+        
+        // Check field exit required
+        if field.behavior.field_exit_required {
+            return Err(FieldError::FieldExitRequired);
+        }
+        
+        // Validate field content based on type
+        match field.field_type {
+            FieldType::Numeric => {
+                if !field.content.is_empty() && field.content.parse::<f64>().is_err() {
+                    return Err(FieldError::NumericOnly);
+                }
+            }
+            FieldType::DigitsOnly => {
+                if !field.content.chars().all(|c| c.is_ascii_digit()) {
+                    return Err(FieldError::DigitsOnly);
+                }
+            }
+            FieldType::AlphaOnly => {
+                if !field.content.chars().all(|c| c.is_alphabetic() || ",.- ".contains(c)) {
+                    return Err(FieldError::AlphaOnly);
+                }
+            }
+            _ => {}
+        }
+        
+        Ok(())
+    }
+    
+    /// Attempt to exit current field with validation
+    pub fn exit_current_field(&mut self) -> Result<(), FieldError> {
+        if let Some(field_idx) = self.active_field {
+            self.validate_field_exit(field_idx)?;
+            // Mark field as modified if it has content
+            if !self.fields[field_idx].content.is_empty() {
+                self.fields[field_idx].modified = true;
+            }
+            Ok(())
+        } else {
+            Err(FieldError::NoActiveField)
+        }
+    }
+
+    /// Get all modified fields (MDT - Modified Data Tag)
+    pub fn get_modified_fields(&self) -> Vec<&Field> {
+        self.fields.iter().filter(|field| field.modified).collect()
+    }
+    
+    /// Clear MDT flags for all fields
+    pub fn clear_modified_flags(&mut self) {
+        for field in &mut self.fields {
+            field.modified = false;
+        }
+    }
+    
+    /// Check if any fields have been modified
+    pub fn has_modified_fields(&self) -> bool {
+        self.fields.iter().any(|field| field.modified)
+    }
+
+    /// Get the index of the currently active field
+    pub fn get_active_field_index(&self) -> Option<usize> {
+        self.active_field
     }
 
     /// Test helper: Set active field index directly

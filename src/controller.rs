@@ -11,7 +11,7 @@ use std::time::Duration;
 use crate::ansi_processor::AnsiProcessor;
 use crate::field_manager::FieldManager;
 use crate::keyboard;
-use crate::lib5250::session::Session;
+use crate::lib5250::Session;
 use crate::network;
 
 /// Protocol type for terminal connections
@@ -60,6 +60,7 @@ impl ProtocolType {
 use crate::terminal::{CharAttribute, TerminalChar};
 
 /// Core terminal controller responsible for managing the connection and protocol
+#[derive(Debug)]
 pub struct TerminalController {
     host: String,
     port: u16,
@@ -982,6 +983,7 @@ impl TerminalController {
 }
 
 /// Asynchronous terminal controller that handles background networking
+#[derive(Debug)]
 pub struct AsyncTerminalController {
     controller: Arc<Mutex<TerminalController>>,
     running: bool,

@@ -23,7 +23,8 @@ impl<'a> TN5250RHarness<'a> {
         let expected_size = Vec2::new(width, height);
 
         // Create a mock creation context for testing
-        let cc = eframe::CreationContext::default();
+        let egui_ctx = egui::Context::default();
+        let cc = eframe::CreationContext::_new_kittest(egui_ctx);
 
         // Create the actual TN5250R app for testing
         let app = Arc::new(Mutex::new(TN5250RApp::new(&cc)));
@@ -34,7 +35,7 @@ impl<'a> TN5250RHarness<'a> {
             .build(move |ctx| {
                 // Update the app
                 let mut app_ref = app_clone.lock().unwrap();
-                <TN5250RApp as eframe::App>::update(&mut app_ref, ctx, &mut eframe::Frame::default());
+                <TN5250RApp as eframe::App>::update(&mut app_ref, ctx, &mut eframe::Frame::_new_kittest());
             });
 
         Self { harness, expected_size, app }
@@ -142,16 +143,10 @@ impl<'a> TN5250RHarness<'a> {
     }
 
     /// Press a specific key
-    pub fn press_key(&mut self, key: Key) -> Result<(), String> {
-        self.harness.input().events.push(egui::Event::Key {
-            key,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: Modifiers::NONE,
-        });
-        self.step();
-        Ok(())
+    pub fn press_key(&mut self, _key: Key) -> Result<(), String> {
+        // TODO: Implement key press simulation
+        // Currently not implemented due to mutable borrow issues
+        Err("Key press simulation not yet implemented".to_string())
     }
 
     /// Press Enter key
