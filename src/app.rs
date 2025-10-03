@@ -197,6 +197,36 @@ impl eframe::App for TN5250RApp {
             self.show_profile_manager(ctx);
         }
 
+        // When the Profiles sidebar is collapsed, show a small reveal button on the left edge
+        // Profiles reveal button:
+        // When the profile sidebar is collapsed, present a small floating button
+        // on the left edge to make the sidebar discoverable. Clicking it sets
+        // show_profile_manager = true and the normal SidePanel appears.
+        if !self.show_profile_manager {
+            egui::Area::new("profiles_reveal_button".into())
+                .order(egui::Order::Foreground)
+                .anchor(egui::Align2::LEFT_CENTER, egui::vec2(6.0, 0.0))
+                .interactable(true)
+                .movable(false)
+                .show(ctx, |ui| {
+                    // Use a subtle frame to keep it visible over terminal content
+                    let frame = egui::Frame::none()
+                        .fill(egui::Color32::from_rgba_unmultiplied(30, 30, 30, 200))
+                        .stroke(egui::Stroke::new(1.0, egui::Color32::DARK_GRAY))
+                        .corner_radius(6.0)
+                        .inner_margin(egui::Margin::symmetric(6, 4));
+                    frame.show(ui, |ui| {
+                        if ui
+                            .button("▶ Profiles")
+                            .on_hover_text("Show profiles sidebar")
+                            .clicked()
+                        {
+                            self.show_profile_manager = true;
+                        }
+                    });
+                });
+        }
+
         // Smart repaint logic to prevent CPU waste:
         // - Disconnected: No repaints (only on user interaction)
         // - Connecting: Check every 100ms for connection completion

@@ -234,11 +234,35 @@ async fn main() {
         None // No profile, show UI
     };
 
+    // Select graphics backend based on environment to avoid Wayland/glutin issues.
+    // Default behavior: if running on Wayland, prefer wgpu; otherwise use glow.
+    // Allow override via TN5250R_BACKEND=wgpu|glow|auto.
+    let backend_pref = std::env::var("TN5250R_BACKEND").unwrap_or_else(|_| "auto".to_string());
+    let is_wayland = std::env::var("WAYLAND_DISPLAY").map(|v| !v.is_empty()).unwrap_or(false);
+    let use_wgpu = match backend_pref.as_str() {
+        "wgpu" => true,
+        "glow" => false,
+        _ => is_wayland, // auto: wgpu on Wayland, glow otherwise
+    };
+
     let mut options = eframe::NativeOptions::default();
     options.viewport = egui::ViewportBuilder::default()
         .with_inner_size([800.0, 600.0])
         .with_visible(true)
         .with_active(true);
+    // Configure renderer
+    #[cfg(feature = "wgpu")]
+    if use_wgpu {
+        options.renderer = eframe::Renderer::Wgpu;
+    } else {
+        options.renderer = eframe::Renderer::Glow;
+    }
+    #[cfg(not(feature = "wgpu"))]
+    {
+        // If wgpu feature isn't available, fall back to glow
+        let _ = use_wgpu; // silence unused warning
+        options.renderer = eframe::Renderer::Glow;
+    }
 
     println!("Running eframe...");
 
