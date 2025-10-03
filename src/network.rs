@@ -42,6 +42,7 @@ use std::fs;
 
 use crate::telnet_negotiation::TelnetNegotiator;
 use crate::error::{TN5250Error};
+use crate::monitoring::{set_component_status, set_component_error, ComponentState};
 
 
 #[derive(Debug)]
@@ -440,8 +441,17 @@ impl AS400Connection {
 
     /// Connects to the AS/400 system
     pub fn connect(&mut self) -> IoResult<()> {
+        // Monitoring: mark network as starting
+        set_component_status("network", ComponentState::Starting);
         let address = format!("{}:{}", self.host, self.port);
-        let tcp = TcpStream::connect(&address)?;
+        let tcp = match TcpStream::connect(&address) {
+            Ok(s) => s,
+            Err(e) => {
+                set_component_status("network", ComponentState::Error);
+                set_component_error("network", Some(format!("TCP connect failed: {}", e)));
+                return Err(e);
+            }
+        };
         
         // SESSION MANAGEMENT: Enable TCP keepalive
         self.configure_tcp_keepalive(&tcp)?;
@@ -454,21 +464,43 @@ impl AS400Connection {
         let mut rw: DynStream;
         if self.use_tls {
             // Build TLS connector with secure certificate validation
-            let tls_config = self.build_tls_connector()?;
+            let tls_config = match self.build_tls_connector() {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TLS config creation failed: {}", e)));
+                    return Err(e);
+                }
+            };
 
             // Create TLS connection
             let server_name = match TlsServerName::try_from(self.host.clone()) {
                 Ok(name) => name,
-                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("Invalid server name: {}", e)));
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e)));
+                }
             };
-            let tcp = TcpStream::connect(&address)?;
+            let tcp = match TcpStream::connect(&address) {
+                Ok(s) => s,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TCP connect failed (TLS): {}", e)));
+                    return Err(e);
+                }
+            };
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
 
             let tls_conn = match ClientConnection::new(tls_config, server_name) {
                 Ok(conn) => conn,
-                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e))),
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TLS connection failed: {}", e)));
+                    return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e)));
+                }
             };
             rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
             // Record successful TLS connection in monitoring
@@ -484,14 +516,30 @@ impl AS400Connection {
                 success: true,
             });
         } else {
-            let tcp = TcpStream::connect(&address)?;
+            let tcp = match TcpStream::connect(&address) {
+                Ok(s) => s,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TCP connect failed: {}", e)));
+                    return Err(e);
+                }
+            };
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
             rw = Box::new(StreamType::Plain(tcp));
         }
 
-        self.perform_telnet_negotiation_rw(&mut *rw)?;
+        // Telnet negotiation lifecycle signals
+        set_component_status("telnet_negotiator", ComponentState::Starting);
+        if let Err(e) = self.perform_telnet_negotiation_rw(&mut *rw) {
+            set_component_status("telnet_negotiator", ComponentState::Error);
+            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {}", e)));
+            set_component_status("network", ComponentState::Error);
+            set_component_error("network", Some(format!("Telnet negotiation error: {}", e)));
+            return Err(e);
+        }
+        set_component_status("telnet_negotiator", ComponentState::Running);
 
         match &mut *rw {
             StreamType::Plain(t) => {
@@ -503,8 +551,11 @@ impl AS400Connection {
                 t.set_write_timeout(None)?;
             }
         }
-        self.stream = Some(Arc::new(Mutex::new(rw)));
-        self.running = true;
+    self.stream = Some(Arc::new(Mutex::new(rw)));
+    self.running = true;
+    // Monitoring: mark network as running and clear last error
+    set_component_status("network", ComponentState::Running);
+    set_component_error("network", None::<&str>);
         
         // SESSION MANAGEMENT: Initialize activity tracking
         self.update_last_activity();
@@ -606,6 +657,8 @@ impl AS400Connection {
 
     /// Connect with an explicit timeout for the initial TCP connection. Telnet negotiation still uses its own timeouts.
     pub fn connect_with_timeout(&mut self, timeout: Duration) -> IoResult<()> {
+        // Monitoring: mark network as starting
+        set_component_status("network", ComponentState::Starting);
         // Resolve the address
         let address = format!("{}:{}", self.host, self.port);
         let mut addrs_iter = address.to_socket_addrs()?;
@@ -615,7 +668,14 @@ impl AS400Connection {
         ))?;
 
         // Use connect_timeout for the initial TCP connect
-        let tcp = TcpStream::connect_timeout(&addr, timeout)?;
+        let tcp = match TcpStream::connect_timeout(&addr, timeout) {
+            Ok(s) => s,
+            Err(e) => {
+                set_component_status("network", ComponentState::Error);
+                set_component_error("network", Some(format!("TCP connect (timeout) failed: {}", e)));
+                return Err(e);
+            }
+        };
 
         // SESSION MANAGEMENT: Enable TCP keepalive
         self.configure_tcp_keepalive(&tcp)?;
@@ -628,33 +688,71 @@ impl AS400Connection {
         let mut rw: DynStream;
         if self.use_tls {
             // Build TLS connector with secure certificate validation
-            let tls_config = self.build_tls_connector()?;
+            let tls_config = match self.build_tls_connector() {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TLS config creation failed: {}", e)));
+                    return Err(e);
+                }
+            };
 
             // Create TLS connection
             let server_name = match TlsServerName::try_from(self.host.clone()) {
                 Ok(name) => name,
-                Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("Invalid server name: {}", e)));
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e)));
+                }
             };
 
-            let tcp = TcpStream::connect_timeout(&addr, timeout)?;
+            let tcp = match TcpStream::connect_timeout(&addr, timeout) {
+                Ok(s) => s,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TCP connect (TLS, timeout) failed: {}", e)));
+                    return Err(e);
+                }
+            };
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
 
 let tls_conn = match ClientConnection::new(tls_config, server_name) {
     Ok(conn) => conn,
-    Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e))),
+    Err(e) => {
+        set_component_status("network", ComponentState::Error);
+        set_component_error("network", Some(format!("TLS connection failed: {}", e)));
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e)))
+    },
 };
 rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         } else {
-            let tcp = TcpStream::connect_timeout(&addr, timeout)?;
+            let tcp = match TcpStream::connect_timeout(&addr, timeout) {
+                Ok(s) => s,
+                Err(e) => {
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some(format!("TCP connect (timeout) failed: {}", e)));
+                    return Err(e);
+                }
+            };
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
             rw = Box::new(StreamType::Plain(tcp));
         }
 
-        self.perform_telnet_negotiation_rw(&mut *rw)?;
+        // Telnet negotiation lifecycle signals
+        set_component_status("telnet_negotiator", ComponentState::Starting);
+        if let Err(e) = self.perform_telnet_negotiation_rw(&mut *rw) {
+            set_component_status("telnet_negotiator", ComponentState::Error);
+            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {}", e)));
+            set_component_status("network", ComponentState::Error);
+            set_component_error("network", Some(format!("Telnet negotiation error: {}", e)));
+            return Err(e);
+        }
+        set_component_status("telnet_negotiator", ComponentState::Running);
 
         match &mut *rw {
             StreamType::Plain(t) => {
@@ -667,8 +765,10 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
             }
         }
 
-        self.stream = Some(Arc::new(Mutex::new(rw)));
-        self.running = true;
+    self.stream = Some(Arc::new(Mutex::new(rw)));
+    self.running = true;
+    set_component_status("network", ComponentState::Running);
+    set_component_error("network", None::<&str>);
 
         // SESSION MANAGEMENT: Initialize activity tracking
         self.update_last_activity();
@@ -1151,6 +1251,11 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         });
 
         println!("SECURITY: Network connection and resources cleaned up securely");
+
+    // Monitoring: mark network and telnet negotiator as stopped
+    set_component_status("network", ComponentState::Stopped);
+    set_component_error("network", None::<&str>);
+    set_component_status("telnet_negotiator", ComponentState::Stopped);
         println!("INTEGRATION: Protocol detection state reset");
         println!("SESSION: Session tracking reset");
     }
@@ -1326,6 +1431,9 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                     // Channel disconnected - this indicates a critical connection failure
                     eprintln!("Network channel disconnected - connection lost");
                     self.running = false;
+                    // Monitoring: reflect error condition
+                    set_component_status("network", ComponentState::Error);
+                    set_component_error("network", Some("Network channel disconnected"));
                     None
                 }
             }

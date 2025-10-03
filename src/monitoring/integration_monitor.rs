@@ -7,6 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::{HashMap, VecDeque};
 use super::{HealthStatus, ComponentHealthCheck};
+use super::component_signals::{set_component_critical, set_component_status};
+use super::component_signals::{get_component_signal, is_headless};
 
 /// Integration monitoring system for component interaction validation
 #[derive(Debug)]
@@ -139,6 +141,10 @@ pub enum ComponentState {
     Restarting,
 }
 
+impl Default for ComponentState {
+    fn default() -> Self { ComponentState::Running }
+}
+
 /// Integration event types
 #[derive(Debug, Clone, PartialEq)]
 pub enum IntegrationEventType {
@@ -234,6 +240,10 @@ impl IntegrationMonitor {
                     dependencies: Vec::new(),
                     is_critical,
                 });
+
+                // Seed component signals registry with initial state and criticality
+                set_component_status(name, ComponentState::Running);
+                set_component_critical(name, is_critical);
             }
         }
     }
@@ -381,50 +391,23 @@ impl IntegrationMonitor {
 
     /// Check if a specific component is healthy
     fn check_component_health(&self, component_name: &str) -> bool {
-        // This is a simplified health check
-        // In a real implementation, you would check actual component state
+        // First, consult the component signals registry for a real state
+        if let Some(sig) = get_component_signal(component_name) {
+            return matches!(sig.state, ComponentState::Running);
+        }
+
+        // If no explicit signal, apply environment-aware defaults
+        // In headless mode, some non-essential components should not cause failures
+        let headless = is_headless();
 
         match component_name {
-            "network" => {
-                // Check if network connections are working
-                // For demonstration, assume it's healthy
-                true
-            }
-            "controller" => {
-                // Check controller state consistency
-                // For demonstration, assume it's healthy
-                true
-            }
-            "terminal" => {
-                // Check terminal buffer state
-                // For demonstration, assume it's healthy
-                true
-            }
-            "protocol" => {
-                // Check protocol state
-                // For demonstration, assume it's healthy
-                true
-            }
-            "field_manager" => {
-                // Field manager is a core component; assume healthy in simplified check
-                true
-            }
-            "telnet_negotiator" => {
-                // Telnet negotiator assumed healthy in simplified check
-                true
-            }
-            "ansi_processor" => {
-                // ANSI processor non-critical; assume healthy unless explicitly failing
-                true
-            }
-            "keyboard" => {
-                // Keyboard handler assumed healthy in simplified check
-                true
-            }
-            _ => {
-                // Unknown component, assume unhealthy
-                false
-            }
+            // Core components default to healthy unless signaled otherwise
+            "network" | "controller" | "terminal" | "protocol" | "field_manager" | "telnet_negotiator" => true,
+
+            // Non-essential in headless environments: treat as healthy when TN5250R_HEADLESS=1
+            "ansi_processor" | "keyboard" => headless || true, // still healthy by default
+
+            _ => false,
         }
     }
 

@@ -385,6 +385,7 @@ mod security_monitor;
 mod integration_monitor;
 mod quality_assurance;
 mod alerting_system;
+mod component_signals;
 
 // Re-export the submodules for external use
 pub use runtime_validator::*;
@@ -393,6 +394,7 @@ pub use security_monitor::*;
 pub use integration_monitor::*;
 pub use quality_assurance::*;
 pub use alerting_system::*;
+pub use component_signals::*;
 
 /// Initialize the monitoring system
 /// This function should be called early in the application startup
@@ -401,6 +403,9 @@ pub fn init_monitoring() {
 
     // Start continuous monitoring with 30-second intervals
     monitoring.start_continuous_monitoring(30);
+
+    // Mark system as running in component signals
+    set_component_status("system", integration_monitor::ComponentState::Running);
 
     println!("MONITORING: Comprehensive monitoring system initialized");
 }
@@ -422,6 +427,9 @@ pub fn shutdown_monitoring() {
         report.recent_alerts.len());
 
     println!("MONITORING: Monitoring system shutdown complete");
+
+    // Mark system as stopped in component signals
+    set_component_status("system", integration_monitor::ComponentState::Stopped);
 }
 
 #[cfg(test)]
