@@ -71,7 +71,7 @@ pub fn test_field_detection() {
         let initial_active = field_manager.get_active_field_index();
         println!("Initial active field: {:?}", initial_active);
         
-        field_manager.next_field();
+        let _ = field_manager.next_field();
         let after_tab = field_manager.get_active_field_index();
         println!("After Tab: {:?}", after_tab);
         

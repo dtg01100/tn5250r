@@ -11,7 +11,7 @@ documentation = "https://github.com/your-username/tn5250r#readme"
 
 [dependencies]
 egui = "0.32"
-eframe = { version = "0.27", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
+eframe = { version = "0.32", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -32,7 +32,7 @@ futures = "0.3"
 
 [dev-dependencies]
 criterion = "0.5"
-egui_kittest = { version = "0.32.3", features = ["eframe", "snapshot"] }
+egui_kittest = { version = "0.32", features = ["eframe", "snapshot"] }
 proptest = "1.0"
 rand = "0.8"
 

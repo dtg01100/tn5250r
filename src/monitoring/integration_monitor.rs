@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::{HashMap, VecDeque};
-use super::{HealthStatus, ComponentHealthCheck, ComponentHealth};
+use super::{HealthStatus, ComponentHealthCheck};
 
 /// Integration monitoring system for component interaction validation
 #[derive(Debug)]

@@ -185,7 +185,7 @@ async fn main() {
                 if let Ok(mut cfg) = app.config.lock() { cfg.set_property("connection.tls.caBundlePath", path); }
                 let _ = config::save_shared_config(&app.config);
             }
-            Box::new(app)
+            Ok(Box::new(app))
         }),
     )
     .expect("Failed to run TN5250R application");

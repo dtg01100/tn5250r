@@ -3,10 +3,10 @@
 //! This module provides comprehensive performance tracking, bottleneck detection,
 //! and performance regression analysis for production operation.
 
-use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use std::collections::{HashMap, VecDeque};
-use super::{HealthStatus, ComponentHealthCheck, ComponentHealth};
+use super::{HealthStatus, ComponentHealthCheck};
 
 /// Enhanced performance monitoring system
 #[derive(Debug)]

@@ -214,7 +214,7 @@ impl BufferPool {
         }
 
         // No buffer available, create new one
-        let mut buffer = Vec::with_capacity(required_size.max(64));
+        let buffer = Vec::with_capacity(required_size.max(64));
         if let Ok(mut metrics) = self.pool_metrics.try_lock() {
             metrics.record_allocation(buffer.capacity());
         }
@@ -250,12 +250,18 @@ impl BufferPool {
 
     /// Get current buffer pool metrics
     pub fn get_metrics(&self) -> BufferPoolMetrics {
-        self.pool_metrics.lock().unwrap().clone()
+        self.pool_metrics.lock().unwrap_or_else(|poisoned| {
+            eprintln!("SECURITY: BufferPool metrics mutex poisoned - recovering");
+            poisoned.into_inner()
+        }).clone()
     }
 
     /// Reset metrics for fresh benchmarking
     pub fn reset_metrics(&self) {
-        *self.pool_metrics.lock().unwrap() = BufferPoolMetrics::new();
+        *self.pool_metrics.lock().unwrap_or_else(|poisoned| {
+            eprintln!("SECURITY: BufferPool metrics mutex poisoned - recovering");
+            poisoned.into_inner()
+        }) = BufferPoolMetrics::new();
     }
 }
 
@@ -1057,34 +1063,6 @@ impl TelnetNegotiator {
         ]);
     }
     
-    /// SECURITY: Validate terminal type data to prevent command injection
-    fn validate_terminal_type_data(&self, data: &[u8]) -> bool {
-        // Validate length constraints
-        if data.is_empty() || data.len() > 128 {
-            return false;
-        }
-
-        // Only allow printable ASCII characters, digits, hyphens, and common terminal type chars
-        for &byte in data {
-            if !((byte >= 32 && byte <= 126) || // Printable ASCII
-                 byte == b'-' || byte == b'/' || byte == b'.' ||
-                 byte >= b'0' && byte <= b'9') {
-                return false;
-            }
-        }
-
-        // Check for dangerous patterns
-        let data_str = String::from_utf8_lossy(data).to_lowercase();
-        let dangerous_patterns = ["<script", "javascript:", "data:", "vbscript:", ";", "|", "&", "`", "$("];
-        for pattern in &dangerous_patterns {
-            if data_str.contains(pattern) {
-                return false;
-            }
-        }
-
-        true
-    }
-
     /// SECURITY: Validate environment negotiation data
     /// ENHANCED: More permissive validation for AS/400 compatibility
     fn validate_environment_data(&self, data: &[u8]) -> bool {

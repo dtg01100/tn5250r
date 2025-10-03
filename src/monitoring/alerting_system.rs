@@ -5,10 +5,9 @@
 
 use uuid::Uuid;
 
-use std::sync::{Arc, atomic::{AtomicU64, Ordering}};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::{HashMap, VecDeque};
-use super::{HealthStatus, ComponentHealth};
 
 /// Alerting system for critical issue notification
 pub struct AlertingSystem {
@@ -165,7 +164,7 @@ impl AlertHandler for LoggingAlertHandler {
 impl AlertingSystem {
     /// Create a new alerting system
     pub fn new() -> Self {
-        let mut system = Self {
+        let system = Self {
             metrics: AlertMetrics {
                 total_alerts: AtomicU64::new(0),
                 critical_alerts: AtomicU64::new(0),
@@ -313,7 +312,7 @@ impl AlertingSystem {
     /// Acknowledge an alert
     pub fn acknowledge_alert(&self, alert_id: &str) -> Result<(), String> {
         if let Ok(mut active) = self.active_alerts.lock() {
-            if let Some(mut alert) = active.get_mut(alert_id) {
+            if let Some(alert) = active.get_mut(alert_id) {
                 if !alert.acknowledged {
                     alert.acknowledged = true;
                     alert.acknowledged_at = Some(Instant::now());
@@ -335,7 +334,7 @@ impl AlertingSystem {
     /// Resolve an alert
     pub fn resolve_alert(&self, alert_id: &str) -> Result<(), String> {
         if let Ok(mut active) = self.active_alerts.lock() {
-            if let Some(mut alert) = active.get_mut(alert_id) {
+            if let Some(alert) = active.get_mut(alert_id) {
                 if !alert.resolved {
                     alert.resolved = true;
                     alert.resolved_at = Some(Instant::now());
@@ -421,7 +420,7 @@ impl AlertingSystem {
     /// Mark an alert as false positive
     pub fn mark_false_positive(&self, alert_id: &str) -> Result<(), String> {
         if let Ok(mut active) = self.active_alerts.lock() {
-            if let Some(mut alert) = active.get_mut(alert_id) {
+            if let Some(alert) = active.get_mut(alert_id) {
                 alert.resolved = true;
                 alert.resolved_at = Some(Instant::now());
 

@@ -6,7 +6,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::{HashMap, VecDeque};
-use super::{HealthStatus, ComponentHealthCheck, ComponentHealth};
+use super::{HealthStatus, ComponentHealthCheck};
 
 /// Security monitoring system for threat detection and security validation
 pub struct SecurityMonitor {
@@ -161,12 +161,6 @@ struct ThreatPattern {
     name: String,
     /// Pattern description
     description: String,
-    /// Pattern matching function
-    matcher: Box<dyn Fn(&[u8]) -> bool + Send + Sync>,
-    /// Pattern severity
-    severity: SecurityEventSeverity,
-    /// Mitigation action (if any)
-    mitigation: Option<String>,
 }
 
 impl SecurityMonitor {
@@ -200,52 +194,24 @@ impl SecurityMonitor {
         self.threat_patterns.push(ThreatPattern {
             name: "buffer_overflow".to_string(),
             description: "Potential buffer overflow attempt".to_string(),
-            matcher: Box::new(|data: &[u8]| {
-                // Look for excessively long data packets
-                data.len() > 65535 || data.iter().any(|&b| b == 0 && data.len() > 1000)
-            }),
-            severity: SecurityEventSeverity::High,
-            mitigation: Some("Drop packet and log event".to_string()),
         });
 
         // Injection attack patterns
         self.threat_patterns.push(ThreatPattern {
             name: "injection_attempt".to_string(),
             description: "Potential injection attack".to_string(),
-            matcher: Box::new(|data: &[u8]| {
-                // Look for suspicious patterns that might indicate injection
-                let data_str = String::from_utf8_lossy(data);
-                data_str.contains("';") || data_str.contains(" OR ") || data_str.contains(" UNION ")
-            }),
-            severity: SecurityEventSeverity::High,
-            mitigation: Some("Sanitize input and validate format".to_string()),
         });
 
         // Protocol violation patterns
         self.threat_patterns.push(ThreatPattern {
             name: "protocol_violation".to_string(),
             description: "5250 protocol violation".to_string(),
-            matcher: Box::new(|data: &[u8]| {
-                // Look for invalid 5250 protocol sequences
-                if data.is_empty() { return false; }
-                // Check for invalid command codes or malformed sequences
-                data.iter().any(|&b| b > 0xFF) || (data.len() > 1 && data[0] == 0x04 && data[1] == 0x00)
-            }),
-            severity: SecurityEventSeverity::Medium,
-            mitigation: Some("Reset protocol state and re-negotiate".to_string()),
         });
 
         // Suspicious network patterns
         self.threat_patterns.push(ThreatPattern {
             name: "suspicious_network".to_string(),
             description: "Suspicious network traffic pattern".to_string(),
-            matcher: Box::new(|data: &[u8]| {
-                // Look for patterns that might indicate scanning or attacks
-                let control_chars = data.iter().filter(|&&b| b < 32 && b != 9 && b != 10 && b != 13).count();
-                control_chars as f32 / data.len() as f32 > 0.3
-            }),
-            severity: SecurityEventSeverity::Medium,
-            mitigation: Some("Monitor connection and consider blocking".to_string()),
         });
     }
 

@@ -74,7 +74,7 @@ impl TN5250RApp {
                             char_pos,
                             egui::vec2(char_width, line_height)
                         );
-                        ui.painter().rect_filled(char_rect, egui::Rounding::ZERO, bg_color);
+                        ui.painter().rect_filled(char_rect, egui::CornerRadius::ZERO, bg_color);
                     }
 
                     // Draw the character
@@ -104,7 +104,7 @@ impl TN5250RApp {
                     cursor_char_pos,
                     egui::vec2(char_width, line_height)
                 );
-                ui.painter().rect_filled(cursor_rect, egui::Rounding::ZERO, egui::Color32::GREEN);
+                ui.painter().rect_filled(cursor_rect, egui::CornerRadius::ZERO, egui::Color32::GREEN);
 
                 // Draw a space character at cursor
                 ui.painter().text(

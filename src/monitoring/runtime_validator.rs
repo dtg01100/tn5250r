@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use std::thread;
-use super::{HealthStatus, ComponentHealthCheck, ComponentHealth};
+use super::{HealthStatus, ComponentHealthCheck};
 
 /// Runtime validation system for continuous health monitoring
 #[derive(Debug)]

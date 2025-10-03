@@ -7,9 +7,9 @@
 /// Source: lib5250/codes5250.h from the tn5250 project
 /// Copyright (C) 2000-2008 Michael Madore
 /// Miscellaneous constants
-pub const ESC: u8 = 0x04;
-pub const SOHLEN: usize = 7;
-pub const ERR_ROW: u8 = 25;
+
+
+
 
 /// 5250 Protocol Commands
 pub const CMD_CLEAR_UNIT: u8 = 0x40;
@@ -40,12 +40,12 @@ pub const CMD_WRITE_STRUCTURED_FIELD: u8 = 0xF3;
 pub const SOH: u8 = 0x01;  // Start of header
 pub const RA: u8 = 0x02;   // Repeat to address
 pub const EA: u8 = 0x03;   // Erase to Address on 5494 (FIXME: not implemented)
-pub const TD: u8 = 0x10;   // Transparent Data on 5494
+
 pub const SBA: u8 = 0x11;  // Set buffer address
-pub const WEA: u8 = 0x12;  // Write Extended Attribute on 5494 (FIXME: not implemented)
+
 pub const IC: u8 = 0x13;   // Insert cursor
-pub const MC: u8 = 0x14;   // Move Cursor on 5494
-pub const WDSF: u8 = 0x15; // Write to Display Structured Field on 5494 (FIXME: not implemented)
+
+
 pub const SF: u8 = 0x1D;   // Start of field
 
 /// Write to display structured field types
@@ -292,12 +292,8 @@ pub enum OrderCode {
     StartOfHeader = SOH as isize,
     RepeatToAddress = RA as isize,
     EraseToAddress = EA as isize,
-    TransparentData = TD as isize,
     SetBufferAddress = SBA as isize,
-    WriteExtendedAttribute = WEA as isize,
     InsertCursor = IC as isize,
-    MoveCursor = MC as isize,
-    WriteDisplayStructuredField = WDSF as isize,
     StartOfField = SF as isize,
 }
 
@@ -308,12 +304,8 @@ impl OrderCode {
             SOH => Some(Self::StartOfHeader),
             RA => Some(Self::RepeatToAddress),
             EA => Some(Self::EraseToAddress),
-            TD => Some(Self::TransparentData),
             SBA => Some(Self::SetBufferAddress),
-            WEA => Some(Self::WriteExtendedAttribute),
             IC => Some(Self::InsertCursor),
-            MC => Some(Self::MoveCursor),
-            WDSF => Some(Self::WriteDisplayStructuredField),
             SF => Some(Self::StartOfField),
             _ => None,
         }

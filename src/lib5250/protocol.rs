@@ -398,12 +398,7 @@ impl ProtocolProcessor {
         }
     }
 
-    // Process Transfer Data command
-    fn process_transfer_data(&mut self, data: &[u8]) -> Result<(), String> {
-        // Add transfer data to input buffer
-        self.input_buffer.extend_from_slice(data);
-        Ok(())
-    }
+
 
     // Create a response for Read Buffer command
     fn create_read_buffer_response(&mut self) -> Packet {
@@ -436,28 +431,9 @@ impl ProtocolProcessor {
         Packet::new(CommandCode::ReadImmediate, self.sequence_number, Vec::new())
     }
 
-    // Create a response for Read Structured Field command
-    fn create_read_structured_field_response(&mut self) -> Packet {
-        // Return structured field data (simplified implementation)
-        let response_data = Vec::new();
-        self.sequence_number = self.sequence_number.wrapping_add(1);
-    Packet::new(CommandCode::WriteStructuredField, self.sequence_number, response_data)
-    }
 
-    // Create device identification response (simplified)
-    fn create_device_identification(&mut self) -> Packet {
-        // Device identification response according to RFC 2877
-        let mut id_data = Vec::new();
 
-        // Add configurable device type information
-        id_data.extend_from_slice(self.device_id.as_bytes());
 
-        // Add null terminator
-        id_data.push(0x00);
-
-        self.sequence_number = self.sequence_number.wrapping_add(1);
-    Packet::new(CommandCode::WriteToDisplay, self.sequence_number, id_data)
-    }
 
     // Set the device identification string
     pub fn set_device_id(&mut self, device_id: String) {
@@ -488,207 +464,7 @@ impl ProtocolProcessor {
 
 
 
-    // INTEGRATION: Complete RFC 2877/4777 structured field processing methods
-    /// Process Erase/Reset structured field with flag support
-    fn process_erase_reset(&mut self, flags: u8, data: &[u8]) -> Result<(), String> {
-        // Flags indicate reset type (RFC 2877 Section 6.1)
-        match flags {
-            0x00 => {
-                // Clear screen to nulls
-                println!("INTEGRATION: Erase/Reset - Clear screen to nulls");
-                // TODO: Implement screen clearing to nulls
-            },
-            0x01 => {
-                // Clear screen to blanks
-                println!("INTEGRATION: Erase/Reset - Clear screen to blanks");
-                // TODO: Implement screen clearing to blanks
-            },
-            0x02 => {
-                // Clear input fields only
-                println!("INTEGRATION: Erase/Reset - Clear input fields only");
-                // TODO: Implement selective field clearing
-            },
-            _ => {
-                println!("INTEGRATION: Erase/Reset - Unknown flags: 0x{:02x}", flags);
-            }
-        }
-        Ok(())
-    }
 
-    /// Process ReadText structured field (RFC 2877 Section 6.2)
-    fn process_read_text(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("ReadText structured field requires data".to_string());
-        }
-
-        let text_type = data[0];
-        match text_type {
-            0x00 => println!("INTEGRATION: ReadText - Read all text"),
-            0x01 => println!("INTEGRATION: ReadText - Read modified text only"),
-            0x02 => println!("INTEGRATION: ReadText - Read field text"),
-            _ => println!("INTEGRATION: ReadText - Unknown type: 0x{:02x}", text_type),
-        }
-
-        // TODO: Implement actual text reading logic
-        Ok(())
-    }
-
-    /// Process DefineExtendedAttribute structured field
-    fn process_define_extended_attribute(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.len() < 2 {
-            return Err("DefineExtendedAttribute requires at least 2 bytes".to_string());
-        }
-
-        let attr_type = data[0];
-        let attr_value = data[1];
-        println!("INTEGRATION: DefineExtendedAttribute - Type: 0x{:02x}, Value: 0x{:02x}", attr_type, attr_value);
-
-        // TODO: Implement extended attribute definition
-        Ok(())
-    }
-
-    /// Process DefineNamedLogicalUnit structured field
-    fn process_define_named_logical_unit(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("DefineNamedLogicalUnit requires data".to_string());
-        }
-
-        let lu_name_len = data[0] as usize;
-        if data.len() < 1 + lu_name_len {
-            return Err("Insufficient data for LU name".to_string());
-        }
-
-        let lu_name = &data[1..1 + lu_name_len];
-        let lu_name_str = String::from_utf8_lossy(lu_name);
-        println!("INTEGRATION: DefineNamedLogicalUnit - Name: {}", lu_name_str);
-
-        // TODO: Implement LU definition
-        Ok(())
-    }
-
-    /// Process DefinePendingOperations structured field
-    fn process_define_pending_operations(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("DefinePendingOperations requires data".to_string());
-        }
-
-        let operation_count = data[0];
-        println!("INTEGRATION: DefinePendingOperations - Count: {}", operation_count);
-
-        // TODO: Implement pending operations definition
-        Ok(())
-    }
-
-    /// Process DisableCommandRecognition structured field
-    fn process_disable_command_recognition(&mut self, data: &[u8]) -> Result<(), String> {
-        println!("INTEGRATION: DisableCommandRecognition");
-        // TODO: Implement command recognition disabling
-        Ok(())
-    }
-
-    /// Process EnableCommandRecognition structured field
-    fn process_enable_command_recognition(&mut self, data: &[u8]) -> Result<(), String> {
-        println!("INTEGRATION: EnableCommandRecognition");
-        // TODO: Implement command recognition enabling
-        Ok(())
-    }
-
-    /// Process RequestMinimumTimestampInterval structured field
-    fn process_request_minimum_timestamp_interval(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.len() < 2 {
-            return Err("RequestMinimumTimestampInterval requires 2 bytes".to_string());
-        }
-
-        let interval = u16::from_be_bytes([data[0], data[1]]);
-        println!("INTEGRATION: RequestMinimumTimestampInterval - {} ms", interval);
-
-        // TODO: Implement timestamp interval setting
-        Ok(())
-    }
-
-    /// Process QueryCommand structured field (RFC 2877 Section 6.3)
-    fn process_query_command(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("QueryCommand requires data".to_string());
-        }
-
-        let query_type = data[0];
-        match query_type {
-            0x00 => println!("INTEGRATION: QueryCommand - Query device capabilities"),
-            0x01 => println!("INTEGRATION: QueryCommand - Query supported structured fields"),
-            0x02 => println!("INTEGRATION: QueryCommand - Query character sets"),
-            _ => println!("INTEGRATION: QueryCommand - Unknown type: 0x{:02x}", query_type),
-        }
-
-        // TODO: Generate appropriate query response
-        Ok(())
-    }
-
-    /// Process SetReplyMode structured field (RFC 2877 Section 6.4)
-    fn process_set_reply_mode(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("SetReplyMode requires data".to_string());
-        }
-
-        let reply_mode = data[0];
-        match reply_mode {
-            0x00 => println!("INTEGRATION: SetReplyMode - Character mode"),
-            0x01 => println!("INTEGRATION: SetReplyMode - Field mode"),
-            0x02 => println!("INTEGRATION: SetReplyMode - Extended field mode"),
-            _ => println!("INTEGRATION: SetReplyMode - Unknown mode: 0x{:02x}", reply_mode),
-        }
-
-        // TODO: Implement reply mode setting
-        Ok(())
-    }
-
-    /// Process DefineRollDirection structured field
-    fn process_define_roll_direction(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("DefineRollDirection requires data".to_string());
-        }
-
-        let direction = data[0];
-        match direction {
-            0x00 => println!("INTEGRATION: DefineRollDirection - Roll up"),
-            0x01 => println!("INTEGRATION: DefineRollDirection - Roll down"),
-            _ => println!("INTEGRATION: DefineRollDirection - Unknown direction: 0x{:02x}", direction),
-        }
-
-        // TODO: Implement roll direction setting
-        Ok(())
-    }
-
-    /// Process SetMonitorMode structured field
-    fn process_set_monitor_mode(&mut self, data: &[u8]) -> Result<(), String> {
-        if data.is_empty() {
-            return Err("SetMonitorMode requires data".to_string());
-        }
-
-        let monitor_mode = data[0];
-        match monitor_mode {
-            0x00 => println!("INTEGRATION: SetMonitorMode - Disabled"),
-            0x01 => println!("INTEGRATION: SetMonitorMode - Enabled"),
-            _ => println!("INTEGRATION: SetMonitorMode - Unknown mode: 0x{:02x}", monitor_mode),
-        }
-
-        // TODO: Implement monitor mode setting
-        Ok(())
-    }
-
-    /// Process CancelRecovery structured field
-    fn process_cancel_recovery(&mut self, data: &[u8]) -> Result<(), String> {
-        println!("INTEGRATION: CancelRecovery");
-        // TODO: Implement recovery cancellation
-        Ok(())
-    }
-
-    // Cancel pending operations
-    fn cancel_pending_operations(&mut self) {
-        // Clear any pending responses
-        self.pending_responses.clear();
-        println!("Cancelled pending operations");
-    }
 
     // Connect to a host
     pub fn connect(&mut self) {
@@ -931,51 +707,6 @@ impl ProtocolParser {
         Ok(())
     }
 
-    fn parse_read_immediate(&mut self) -> Result<(), String> {
-        self.cursor += 1; // Advance past command
-        
-        // ReadImmediate typically includes a control byte specifying what to read
-        if self.cursor < self.buffer.len() {
-            let control_byte = self.buffer[self.cursor];
-            match control_byte {
-                0x00 => println!("5250: Read immediate - keyboard status"),
-                0x01 => println!("5250: Read immediate - error status"),
-                0x02 => println!("5250: Read immediate - cursor position"),
-                _ => {
-                    // Not a control byte, revert cursor
-                    return Ok(());
-                }
-            }
-            self.cursor += 1;
-        }
-        
-        println!("5250: Read immediate command processed");
-        Ok(())
-    }
-
-    fn parse_cancel_invite(&mut self) -> Result<(), String> {
-        self.cursor += 1; // Advance past command
-        
-        // CancelInvite cancels any pending input operations
-        // May include a reason code
-        if self.cursor < self.buffer.len() {
-            let reason_code = self.buffer[self.cursor];
-            match reason_code {
-                0x00 => println!("5250: Cancel invite - normal cancel"),
-                0x01 => println!("5250: Cancel invite - error condition"),
-                0x02 => println!("5250: Cancel invite - timeout"),
-                _ => {
-                    // Not a reason code, revert
-                    return Ok(());
-                }
-            }
-            self.cursor += 1;
-        }
-        
-        println!("5250: Cancel invite command processed");
-        Ok(())
-    }
-
     fn parse_write_structured_field(&mut self) -> Result<(), String> {
         self.cursor += 1; // Advance past command
         if self.cursor + 2 >= self.buffer.len() {
@@ -1144,93 +875,9 @@ impl ProtocolParser {
         Ok(())
     }
 
-    fn parse_read_modified(&mut self) -> Result<(), String> {
-        self.cursor += 1; // Advance past command
-        
-        // ReadModified typically includes control information
-        if self.cursor < self.buffer.len() {
-            let control_byte = self.buffer[self.cursor];
-            // Bit 0: Include field attributes
-            // Bit 1: Include protected fields
-            // Bit 2: Include hidden fields
-            let include_attributes = (control_byte & 0x01) != 0;
-            let include_protected = (control_byte & 0x02) != 0;
-            let include_hidden = (control_byte & 0x04) != 0;
-            
-            println!("5250: Read modified - Attributes: {}, Protected: {}, Hidden: {}", 
-                     include_attributes, include_protected, include_hidden);
-            self.cursor += 1;
-        }
-        
-        println!("5250: Read modified command processed");
-        Ok(())
-    }
 
-    fn parse_read_modified_all(&mut self) -> Result<(), String> {
-        self.cursor += 1; // Advance past command
-        
-        // ReadModifiedAll reads all modified fields with full context
-        if self.cursor < self.buffer.len() {
-            let format_control = self.buffer[self.cursor];
-            match format_control {
-                0x00 => println!("5250: Read modified all - standard format"),
-                0x01 => println!("5250: Read modified all - compressed format"),
-                0x02 => println!("5250: Read modified all - extended format"),
-                _ => {
-                    // Not a format control byte
-                    return Ok(());
-                }
-            }
-            self.cursor += 1;
-        }
-        
-        println!("5250: Read modified all command processed");
-        Ok(())
-    }
 
-    fn parse_read_structured_field(&mut self) -> Result<(), String> {
-        self.cursor += 1; // Advance past command
-        
-        // ReadStructuredField may specify which structured fields to return
-        if self.cursor < self.buffer.len() {
-            let sf_type = self.buffer[self.cursor];
-            match sf_type {
-                0x81 => println!("5250: Read structured field - query response"),
-                0x88 => println!("5250: Read structured field - device capabilities"),
-                0x89 => println!("5250: Read structured field - supported functions"),
-                _ => {
-                    // Not a structured field type specifier
-                    return Ok(());
-                }
-            }
-            self.cursor += 1;
-        }
-        
-        println!("5250: Read structured field command processed");
-        Ok(())
-    }
 
-    fn parse_write_to_display_and_identify(&mut self) -> Result<(), String> {
-        println!("5250: Write to display and identify command");
-        // This command combines WriteToDisplay with device identification
-        // First byte after command is still WCC (Write Control Character)
-        self.parse_write_to_display()?;
-        
-        // The identify part is typically handled in the response,
-        // but may include identification parameters in the command
-        println!("5250: Device identification requested");
-        Ok(())
-    }
-
-    fn parse_read_buffer_and_identify(&mut self) -> Result<(), String> {
-        println!("5250: Read buffer and identify command");
-        // This command combines ReadBuffer with device identification
-        self.parse_read_buffer()?;
-        
-        // The identify part requests device information in the response
-        println!("5250: Device identification requested with buffer read");
-        Ok(())
-    }
 }
 
 // Remove circular dependency by making parse_5250_stream accept a trait instead
@@ -1329,7 +976,7 @@ impl ProtocolParser {
                     self.cursor += 2;
                 },
                 _ => { // Regular data byte
-                    let ch = ebcdic_to_ascii(byte);
+                    let _ch = ebcdic_to_ascii(byte);
                     // Write character to screen through state
                     // This is simplified - real implementation would track cursor position
                 },
@@ -1347,9 +994,7 @@ impl ProtocolParser {
         Ok(())
     }
 
-    fn parse_cancel_invite_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
-        Ok(())
-    }
+
 
     fn parse_write_structured_field_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
         if self.cursor + 2 >= self.buffer.len() {
@@ -1392,15 +1037,9 @@ impl ProtocolParser {
         Ok(())
     }
 
-    fn parse_read_structured_field_with_state_trait<T: ProtocolState>(&mut self, _state: &mut T) -> Result<(), String> {
-        Ok(())
-    }
 
-    fn parse_write_to_display_and_identify_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
-        self.parse_write_to_display_with_state_trait(state)
-    }
 
-    fn parse_read_buffer_and_identify_with_state_trait<T: ProtocolState>(&mut self, state: &mut T) -> Result<(), String> {
-        self.parse_read_buffer_with_state_trait(state)
-    }
+
+
+
 }

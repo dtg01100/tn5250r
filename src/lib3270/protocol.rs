@@ -30,9 +30,6 @@ enum ProcessorState {
     
     /// Processing a command
     Processing,
-    
-    /// Error state
-    Error(String),
 }
 
 impl ProtocolProcessor3270 {
@@ -278,7 +275,7 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Write, Erase/Write, or Erase/Write Alternate command
-    fn process_write(&mut self, display: &mut Display3270, erase: bool, alternate: bool) -> Result<(), String> {
+    fn process_write(&mut self, display: &mut Display3270, erase: bool, _alternate: bool) -> Result<(), String> {
         // KEYBOARD LOCK STATE MACHINE: Lock keyboard at start of Write command
         // The keyboard will remain locked until WCC_RESTORE bit unlocks it
         display.lock_keyboard();
@@ -423,13 +420,13 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Set Attribute (SA) order
-    fn process_set_attribute(&mut self, display: &mut Display3270) -> Result<(), String> {
+    fn process_set_attribute(&mut self, _display: &mut Display3270) -> Result<(), String> {
         if self.pos + 1 >= self.data.len() {
             return Err("Insufficient data for SA order".to_string());
         }
         
-        let attr_type = self.data[self.pos];
-        let attr_value = self.data[self.pos + 1];
+        let _attr_type = self.data[self.pos];
+        let _attr_value = self.data[self.pos + 1];
         self.pos += 2;
         
         // TODO: Apply attribute to current position
@@ -439,7 +436,7 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Modify Field (MF) order
-    fn process_modify_field(&mut self, display: &mut Display3270) -> Result<(), String> {
+    fn process_modify_field(&mut self, _display: &mut Display3270) -> Result<(), String> {
         if self.pos >= self.data.len() {
             return Err("Missing MF count byte".to_string());
         }
@@ -458,7 +455,7 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Insert Cursor (IC) order
-    fn process_insert_cursor(&mut self, display: &mut Display3270) -> Result<(), String> {
+    fn process_insert_cursor(&mut self, _display: &mut Display3270) -> Result<(), String> {
         // IC order marks where the cursor should be positioned after the write
         // The actual cursor position is set at the current location
         // For now, we just note this position
@@ -521,7 +518,7 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Write Structured Field command
-    fn process_write_structured_field(&mut self, display: &mut Display3270) -> Result<(), String> {
+    fn process_write_structured_field(&mut self, _display: &mut Display3270) -> Result<(), String> {
         // TODO: Implement structured field processing
         // Structured fields are used for advanced features like:
         // - Query replies

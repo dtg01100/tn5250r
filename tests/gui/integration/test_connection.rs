@@ -1,6 +1,6 @@
 use std::time::Duration;
 use crate::components::test_harness::TN5250RHarness;
-use crate::integration::mock_network::{MockAS400Connection, MockScenario};
+use super::mock_network::{MockAS400Connection, MockScenario};
 
 #[cfg(test)]
 mod tests {

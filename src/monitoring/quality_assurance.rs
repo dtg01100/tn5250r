@@ -4,9 +4,8 @@
 //! and quality metrics for production quality assurance.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::collections::{HashMap, VecDeque};
-use super::{HealthStatus, ComponentHealthCheck, ComponentHealth};
 
 /// Quality assurance system for automated validation and testing
 pub struct QualityAssurance {
@@ -425,7 +424,7 @@ impl QualityAssurance {
         for test_case in &suite.test_cases {
             let start_time = Instant::now();
             let result = (test_case.test_fn)();
-            let duration = start_time.elapsed().as_micros() as u64;
+            let _duration = start_time.elapsed().as_micros() as u64;
 
             if result.passed {
                 passed += 1;

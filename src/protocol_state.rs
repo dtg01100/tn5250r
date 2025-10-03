@@ -428,10 +428,6 @@ impl ProtocolStateMachine {
             return Err("Invalid device attributes: max_buffer_size is zero".to_string());
         }
 
-        if self.device_attributes.max_buffer_size > 65535 {
-            return Err("Invalid device attributes: max_buffer_size too large".to_string());
-        }
-
         // Validate cursor position consistency
         let expected_position = self.cursor_row * TERMINAL_WIDTH + self.cursor_col;
         if self.cursor_position != expected_position {

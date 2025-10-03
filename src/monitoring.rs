@@ -216,7 +216,10 @@ impl MonitoringSystem {
 
         // Update system health status
         {
-            let mut health = self.health_status.lock().unwrap();
+            let mut health = self.health_status.lock().unwrap_or_else(|poisoned| {
+                eprintln!("SECURITY: Health status mutex poisoned - recovering");
+                poisoned.into_inner()
+            });
             health.status = overall_status.clone();
             health.last_check = Instant::now();
 
@@ -267,7 +270,10 @@ impl MonitoringSystem {
 
     /// Generate comprehensive monitoring report
     pub fn generate_report(&self) -> MonitoringReport {
-        let health = self.health_status.lock().unwrap();
+        let health = self.health_status.lock().unwrap_or_else(|poisoned| {
+            eprintln!("SECURITY: Health status mutex poisoned - recovering");
+            poisoned.into_inner()
+        });
 
         MonitoringReport {
             timestamp: Instant::now(),

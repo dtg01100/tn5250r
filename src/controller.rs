@@ -676,16 +676,7 @@ impl TerminalController {
         Ok(())
     }
 
-    /// Detect if data contains ANSI escape sequences
-    fn contains_ansi_sequences(&self, data: &[u8]) -> bool {
-        // Look for ESC [ sequences (CSI - Control Sequence Introducer)
-        for i in 0..data.len().saturating_sub(1) {
-            if data[i] == 0x1B && data[i + 1] == b'[' {
-                return true;
-            }
-        }
-        false
-    }
+
 
     /// Check if negotiation is complete and request login screen if needed
     pub fn check_and_request_login_screen(&mut self) -> Result<(), String> {
@@ -1079,7 +1070,7 @@ impl AsyncTerminalController {
         host: String,
         port: u16,
         tls_override: Option<bool>,
-        insecure: Option<bool>,
+        _insecure: Option<bool>,
         ca_bundle_path: Option<String>,
     ) -> Result<(), String> {
         // If already processing, restart cleanly
@@ -1110,9 +1101,6 @@ impl AsyncTerminalController {
                 let mut conn = network::AS400Connection::new(host.clone(), port);
                 if let Some(tls) = tls_override {
                     conn.set_tls(tls);
-                }
-                if let Some(insec) = insecure {
-                    conn.set_tls_insecure(insec);
                 }
                 if let Some(ref path) = ca_bundle_path {
                     conn.set_tls_ca_bundle_path(path.clone());

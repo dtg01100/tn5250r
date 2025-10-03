@@ -1,8 +1,8 @@
-mod components;
-mod integration;
+pub mod components;
+pub mod integration;
 // mod mocks; // TODO: Create mocks module
 // mod utils; // TODO: Create utils module
-mod visual;
+pub mod visual;
 
 use std::env;
 

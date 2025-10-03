@@ -5,23 +5,23 @@
 use eframe::egui;
 use crate::app_state::TN5250RApp;
 use crate::config;
-use crate::monitoring;
-use crate::ui::function_keys;
+
+
 
 impl eframe::App for TN5250RApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let tab_used_for_navigation = self.handle_keyboard_input(ctx);
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Connect").clicked() {
                         self.do_connect();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Disconnect").clicked() {
                         self.do_disconnect();
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Exit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -36,11 +36,11 @@ impl eframe::App for TN5250RApp {
                 ui.menu_button("Settings", |ui| {
                     if ui.button("Terminal Settings").clicked() {
                         self.show_settings_dialog = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                     if ui.button("Advanced Connection Settings").clicked() {
                         self.show_advanced_settings = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                 });
             });
@@ -111,7 +111,7 @@ impl eframe::App for TN5250RApp {
 
             // Display terminal content with cursor and click handling
             let scroll_area_response = egui::ScrollArea::vertical()
-                .id_source("terminal_display")
+                .id_salt("terminal_display")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     self.draw_terminal_with_cursor(ui);

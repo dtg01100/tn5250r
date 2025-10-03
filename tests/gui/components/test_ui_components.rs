@@ -1,4 +1,4 @@
-use crate::components::test_harness::TN5250RHarness;
+use super::test_harness::TN5250RHarness;
 
 #[cfg(test)]
 mod tests {

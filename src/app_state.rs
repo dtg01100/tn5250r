@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use eframe::egui;
+
 use crate::controller::AsyncTerminalController;
 use crate::field_manager::FieldDisplayInfo;
 use crate::config;
@@ -75,7 +75,7 @@ impl TN5250RApp {
         };
 
         // Seed host/port/TLS from config if available, otherwise from CLI/defaults
-        let mut host = cfg_host.unwrap_or_else(|| server.clone());
+        let host = cfg_host.unwrap_or_else(|| server.clone());
         let port = cfg_port.unwrap_or(port);
         let config_ssl = cfg_ssl;
 

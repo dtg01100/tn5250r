@@ -476,7 +476,7 @@ pub fn default_config_path() -> PathBuf {
         return base.join("tn5250r").join("session.json");
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd", target_os = "netbsd"))]
     {
         let base = std::env::var_os("HOME")
             .map(|h| Path::new(&h).join("Library").join("Application Support"))
@@ -492,8 +492,11 @@ pub fn default_config_path() -> PathBuf {
         return base.join("tn5250r").join("session.json");
     }
 
-    // 5) Fallback
-    PathBuf::from("session.json")
+    // Fallback for unsupported platforms
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    {
+        return PathBuf::from("session.json");
+    }
 }
 
 /// Load a shared configuration from disk if available; otherwise return defaults.
@@ -510,10 +513,12 @@ pub fn load_shared_config(session_name: String) -> SharedSessionConfig {
                 eprintln!("Warning: failed to read config file {}: {}", path.display(), e);
                 return shared;
             }
-            if let Ok(mut cfg) = shared.lock() {
-                if let Err(e) = cfg.from_json(&buf) {
-                    eprintln!("Warning: failed to parse config file {}: {}", path.display(), e);
-                }
+            let mut cfg = shared.lock().unwrap_or_else(|poisoned| {
+                eprintln!("SECURITY: Config mutex poisoned during load - recovering");
+                poisoned.into_inner()
+            });
+            if let Err(e) = cfg.from_json(&buf) {
+                eprintln!("Warning: failed to parse config file {}: {}", path.display(), e);
             }
         }
     }

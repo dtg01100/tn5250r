@@ -34,13 +34,13 @@ use std::thread;
 use std::collections::VecDeque;
 
 use rustls::{ClientConfig, ClientConnection, RootCertStore};
-use rustls::pki_types::{CertificateDer, ServerName as TlsServerName};
-use std::io::{Read as IoRead, Write as IoWrite};
+use rustls::pki_types::{ServerName as TlsServerName};
+
 use std::fs;
 
 use crate::telnet_negotiation::TelnetNegotiator;
-use crate::error::{ProtocolError, TN5250Error};
-use crate::monitoring::PerformanceMetrics;
+use crate::error::{TN5250Error};
+
 
 #[derive(Debug)]
 struct OwnedTlsStream {
@@ -349,7 +349,6 @@ pub struct AS400Connection {
     negotiation_complete: bool,
     use_tls: bool,
     // TLS options
-    tls_insecure: bool,
     tls_ca_bundle_path: Option<String>,
     // INTEGRATION: Protocol detection and mode switching
     protocol_detector: ProtocolDetector,
@@ -373,9 +372,8 @@ impl AS400Connection {
             running: false,
             telnet_negotiator: TelnetNegotiator::new(),
             negotiation_complete: false,
-            use_tls: port == 992, // default secure if standard SSL port
-            tls_insecure: false,
-            tls_ca_bundle_path: None,
+             use_tls: port == 992, // default secure if standard SSL port
+             tls_ca_bundle_path: None,
             // INTEGRATION: Initialize protocol detection
             protocol_detector: ProtocolDetector::new(),
             detected_mode: ProtocolMode::TN5250, // Default to TN5250 for AS/400 systems
@@ -426,16 +424,6 @@ impl AS400Connection {
         self.use_tls
     }
 
-    /// SECURITY: TLS certificate validation cannot be disabled for security reasons.
-    /// This method is deprecated and will always log a security warning.
-    /// Certificate validation is always enforced to prevent man-in-the-middle attacks.
-    pub fn set_tls_insecure(&mut self, _insecure: bool) {
-        eprintln!("SECURITY WARNING: TLS certificate validation cannot be disabled.");
-        eprintln!("SECURITY WARNING: This prevents man-in-the-middle attacks and ensures secure communication.");
-        eprintln!("SECURITY WARNING: Use proper certificate management instead of disabling validation.");
-        // Note: tls_insecure field is kept for compatibility but ignored in build_tls_connector
-    }
-
     /// Provide a path to a PEM bundle containing trusted CAs to validate server certs.
     pub fn set_tls_ca_bundle_path<S: Into<String>>(&mut self, path: S) {
         let p = path.into();
@@ -449,7 +437,7 @@ impl AS400Connection {
     /// Connects to the AS/400 system
     pub fn connect(&mut self) -> IoResult<()> {
         let address = format!("{}:{}", self.host, self.port);
-        let mut tcp = TcpStream::connect(&address)?;
+        let tcp = TcpStream::connect(&address)?;
         
         // SESSION MANAGEMENT: Enable TCP keepalive
         self.configure_tcp_keepalive(&tcp)?;
@@ -469,7 +457,7 @@ impl AS400Connection {
                 Ok(name) => name,
                 Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
             };
-            let mut tcp = TcpStream::connect(&address)?;
+            let tcp = TcpStream::connect(&address)?;
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
@@ -492,7 +480,7 @@ impl AS400Connection {
                 success: true,
             });
         } else {
-            let mut tcp = TcpStream::connect(&address)?;
+            let tcp = TcpStream::connect(&address)?;
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
@@ -623,7 +611,7 @@ impl AS400Connection {
         ))?;
 
         // Use connect_timeout for the initial TCP connect
-        let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+        let tcp = TcpStream::connect_timeout(&addr, timeout)?;
 
         // SESSION MANAGEMENT: Enable TCP keepalive
         self.configure_tcp_keepalive(&tcp)?;
@@ -644,7 +632,7 @@ impl AS400Connection {
                 Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e))),
             };
 
-            let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+            let tcp = TcpStream::connect_timeout(&addr, timeout)?;
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;
@@ -654,8 +642,8 @@ let tls_conn = match ClientConnection::new(tls_config, server_name) {
     Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e))),
 };
 rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
-} else {
-            let mut tcp = TcpStream::connect_timeout(&addr, timeout)?;
+        } else {
+            let tcp = TcpStream::connect_timeout(&addr, timeout)?;
             self.configure_tcp_keepalive(&tcp)?;
             tcp.set_read_timeout(Some(Duration::from_secs(10)))?;
             tcp.set_write_timeout(Some(Duration::from_secs(10)))?;

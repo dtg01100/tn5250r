@@ -396,7 +396,7 @@ impl Display3270 {
     
     /// Get modified field data for Read Modified command
     pub fn get_modified_data(&self) -> Vec<u8> {
-        let mut data = Vec::new();
+        let data = Vec::new();
         
         // TODO: Implement proper Read Modified logic
         // This should return only fields with MDT bit set

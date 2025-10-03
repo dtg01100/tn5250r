@@ -15,7 +15,7 @@ fn main() -> Result<(), eframe::Error> {
         options,
         Box::new(|_cc| {
             println!("eframe initialized successfully!");
-            Box::<TestApp>::default()
+            Ok(Box::<TestApp>::default())
         }),
     )
 }
