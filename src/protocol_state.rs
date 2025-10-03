@@ -1,5 +1,6 @@
 // TODO: Will need session integration later
 use crate::error::ProtocolError;
+use crate::monitoring::{set_component_status, set_component_error, ComponentState};
 use crate::field_manager::{FieldManager, FieldType, Field as FmField};
 use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT};
 
@@ -178,6 +179,8 @@ impl ProtocolStateMachine {
         self.screen.clear();
         self.screen.write_string("Connected to AS/400 system\nReady...\n");
         self.field_manager.clear_all_fields();
+        set_component_status("protocol", ComponentState::Running);
+        set_component_error("protocol", None::<&str>);
     }
 
     pub fn disconnect(&mut self) {
@@ -186,6 +189,8 @@ impl ProtocolStateMachine {
         self.screen.clear();
         self.screen.write_string("Disconnected from AS/400 system\n");
         self.field_manager.clear_all_fields();
+        set_component_status("protocol", ComponentState::Stopped);
+        set_component_error("protocol", None::<&str>);
     }
 
     pub fn process_data(&mut self, data: &[u8]) -> Result<Vec<u8>, ProtocolError> {
@@ -194,38 +199,56 @@ impl ProtocolStateMachine {
 
         // Validate input data to prevent processing of malformed packets
         if data.is_empty() {
+            set_component_status("protocol", ComponentState::Error);
+            set_component_error("protocol", Some("Empty data packet"));
             return Err(ProtocolError::DeviceIdError { message: "Empty data packet".to_string() });
         }
 
         // Validate data size to prevent memory exhaustion attacks
         if data.len() > 65535 {
+            set_component_status("protocol", ComponentState::Error);
+            set_component_error("protocol", Some("Data packet too large"));
             return Err(ProtocolError::DeviceIdError { message: "Data packet too large".to_string() });
         }
 
         match self.state {
             ProtocolState::Connected | ProtocolState::Receiving => {
-                // CRITICAL FIX: Only transition to Receiving if not already connected
-                // This prevents unnecessary state changes and potential loops
                 if self.state == ProtocolState::Connected {
                     self.state = ProtocolState::Receiving;
                 }
-                // TODO: Integrate with new session-based processing
-                // For now, just return empty response
+                set_component_status("protocol", ComponentState::Running);
+                set_component_error("protocol", None::<&str>);
                 Ok(vec![])
             },
             ProtocolState::InitialNegotiation => {
-                // CRITICAL FIX: Validate negotiation data before processing
                 if data.len() < 2 {
+                    set_component_status("protocol", ComponentState::Error);
+                    set_component_error("protocol", Some("Invalid negotiation data"));
                     return Err(ProtocolError::DeviceIdError { message: "Invalid negotiation data".to_string() });
                 }
-                self.handle_negotiation(data)?;
-                Ok(self.create_device_identification_response())
+                match self.handle_negotiation(data) {
+                    Ok(_) => {
+                        set_component_status("protocol", ComponentState::Running);
+                        set_component_error("protocol", None::<&str>);
+                        Ok(self.create_device_identification_response())
+                    },
+                    Err(e) => {
+                        set_component_status("protocol", ComponentState::Error);
+                        set_component_error("protocol", Some(format!("Negotiation error: {}", e)));
+                        Err(e)
+                    }
+                }
             },
             ProtocolState::Error => {
-                // CRITICAL FIX: Handle error state properly - don't process data in error state
+                set_component_status("protocol", ComponentState::Error);
+                set_component_error("protocol", Some("Protocol is in error state"));
                 Err(ProtocolError::DeviceIdError { message: "Protocol is in error state".to_string() })
             },
-            _ => Err(ProtocolError::DeviceIdError { message: "Invalid protocol state".to_string() }),
+            _ => {
+                set_component_status("protocol", ComponentState::Error);
+                set_component_error("protocol", Some("Invalid protocol state"));
+                Err(ProtocolError::DeviceIdError { message: "Invalid protocol state".to_string() })
+            },
         }
     }
 
@@ -235,6 +258,8 @@ impl ProtocolStateMachine {
 
         // Basic validation of negotiation data
         if data.is_empty() {
+            set_component_status("protocol", ComponentState::Error);
+            set_component_error("protocol", Some("Empty negotiation data"));
             return Err(ProtocolError::DeviceIdError { message: "Empty negotiation data".to_string() });
         }
 
@@ -284,8 +309,12 @@ impl ProtocolStateMachine {
         // Only transition to connected state if we found valid negotiation
         if valid_negotiation {
             self.state = ProtocolState::Connected;
+            set_component_status("protocol", ComponentState::Running);
+            set_component_error("protocol", None::<&str>);
             Ok(())
         } else {
+            set_component_status("protocol", ComponentState::Error);
+            set_component_error("protocol", Some("Invalid negotiation data"));
             Err(ProtocolError::DeviceIdError { message: "Invalid negotiation data".to_string() })
         }
     }

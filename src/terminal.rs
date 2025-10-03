@@ -4,6 +4,7 @@
 //! displaying and handling AS/400 screens using the 5250 protocol.
 
 use std::fmt;
+use crate::monitoring::{set_component_status, set_component_error, ComponentState};
 
 // Terminal dimensions - standard IBM 5250 terminal sizes
 pub const TERMINAL_WIDTH: usize = 80;
@@ -51,13 +52,15 @@ pub struct TerminalScreen {
 
 impl TerminalScreen {
     pub fn new() -> Self {
-        Self {
-            // PERFORMANCE OPTIMIZATION: Pre-allocate vector with exact capacity
+        let screen = Self {
             buffer: vec![TerminalChar::default(); TERMINAL_WIDTH * TERMINAL_HEIGHT],
             cursor_x: 0,
             cursor_y: 0,
             dirty: true,
-        }
+        };
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
+        screen
     }
 
     /// PERFORMANCE OPTIMIZATION: Calculate 1D index from 2D coordinates
@@ -177,8 +180,9 @@ impl TerminalScreen {
 
     // Clear the entire screen
     pub fn clear(&mut self) {
-        // PERFORMANCE OPTIMIZATION: Use optimized bulk clearing for better cache locality
         self.clear_buffer_optimized();
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
     }
 
     // Write a character at the current cursor position
@@ -319,6 +323,8 @@ impl TerminalScreen {
     pub fn validate_buffer_consistency(&self) -> Result<(), String> {
         // PERFORMANCE OPTIMIZATION: Validate buffer dimensions for 1D vector
         if self.buffer.len() != TERMINAL_WIDTH * TERMINAL_HEIGHT {
+            set_component_status("terminal", ComponentState::Error);
+            set_component_error("terminal", Some("Invalid buffer size"));
             return Err(format!("Invalid buffer size: {} (expected {})",
                              self.buffer.len(), TERMINAL_WIDTH * TERMINAL_HEIGHT));
         }
@@ -331,6 +337,8 @@ impl TerminalScreen {
 
             // Check for invalid Unicode or dangerous characters
             if (terminal_char.character as u32) > 0x10FFFF {
+                set_component_status("terminal", ComponentState::Error);
+                set_component_error("terminal", Some("Invalid Unicode character in buffer"));
                 return Err(format!("Invalid Unicode character at ({}, {}): {}",
                                  row_idx, col_idx, terminal_char.character as u32));
             }
@@ -340,6 +348,8 @@ impl TerminalScreen {
                terminal_char.character != '\n' &&
                terminal_char.character != '\r' &&
                terminal_char.character != '\t' {
+                set_component_status("terminal", ComponentState::Error);
+                set_component_error("terminal", Some("Dangerous control character in buffer"));
                 return Err(format!("Dangerous control character at ({}, {}): {}",
                                  row_idx, col_idx, terminal_char.character as u32));
             }
@@ -347,9 +357,13 @@ impl TerminalScreen {
 
         // Validate cursor position
         if self.cursor_x >= TERMINAL_WIDTH || self.cursor_y >= TERMINAL_HEIGHT {
+            set_component_status("terminal", ComponentState::Error);
+            set_component_error("terminal", Some("Invalid cursor position"));
             return Err(format!("Invalid cursor position: ({}, {})", self.cursor_y, self.cursor_x));
         }
 
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
         Ok(())
     }
 
@@ -364,6 +378,8 @@ impl TerminalScreen {
         self.cursor_x = 0;
         self.cursor_y = 0;
         self.dirty = true;
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
     }
 
     /// CRITICAL FIX: Safe cursor positioning with validation
@@ -469,6 +485,8 @@ impl TerminalEmulator {
         self.screen.clear();
         self.screen.write_string("Connected to AS/400 system\nReady...");
         self.data_buffer.clear();
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
         Ok(())
     }
 
@@ -479,34 +497,26 @@ impl TerminalEmulator {
         self.screen.clear();
         self.screen.write_string("Disconnected from AS/400 system");
         self.data_buffer.clear();
+        set_component_status("terminal", ComponentState::Stopped);
+        set_component_error("terminal", None::<&str>);
     }
 
     // Process incoming data
     pub fn process_data(&mut self, data: &[u8]) -> Result<(), String> {
         // Store raw data for debugging
         self.data_buffer.extend_from_slice(data);
-        
-        // The actual protocol parsing and EBCDIC conversion should be done
-        // by the protocol state machine, not here. This is a temporary
-        // implementation that just displays raw data for debugging.
-        // 
-        // Note: Real 5250 protocol data contains command codes, structured fields,
-        // and other binary data mixed with EBCDIC text. Simply converting all
-        // bytes as EBCDIC will show gibberish for protocol commands.
-        
-        // For now, just indicate that data was received
-        // The proper implementation should use the protocol_state module
         let data_info = format!("[Received {} bytes of 5250 data]\n", data.len());
         self.screen.write_string(&data_info);
-        
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
         Ok(())
     }
 
     // Process keyboard input
     pub fn process_input(&mut self, input: &str) -> Result<Vec<u8>, String> {
-        // In a real implementation, this would convert keyboard input to 5250 protocol commands
-        // For now, we'll just echo the input to the screen and return it
         self.screen.write_string(input);
+        set_component_status("terminal", ComponentState::Running);
+        set_component_error("terminal", None::<&str>);
         Ok(input.as_bytes().to_vec())
     }
 
