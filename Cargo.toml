@@ -26,6 +26,9 @@ lazy_static = "1.4"
 hostname = "0.4"
 libc = "0.2"
 
+# Windows platform support
+winapi = { version = "0.3", optional = true }
+
 once_cell = "1.21.3"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
@@ -76,3 +79,6 @@ harness = false
 [[bench]]
 name = "protocol_bench"
 harness = false
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winsock2", "ws2def"] }

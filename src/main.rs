@@ -21,6 +21,8 @@ mod lib3270;
 mod protocol;
 mod constants;
 
+mod network_platform;
+
 use tn5250r::app_state::TN5250RApp;
 use controller::AsyncTerminalController;
 use field_manager::FieldDisplayInfo;

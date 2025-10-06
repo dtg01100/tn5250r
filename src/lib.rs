@@ -68,3 +68,5 @@ pub mod ui {
 
 /// Application constants
 pub mod constants;
+
+pub mod network_platform;

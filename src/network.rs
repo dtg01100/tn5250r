@@ -43,6 +43,7 @@ use std::fs;
 use crate::telnet_negotiation::TelnetNegotiator;
 use crate::error::{TN5250Error};
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
+use crate::network_platform;
 
 
 #[derive(Debug)]
@@ -638,15 +639,17 @@ impl AS400Connection {
             
             // Enable SO_KEEPALIVE on Windows
             unsafe {
-                let optval: u32 = 1;
-                if libc::setsockopt(
-                    socket as libc::SOCKET,
-                    libc::SOL_SOCKET,
-                    libc::SO_KEEPALIVE,
-                    &optval as *const _ as *const libc::c_char,
-                    std::mem::size_of_val(&optval) as libc::c_int,
-                ) != 0 {
-                    return Err(std::io::Error::last_os_error());
+                #[cfg(unix)]
+                {
+                    use std::os::unix::io::AsRawFd;
+                    let raw_fd = tcp.as_raw_fd();
+                    network_platform::enable_tcp_keepalive(raw_fd)?;
+                }
+                #[cfg(windows)]
+                {
+                    use std::os::windows::io::AsRawSocket;
+                    let raw_socket = tcp.as_raw_socket();
+                    network_platform::enable_tcp_keepalive(raw_socket)?;
                 }
             }
         }
