@@ -70,10 +70,10 @@ if self.use_ansi_mode {
 ```bash
 # Start the terminal
 cargo run --bin tn5250r -- \
-    --server 10.100.200.1 \
+    --server as400.example.com \
     --port 23 \
-    --user dave3 \
-    --password dave3
+    --user myuser \
+    --password myuser
 
 # Should see Sign-On screen
 # Click in a field

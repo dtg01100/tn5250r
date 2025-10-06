@@ -12,7 +12,7 @@ mod telnet_negotiation;
 mod keyboard;
 mod controller;
 mod field_manager;
-mod config;
+
 mod monitoring;
 mod error;
 mod protocol_state;
@@ -49,7 +49,7 @@ async fn main() {
 
     // Parse command line arguments
     let args: Vec<String> = std::env::args().collect();
-    let mut default_server = "example.system.com".to_string();
+    let mut default_server = "as400.example.com".to_string();
     let mut default_port = 23;
     let mut auto_connect = false;
     let mut cli_ssl_override: Option<bool> = None;
@@ -59,6 +59,7 @@ async fn main() {
     let mut cli_password: Option<String> = None;
     let mut cli_profile: Option<String> = None;
     let mut cli_save_profile: Option<String> = None;
+    let mut cli_protocol: Option<String> = None;
     let mut debug_mode = false;
     let mut verbose_mode = false;
 
@@ -147,6 +148,15 @@ async fn main() {
                 verbose_mode = true;
                 println!("VERBOSE MODE: Detailed connection logs active");
             }
+            "--protocol" => {
+                if i + 1 < args.len() {
+                    cli_protocol = Some(args[i + 1].clone());
+                    i += 1; // consume value
+                } else {
+                    eprintln!("Error: --protocol requires a value (tn5250 or tn3270)");
+                    std::process::exit(1);
+                }
+            }
             "--help" | "-h" => {
                 println!("TN5250R - IBM AS/400 Terminal Emulator");
                 println!();
@@ -157,6 +167,7 @@ async fn main() {
                 println!("  --port <port> or -p <port>          Set the port to connect to (default: 23)");
                 println!("  --user <username> or -u <username>  AS/400 username for authentication (RFC 4777)");
                 println!("  --password <password> or --pass     AS/400 password for authentication (RFC 4777)");
+                println!("  --protocol <protocol>               Force protocol: tn5250 (AS/400) or tn3270 (mainframe)");
                 println!("  --profile <name> or -P <name>       Load and connect using named profile");
                 println!("  --save-profile <name>               Save current session as named profile");
                 println!("  --ssl | --no-ssl                    Force TLS on/off for this run (overrides config)");
@@ -167,7 +178,9 @@ async fn main() {
                 println!("  --help or -h                        Show this help message");
                 println!();
                 println!("Example:");
-                println!("  tn5250r --server 10.100.200.1 --port 23 --user dave3 --password dave3");
+                println!("  tn5250r --server as400.example.com --port 23 --user myuser --password mypass");
+                println!("  tn5250r --server pub400.com --port 23 --protocol tn5250");
+                println!("  tn5250r --server mainframe.example.com --port 23 --protocol tn3270");
                 println!("  tn5250r --profile production");
                 println!("  tn5250r --server host --save-profile dev");
                 std::process::exit(0);
@@ -274,6 +287,7 @@ async fn main() {
             let app = TN5250RApp::new_with_profile(
                 cc,
                 session_config,
+                cli_protocol,
                 debug_mode,
             );
             println!("App created successfully");

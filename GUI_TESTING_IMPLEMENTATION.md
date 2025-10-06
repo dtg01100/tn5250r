@@ -86,7 +86,7 @@ fn test_connection_flow() {
 
     // Enter connection details
     harness.click_by_text("Host");
-    harness.type_text("10.100.200.1");
+    harness.type_text("as400.example.com");
     harness.click_by_text("Port");
     harness.type_text("23");
 
@@ -244,7 +244,7 @@ fn test_connected_state_layout() {
 
     // Simulate connection
     harness.click_by_text("Host");
-    harness.type_text("10.100.200.1");
+    harness.type_text("as400.example.com");
     harness.click_by_text("Port");
     harness.type_text("23");
     harness.click_by_text("Connect");

@@ -10,10 +10,10 @@ use tn5250r::lib5250::protocol::{ProtocolProcessor, Packet, CommandCode};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("TN5250R Full Protocol Test");
-    println!("Connecting to 10.100.200.1:23...");
+    println!("Connecting to as400.example.com:23...");
 
     // Attempt to connect
-    let mut stream = TcpStream::connect("10.100.200.1:23")?;
+    let mut stream = TcpStream::connect("as400.example.com:23")?;
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
     

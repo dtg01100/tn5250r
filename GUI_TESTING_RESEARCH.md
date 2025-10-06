@@ -141,7 +141,7 @@ use terminator::Terminator;
 fn test_terminal_connection() {
     let mut term = Terminator::new("tn5250r")
         .arg("--server")
-        .arg("10.100.200.1")
+        .arg("as400.example.com")
         .arg("--port")
         .arg("23")
         .spawn();
@@ -151,9 +151,9 @@ fn test_terminal_connection() {
 
     // Type credentials
     term.click_text("User");
-    term.type_text("dave3");
+    term.type_text("myuser");
     term.click_text("Password");
-    term.type_text("dave3");
+    term.type_text("myuser");
     term.press_enter();
 
     // Verify connection

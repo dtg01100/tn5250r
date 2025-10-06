@@ -569,7 +569,7 @@ impl AS400Connection {
 
     /// Configure TCP keepalive for connection health monitoring
     fn configure_tcp_keepalive(&self, tcp: &TcpStream) -> IoResult<()> {
-        use std::net::TcpStream as StdTcpStream;
+
         
         // Enable TCP keepalive with platform-specific settings
         #[cfg(unix)]
@@ -796,7 +796,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
     /// Build a TLS connector with secure certificate validation
     /// SECURITY: Always enforces proper certificate validation to prevent MITM attacks
     fn build_tls_connector(&self) -> IoResult<Arc<ClientConfig>> {
-        use rustls::crypto::ring as provider;
+
         
         // Create a root certificate store with system certificates
         let mut root_store = RootCertStore::empty();
@@ -841,7 +841,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
 
     /// SECURITY: Load certificates with comprehensive validation for rustls
     fn load_certificates_securely_rustls(&self, path: &str) -> IoResult<Vec<rustls::pki_types::CertificateDer<'static>>> {
-        use std::io::Cursor;
+
         
         let bytes = fs::read(path)?;
         let mut certificates = Vec::new();
@@ -1404,7 +1404,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                         },
                         ProtocolMode::TN3270 => {
                             // Filter out telnet negotiation from the data and return clean 3270 data
-                            let clean_data = self.extract_5250_data(&data); // Same filtering logic works for 3270
+                            let clean_data = self.extract_3270_data(&data);
                             if !clean_data.is_empty() {
                                 Some(clean_data)
                             } else {
@@ -1574,6 +1574,26 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         } else {
             result
         }
+    }
+
+    /// Extract non-telnet 3270 data from the received stream
+    /// Similar to extract_5250_data but with 3270-specific processing
+    fn extract_3270_data(&self, data: &[u8]) -> Vec<u8> {
+        // Use the same telnet filtering as 5250 since both protocols run over telnet
+        let clean_data = self.extract_5250_data(data);
+        
+        // Additional 3270-specific validation could be added here
+        // For now, 3270 and 5250 both filter telnet the same way
+        // The protocol-specific processing happens at a higher level
+        
+        if !clean_data.is_empty() {
+            println!("DEBUG: Extracted {} bytes of 3270 data", clean_data.len());
+            if clean_data.len() > 0 {
+                println!("DEBUG: Clean 3270 data first 20 bytes: {:02x?}", &clean_data[..clean_data.len().min(20)]);
+            }
+        }
+        
+        clean_data
     }
 
     /// Checks if the connection is active

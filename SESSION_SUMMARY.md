@@ -66,7 +66,7 @@ if self.use_ansi_mode {
 ## System State
 
 ### Connection
-- **Server**: 10.100.200.1:23
+- **Server**: as400.example.com:23
 - **Authentication**: RFC 4777 (NEW-ENVIRON) ✅ Working
 - **Credentials**: CLI options `--user` and `--password` ✅ Working
 - **Mode**: ANSI/VT100 (auto-detected) ✅ Working
@@ -129,20 +129,20 @@ cargo run --bin tn5250r -- --server HOST --port 23
 ### With Credentials (Auto-Login)
 ```bash
 cargo run --bin tn5250r -- \
-    --server 10.100.200.1 \
+    --server as400.example.com \
     --port 23 \
-    --user dave3 \
-    --password dave3
+    --user myuser \
+    --password myuser
 ```
 
 ### With Debug Mode
 ```bash
 cargo run --bin tn5250r -- \
     --debug \
-    --server 10.100.200.1 \
+    --server as400.example.com \
     --port 23 \
-    --user dave3 \
-    --password dave3
+    --user myuser \
+    --password myuser
 ```
 
 ### Debug Panel Features
@@ -161,8 +161,8 @@ cargo run --bin tn5250r -- \
 ```bash
 timeout 15 cargo run --bin tn5250r -- \
     --debug \
-    --server 10.100.200.1 --port 23 \
-    --user dave3 --password dave3 \
+    --server as400.example.com --port 23 \
+    --user myuser --password myuser \
     2>&1 | grep "Screen buffer"
 ```
 **Result**: ✅ 204 characters: "Sign On System.....: S215D18V Subsystem....: QINTER"
@@ -170,8 +170,8 @@ timeout 15 cargo run --bin tn5250r -- \
 ### 2. Comparison Testing
 ```bash
 cargo run --bin test_connection -- \
-    --server 10.100.200.1 --port 23 \
-    --user dave3 --password dave3
+    --server as400.example.com --port 23 \
+    --user myuser --password myuser
 ```
 **Result**: ✅ Same output as GUI (validation successful)
 

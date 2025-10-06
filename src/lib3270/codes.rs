@@ -1,13 +1,15 @@
-/// TN3270 Protocol Constants and Codes
-///
-/// This module contains the IBM 3270 protocol constants, command codes,
-/// order codes, AID (Attention Identifier) keys, and field attributes
-/// as specified in RFC 1205 and RFC 2355.
-///
-/// # References
-/// - RFC 1205: 5250 Telnet Interface
-/// - RFC 2355: TN3270 Enhancements
-/// - IBM 3270 Data Stream Programmer's Reference (GA23-0059)
+//! TN3270 Protocol Constants and Codes
+//!
+//! This module contains the IBM 3270 protocol constants, command codes,
+//! order codes, AID (Attention Identifier) keys, and field attributes
+//! as specified in RFC 1205 and RFC 2355.
+//!
+//! # References
+//! - RFC 1205: 5250 Telnet Interface
+//! - RFC 2355: TN3270 Enhancements
+//! - IBM 3270 Data Stream Programmer's Reference (GA23-0059)
+
+#![allow(dead_code)] // Many constants are part of complete TN3270 implementation
 /// 3270 Command Codes
 ///
 /// These are the primary commands sent from the host to the terminal

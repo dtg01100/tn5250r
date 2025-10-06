@@ -3,6 +3,8 @@
 //! This module implements the core 3270 data stream parsing and command processing
 //! following RFC 1205 and RFC 2355 specifications.
 
+#![allow(dead_code)] // Complete TN3270 protocol implementation
+
 use super::codes::*;
 use super::display::{Display3270, addressing};
 use super::field::{ExtendedAttributes, FieldAttribute};

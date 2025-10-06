@@ -4,7 +4,7 @@
 
 use eframe::egui;
 use crate::app_state::TN5250RApp;
-use crate::config;
+
 
 
 
@@ -210,7 +210,7 @@ impl eframe::App for TN5250RApp {
                 .movable(false)
                 .show(ctx, |ui| {
                     // Use a subtle frame to keep it visible over terminal content
-                    let frame = egui::Frame::none()
+                    let frame = egui::Frame::new()
                         .fill(egui::Color32::from_rgba_unmultiplied(30, 30, 30, 200))
                         .stroke(egui::Stroke::new(1.0, egui::Color32::DARK_GRAY))
                         .corner_radius(6.0)

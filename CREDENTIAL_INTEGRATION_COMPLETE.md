@@ -114,9 +114,9 @@ if !self.username.is_empty() && !self.password.is_empty() {
    ```
 
 2. In the connection dialog:
-   - **Host**: Enter `10.100.200.1:23` (or your AS/400 server)
-   - **Username**: Enter your AS/400 username (e.g., `dave3`)
-   - **Password**: Enter your password (e.g., `dave3`) - displayed as dots
+   - **Host**: Enter `as400.example.com:23` (or your AS/400 server)
+   - **Username**: Enter your AS/400 username (e.g., `myuser`)
+   - **Password**: Enter your password (e.g., `myuser`) - displayed as dots
    - Click **Connect**
 
 3. The application will:
@@ -131,7 +131,7 @@ if !self.username.is_empty() && !self.password.is_empty() {
 
 For testing, you can still use the test_connection binary:
 ```bash
-cargo run --bin test_connection -- --host 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin test_connection -- --host as400.example.com --port 23 --user myuser --password myuser
 ```
 
 ## Authentication Flow (RFC 4777)
@@ -182,9 +182,9 @@ The current implementation sends passwords in plain text per RFC 4777 Section 5 
 
 ## Testing Results
 
-### Successful Connection to pub400.com (10.100.200.1:23)
+### Successful Connection to pub400.com (as400.example.com:23)
 
-✅ **Credentials**: `dave3` / `dave3`
+✅ **Credentials**: `myuser` / `myuser`
 ✅ **Authentication**: RFC 4777 NEW-ENVIRON successful
 ✅ **Query Response**: 660-byte ANSI screen received
 ✅ **Display**: AS/400 Sign-On screen properly rendered
@@ -193,8 +193,8 @@ The current implementation sends passwords in plain text per RFC 4777 Section 5 
 
 ```
 TN5250R - IBM AS/400 Terminal Emulator
-Connected to 10.100.200.1:23
-Controller: Credentials configured for user: DAVE3
+Connected to as400.example.com:23
+Controller: Credentials configured for user: MYUSER
 Network: Credentials configured for telnet negotiation
 Controller: Detected ANSI/VT100 data - switching to ANSI mode
 
@@ -252,7 +252,7 @@ cargo build --bin tn5250r
 
 Runtime status: ✅ **GUI Launches**
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23
+cargo run --bin tn5250r -- --server as400.example.com --port 23
 # Application window opens with username/password fields visible
 ```
 

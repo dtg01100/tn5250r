@@ -1,7 +1,7 @@
 # TN5250 Authentication Investigation
 
 ## Problem Statement
-After completing telnet negotiation successfully, the AS/400 server at 10.100.200.1:23 does not send 5250 display data. Investigation reveals this is a **credential authentication requirement** per RFC 4777.
+After completing telnet negotiation successfully, the AS/400 server at as400.example.com:23 does not send 5250 display data. Investigation reveals this is a **credential authentication requirement** per RFC 4777.
 
 ## Root Cause Analysis
 
@@ -55,7 +55,7 @@ According to RFC 4777 Section 5, AS/400 systems require authentication before se
 - Test program correctly formatted according to RFC 4777
 
 ### ❌ What Doesn't Work Yet
-- Server at 10.100.200.1:23 still doesn't send 5250 display data
+- Server at as400.example.com:23 still doesn't send 5250 display data
 - Likely reasons:
   1. **Wrong credentials** - we're using test credentials (QSECOFR/TEST123)
   2. **Encryption required** - server may be configured to reject plain text passwords
@@ -110,7 +110,7 @@ Breakdown:
 ## Next Steps
 
 ### Option 1: Find Valid Credentials
-- Contact system administrator for 10.100.200.1
+- Contact system administrator for as400.example.com
 - Try known AS/400 default accounts (if any)
 - Check if system allows guest/anonymous access
 

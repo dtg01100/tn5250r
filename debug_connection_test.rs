@@ -4,13 +4,13 @@ use std::time::Duration;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== TN5250R Debug Connection Test ===");
-    println!("Connecting to 10.100.200.1:23 in 5250 mode...");
+    println!("Connecting to as400.example.com:23 in 5250 mode...");
     
     // Create controller
     let mut controller = TerminalController::new();
     
     // Connect to the AS/400 system
-    match controller.connect("10.100.200.1".to_string(), 23) {
+    match controller.connect("as400.example.com".to_string(), 23) {
         Ok(_) => {
             println!("✅ Connection established successfully!");
             

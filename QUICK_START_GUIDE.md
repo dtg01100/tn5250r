@@ -18,7 +18,7 @@ cargo run --bin tn5250r
 ```
 
 Then in the GUI:
-- **Host**: Enter server address with port (e.g., `10.100.200.1:23`)
+- **Host**: Enter server address with port (e.g., `as400.example.com:23`)
 - **Username**: Enter your AS/400 username
 - **Password**: Enter your password (displayed as dots)
 - Click **Connect**
@@ -31,15 +31,15 @@ Connect immediately without GUI interaction:
 
 ```bash
 cargo run --bin tn5250r -- \
-  --server 10.100.200.1 \
+  --server as400.example.com \
   --port 23 \
-  --user dave3 \
-  --password dave3
+  --user myuser \
+  --password myuser
 ```
 
 **Short form:**
 ```bash
-cargo run --bin tn5250r -- -s 10.100.200.1 -p 23 -u dave3 --pass dave3
+cargo run --bin tn5250r -- -s as400.example.com -p 23 -u myuser --pass myuser
 ```
 
 ---
@@ -54,7 +54,7 @@ cargo run --bin tn5250r -- \
   --port 992 \
   --ssl \
   --user admin \
-  --password secret
+  --password mypass
 ```
 
 ---
@@ -77,10 +77,10 @@ Use the test harness for debugging:
 
 ```bash
 cargo run --bin test_connection -- \
-  --host 10.100.200.1 \
+  --host as400.example.com \
   --port 23 \
-  --user dave3 \
-  --password dave3
+  --user myuser \
+  --password myuser
 ```
 
 This displays raw terminal output for troubleshooting.
@@ -93,10 +93,10 @@ This displays raw terminal output for troubleshooting.
 
 ```bash
 cargo run --bin tn5250r -- \
-  --server 10.100.200.1 \
+  --server as400.example.com \
   --port 23 \
-  --user dave3 \
-  --password dave3
+  --user myuser \
+  --password myuser
 ```
 
 ### Connecting to IBM i with TLS
@@ -114,7 +114,7 @@ cargo run --bin tn5250r -- \
 
 ```bash
 cargo run --bin tn5250r -- \
-  --server dev.as400.local \
+  --server as400.example.com \
   --port 992 \
   --ssl \
   --insecure \
@@ -156,8 +156,8 @@ When connection succeeds, you'll see:
 
 ```
 TN5250R - IBM AS/400 Terminal Emulator
-Connected to 10.100.200.1:23
-Controller: Credentials configured for user: DAVE3
+Connected to as400.example.com:23
+Controller: Credentials configured for user: MYUSER
 Network: Credentials configured for telnet negotiation
 Controller: Detected ANSI/VT100 data - switching to ANSI mode
 
@@ -194,14 +194,14 @@ Common causes:
 
 Always use `--ssl` when connecting over untrusted networks:
 ```bash
-cargo run --bin tn5250r -- -s host -p 992 --ssl -u user --pass secret
+cargo run --bin tn5250r -- -s as400.example.com -p 992 --ssl -u myuser --pass mypass
 ```
 
 ### 2. Avoid Password in Command History
 
 Use a leading space to prevent history recording (bash):
 ```bash
- cargo run --bin tn5250r -- -s host -u user --pass secret
+ cargo run --bin tn5250r -- -s as400.example.com -u myuser --pass mypass
 #^ Note the space
 ```
 
@@ -271,12 +271,12 @@ cargo run --bin test_connection -- --host HOST --port PORT --user USER --passwor
 
 ```bash
 cargo run --bin tn5250r -- \
-  --server as400.internal \
+  --server as400.example.com \
   --port 992 \
   --ssl \
   --ca-bundle /path/to/ca-cert.pem \
   --user admin \
-  --password secret
+  --password mypass
 ```
 
 ### Multiple Sessions
@@ -284,10 +284,10 @@ cargo run --bin tn5250r -- \
 Launch multiple instances with different profiles:
 ```bash
 # Terminal 1
-cargo run --bin tn5250r -- -s prod.as400.com -u produser --pass prod123
+cargo run --bin tn5250r -- -s as400.example.com -u myuser --pass mypass
 
 # Terminal 2  
-cargo run --bin tn5250r -- -s dev.as400.com -u devuser --pass dev456
+cargo run --bin tn5250r -- -s as400-dev.example.com -u myuser --pass mypass
 ```
 
 ---
@@ -327,7 +327,7 @@ For more detailed information, see:
 
 **Report Issues**: Check console output for error messages and logs
 
-**Test Server**: Use pub400.com (10.100.200.1:23) for testing - free AS/400 access with demo credentials
+**Test Server**: Use pub400.com (as400.example.com:23) for testing - free AS/400 access with demo credentials
 
 **Development**: See project README for contribution guidelines
 

@@ -1,6 +1,8 @@
-//! 3270 Display Buffer Management
+//! TN3270 Display Buffer Management
 //!
-//! This module provides the display buffer management for 3270 terminals,
+//! This module handles the 3270 display buffer which manages the screen state
+
+#![allow(dead_code)] // Complete TN3270 display implementation
 //! handling screen buffer operations, cursor management, and buffer addressing.
 
 use super::field::{FieldAttribute, FieldManager};

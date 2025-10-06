@@ -2,21 +2,21 @@
 
 ## Executive Summary
 
-**WE DID IT!** Successfully connected to the AS/400 server at 10.100.200.1:23 and received the Sign-On screen!
+**WE DID IT!** Successfully connected to the AS/400 server at as400.example.com:23 and received the Sign-On screen!
 
 ### Connection Flow
 1. ✅ Telnet negotiation completed (Binary + SGA active)
-2. ✅ Credentials authenticated (dave3/dave3)
+2. ✅ Credentials authenticated (myuser/myuser)
 3. ✅ Query command sent to indicate client ready
 4. ✅ Server sent AS/400 Sign-On screen (in VT100/ANSI format)
 
 ### Final Test Output
 ```bash
-./target/debug/test_connection --user dave3 --password dave3
+./target/debug/test_connection --user myuser --password myuser
 
 TN5250R Enhanced Connection Test
-Using credentials: user=dave3
-✅ Successfully connected to 10.100.200.1:23
+Using credentials: user=myuser
+✅ Successfully connected to as400.example.com:23
 ✅ Credentials configured for authentication
 ✅ Telnet negotiation complete!
 📤 Sending initial 5250 Query command to indicate client ready...
@@ -98,7 +98,7 @@ Server -> Client: WILL Binary, DO Binary, WILL SGA, DO SGA, DONT EOR, WONT EOR
 Server -> Client: SEND TermType
 Client -> Server: IS IBM-3179-2
 Server -> Client: SEND USERVAR "IBMRSEED" <8-byte-seed>
-Client -> Server: IS VAR "USER" VALUE "DAVE3" USERVAR "IBMRSEED" VALUE "" USERVAR "IBMSUBSPW" VALUE "dave3"
+Client -> Server: IS VAR "USER" VALUE "MYUSER" USERVAR "IBMRSEED" VALUE "" USERVAR "IBMSUBSPW" VALUE "myuser"
 Server -> Client: DO Binary, WILL Binary (final confirmation)
 ```
 
@@ -189,7 +189,7 @@ Server responded with 660 bytes of VT100/ANSI escape sequences including:
 cargo build --bin test_connection
 
 # Test with credentials
-./target/debug/test_connection --user dave3 --password dave3
+./target/debug/test_connection --user myuser --password myuser
 
 # Test without credentials (will use GUEST)
 ./target/debug/test_connection
@@ -228,7 +228,7 @@ We have achieved a **fully functional connection** to an AS/400 server with:
 - ✅ RFC 4777 compliant authentication
 - ✅ Query command protocol
 - ✅ ANSI/VT100 screen display
-- ✅ Working credentials (dave3/dave3)
+- ✅ Working credentials (myuser/myuser)
 
 The foundation is now solid for integrating this into the main GUI application!
 

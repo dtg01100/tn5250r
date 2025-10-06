@@ -22,7 +22,7 @@ Specifies the AS/400 password for RFC 4777 authentication.
 
 ### Basic authentication with credentials:
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 ### With TLS encryption (recommended for security):
@@ -129,23 +129,23 @@ Options:
   --help or -h                        Show this help message
 
 Example:
-  tn5250r --server 10.100.200.1 --port 23 --user dave3 --password dave3
+  tn5250r --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 ## Authentication Flow with CLI Credentials
 
 When launching with full credentials:
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 The application performs this sequence:
 
 1. **Parse CLI Arguments**: Extract username and password
 2. **Initialize Controller**: Create `AsyncTerminalController`
-3. **Configure Credentials**: Call `controller.set_credentials("dave3", "dave3")`
+3. **Configure Credentials**: Call `controller.set_credentials("myuser", "myuser")`
 4. **Auto-Connect**: Since `--server` was provided:
-   - Establish TCP connection to 10.100.200.1:23
+   - Establish TCP connection to as400.example.com:23
    - Perform telnet option negotiation
    - Send RFC 4777 NEW-ENVIRON with credentials
    - Server authenticates the user
@@ -173,14 +173,14 @@ cargo run --bin tn5250r -- --server as400.example.com --port 992 --ssl --user ad
 1. **Disable history for sensitive commands**:
    ```bash
    HISTCONTROL=ignorespace
-    cargo run --bin tn5250r -- --server 10.100.200.1 --user dave3 --password dave3
+    cargo run --bin tn5250r -- --server as400.example.com --user myuser --password myuser
    # Note the leading space to prevent history recording
    ```
 
 2. **Use environment variables**:
    ```bash
-   export AS400_USER=dave3
-   export AS400_PASS=dave3
+   export AS400_USER=myuser
+   export AS400_PASS=myuser
    # Then modify code to read from env vars (future enhancement)
    ```
 
@@ -188,7 +188,7 @@ cargo run --bin tn5250r -- --server as400.example.com --port 992 --ssl --user ad
 
 4. **Future enhancement**: Implement password prompt for interactive CLI usage:
    ```bash
-   cargo run --bin tn5250r -- --server 10.100.200.1 --user dave3 --ask-password
+   cargo run --bin tn5250r -- --server as400.example.com --user myuser --ask-password
    # Would prompt: "Password: " (hidden input)
    ```
 
@@ -209,7 +209,7 @@ cargo run --bin tn5250r -- --user testuser --password testpass
 
 ### Test full auto-connect with credentials:
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --server as400.example.com --port 23 --user myuser --password myuser
 # Should connect immediately and display AS/400 Sign-On screen
 ```
 

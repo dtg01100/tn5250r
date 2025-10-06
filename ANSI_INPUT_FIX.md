@@ -80,7 +80,7 @@ pub fn delete(&mut self) -> Result<(), String> {
 
 To test the fix:
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 Once the Sign-On screen appears:

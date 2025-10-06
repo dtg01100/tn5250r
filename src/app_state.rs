@@ -61,13 +61,14 @@ pub struct TN5250RApp {
 
 impl TN5250RApp {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false, None, None, None, false)
+        Self::new_with_server(_cc, "example.system.com".to_string(), 23, false, None, None, None, None, false)
     }
 
     /// Create app with optional profile (for CLI profile loading)
     pub fn new_with_profile(
         _cc: &eframe::CreationContext<'_>,
         profile: Option<SessionProfile>,
+        cli_protocol: Option<String>,
         debug_mode: bool,
     ) -> Self {
         let profile_manager = ProfileManager::new()
@@ -107,7 +108,22 @@ impl TN5250RApp {
             show_advanced_settings: false,
             show_settings_dialog: false,
             selected_screen_size: ScreenSize::Model2,
-            selected_protocol_mode: ProtocolMode::TN5250,
+            selected_protocol_mode: {
+                // CLI protocol override takes precedence
+                if let Some(ref protocol) = cli_protocol {
+                    match protocol.to_lowercase().as_str() {
+                        "tn5250" | "5250" => ProtocolMode::TN5250,
+                        "tn3270" | "3270" => ProtocolMode::TN3270,
+                        "auto" | "autodetect" => ProtocolMode::AutoDetect,
+                        _ => {
+                            eprintln!("Warning: Invalid protocol '{}', using TN5250", protocol);
+                            ProtocolMode::TN5250
+                        }
+                    }
+                } else {
+                    ProtocolMode::TN5250  // Default when no CLI override
+                }
+            },
             debug_mode,
             show_debug_panel: debug_mode,
             raw_buffer_dump: String::new(),
@@ -131,6 +147,7 @@ impl TN5250RApp {
         cli_ssl_override: Option<bool>,
         cli_username: Option<String>,
         cli_password: Option<String>,
+        cli_protocol: Option<String>,
         debug_mode: bool,
     ) -> Self {
         // Load persistent configuration
@@ -261,11 +278,25 @@ impl TN5250RApp {
                 }
             },
             selected_protocol_mode: {
-                match protocol_mode_config.as_deref() {
-                    Some("TN5250") => ProtocolMode::TN5250,
-                    Some("TN3270") => ProtocolMode::TN3270,
-                    Some("AutoDetect") => ProtocolMode::AutoDetect,
-                    _ => ProtocolMode::TN5250,  // Default to TN5250
+                // CLI protocol override takes precedence
+                if let Some(ref protocol) = cli_protocol {
+                    match protocol.to_lowercase().as_str() {
+                        "tn5250" | "5250" => ProtocolMode::TN5250,
+                        "tn3270" | "3270" => ProtocolMode::TN3270,
+                        "auto" | "autodetect" => ProtocolMode::AutoDetect,
+                        _ => {
+                            eprintln!("Warning: Invalid protocol '{}', using TN5250", protocol);
+                            ProtocolMode::TN5250
+                        }
+                    }
+                } else {
+                    // Use config value
+                    match protocol_mode_config.as_deref() {
+                        Some("TN5250") => ProtocolMode::TN5250,
+                        Some("TN3270") => ProtocolMode::TN3270,
+                        Some("AutoDetect") => ProtocolMode::AutoDetect,
+                        _ => ProtocolMode::TN5250,  // Default to TN5250
+                    }
                 }
             }
         }

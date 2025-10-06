@@ -1,7 +1,10 @@
-/// Field attribute and management logic for 3270
-///
-/// This module handles 3270 field attributes, including both basic field
-/// attributes (from SF order) and extended field attributes (from SFE order).
+//! Field attribute and management logic for 3270
+//!
+//! This module handles 3270 field attributes, including both basic field
+//! attributes (from SF order) and extended field attributes (from SFE order).
+
+#![allow(dead_code)] // Complete TN3270 field implementation
+
 use super::codes::*;
 
 /// 3270 Field Attribute Structure

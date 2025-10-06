@@ -14,6 +14,7 @@ use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT, CharAttri
 /// PERFORMANCE OPTIMIZATION: EBCDIC to ASCII lookup table
 /// Pre-computed conversion table for fast EBCDIC character translation
 /// This eliminates the expensive if-else chains in the original code
+#[allow(dead_code)] // Part of complete EBCDIC implementation
 static EBCDIC_TO_ASCII: [char; 256] = [
     // 0x00-0x3F: Control characters, nulls, and unassigned
     '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0',
@@ -71,6 +72,7 @@ static EBCDIC_TO_ASCII: [char; 256] = [
 
 /// PERFORMANCE OPTIMIZATION: Fast EBCDIC to ASCII conversion using lookup table
 #[inline(always)]
+#[allow(dead_code)] // Part of complete EBCDIC implementation
 fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
     EBCDIC_TO_ASCII[ebcdic_byte as usize]
 }
@@ -525,6 +527,7 @@ pub enum KeyboardState {
 }
 
 // Default device identification string
+#[allow(dead_code)] // Part of complete protocol implementation
 const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
 
 // Saved screen state for save/restore functionality

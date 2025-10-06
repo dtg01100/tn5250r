@@ -29,14 +29,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("No credentials provided (use --user <name> --password <pass>)");
     }
     
-    println!("Connecting to 10.100.200.1:23...");
+    println!("Connecting to as400.example.com:23...");
 
     // Attempt to connect
-    let mut stream = TcpStream::connect("10.100.200.1:23")?;
+    let mut stream = TcpStream::connect("as400.example.com:23")?;
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
 
-    println!("✅ Successfully connected to 10.100.200.1:23");
+    println!("✅ Successfully connected to as400.example.com:23");
 
     // Create 5250 session and telnet negotiator
     let mut session = Session::new();

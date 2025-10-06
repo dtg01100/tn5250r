@@ -10,7 +10,7 @@ This document outlines the comprehensive testing strategy for validating the 47 
 
 **Target Servers:**
 - **Primary**: pub400.com:23 (public AS/400 test system)
-- **Secondary**: 10.100.200.1:23 (local test system if available)
+- **Secondary**: as400.example.com:23 (local test system if available)
 - **Fallback**: Mock telnet server for controlled testing
 
 **Test Tools:**

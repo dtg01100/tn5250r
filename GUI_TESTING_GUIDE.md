@@ -7,17 +7,17 @@ You can now test the ANSI input fixes interactively.
 ## Start the Application
 
 ```bash
-cargo run --bin tn5250r -- --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 Or with debug mode:
 ```bash
-cargo run --bin tn5250r -- --debug --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --debug --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 ## What You Should See
 
-1. **Connection Screen** - Shows "Connecting to 10.100.200.1:23..."
+1. **Connection Screen** - Shows "Connecting to as400.example.com:23..."
 2. **Sign-On Screen** - Should display:
    ```
                           Sign On
@@ -98,8 +98,8 @@ Press the **🐛 button** to see:
 3. Check that AnsiProcessor coordinate fix is applied
 
 ### If connection fails:
-1. Verify server is reachable: `ping 10.100.200.1`
-2. Check port is open: `telnet 10.100.200.1 23`
+1. Verify server is reachable: `ping as400.example.com`
+2. Check port is open: `telnet as400.example.com 23`
 3. Verify credentials are correct
 4. Look at debug output for connection errors
 

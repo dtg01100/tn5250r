@@ -582,7 +582,7 @@ fn test_complete_3270_session() {
     let (b1, b2) = addressing::encode_12bit_address(160); // Row 2
     let data2 = vec![
         CMD_WRITE,
-        0x00,
+        WCC_RESTORE, // Use WCC_RESTORE to unlock keyboard
         ORDER_SBA,
         b1, b2,
         ORDER_SF,

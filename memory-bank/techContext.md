@@ -99,7 +99,7 @@ cargo test --bin             # Binary tests only
 
 ### Connection Testing
 ```bash
-cargo run -- --server localhost --port 2323  # Test connection
+cargo run -- --server as400.example.com --port 23  # Test connection
 ```
 
 ## Platform Support

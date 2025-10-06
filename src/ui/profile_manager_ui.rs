@@ -12,7 +12,7 @@ use crate::network::ProtocolMode;
 
 impl TN5250RApp {
     /// Show the profile management sidebar
-    pub fn show_profile_manager(&mut self, ctx: &egui::Context) {
+    pub fn show_profile_manager(&mut self, _ctx: &egui::Context) {
         // Profile manager is now shown as a side panel in app.rs
         // This function is kept for compatibility but now just ensures the sidebar is shown
     }

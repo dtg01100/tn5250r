@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides comprehensive troubleshooting procedures for TN5250 (AS/400) and TN3270 (Mainframe) terminal emulation issues. Based on the successful connection to `10.100.200.1:23`, this document covers diagnostic commands, common failure points, environment-specific differences, and resolution procedures.
+This guide provides comprehensive troubleshooting procedures for TN5250 (AS/400) and TN3270 (Mainframe) terminal emulation issues. This document covers diagnostic commands, common failure points, environment-specific differences, and resolution procedures.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ This guide provides comprehensive troubleshooting procedures for TN5250 (AS/400)
 
 **Basic Telnet Connection Test:**
 ```bash
-telnet 10.100.200.1 23
+telnet as400.example.com 23
 ```
 - Tests raw TCP connectivity to port 23
 - Should receive telnet negotiation options from server
@@ -29,7 +29,7 @@ telnet 10.100.200.1 23
 
 **Telnet with Debug Output:**
 ```bash
-telnet -d 10.100.200.1 23
+telnet -d as400.example.com 23
 ```
 - Shows telnet option negotiation details
 - Displays server capabilities and responses
@@ -37,7 +37,7 @@ telnet -d 10.100.200.1 23
 
 **Telnet to SSL Port:**
 ```bash
-telnet 10.100.200.1 992
+telnet as400.example.com 992
 ```
 - Tests connectivity to SSL/TLS port
 - Should show SSL handshake if server supports it
@@ -47,22 +47,22 @@ telnet 10.100.200.1 992
 **Port Scanning and Service Detection:**
 ```bash
 # Scan common TN5250/TN3270 ports
-nmap -p 23,992,9921 10.100.200.1
+nmap -p 23,992,9921 as400.example.com
 
 # Service version detection
-nmap -sV -p 23,992 10.100.200.1
+nmap -sV -p 23,992 as400.example.com
 
 # Operating system detection
-nmap -O 10.100.200.1
+nmap -O as400.example.com
 ```
 
 **Advanced Port Analysis:**
 ```bash
 # Check if ports are actually listening
-nmap -sT --reason 10.100.200.1
+nmap -sT --reason as400.example.com
 
 # Test port responsiveness
-nmap --host-timeout 10s -p 23 10.100.200.1
+nmap --host-timeout 10s -p 23 as400.example.com
 ```
 
 #### Tcpdump Commands
@@ -70,7 +70,7 @@ nmap --host-timeout 10s -p 23 10.100.200.1
 **Basic Packet Capture:**
 ```bash
 # Capture all traffic to/from target host
-sudo tcpdump -i any host 10.100.200.1 -w tn5250_capture.pcap
+sudo tcpdump -i any host as400.example.com -w tn5250_capture.pcap
 
 # Capture only telnet traffic
 sudo tcpdump -i any port 23 -w telnet_traffic.pcap
@@ -119,19 +119,19 @@ tn5250.cmd == 11 or tn5250.cmd == 42 or tn5250.cmd == 50
 **Raw Protocol Testing:**
 ```bash
 # Connect and send raw data
-nc 10.100.200.1 23
+nc as400.example.com 23
 
 # Test SSL connection
-nc -v 10.100.200.1 992
+nc -v as400.example.com 992
 
 # Send specific telnet commands
-echo -e '\xff\xfb\x18' | nc 10.100.200.1 23  # IAC WILL TERMINAL-TYPE
+echo -e '\xff\xfb\x18' | nc as400.example.com 23  # IAC WILL TERMINAL-TYPE
 ```
 
 **Protocol Simulation:**
 ```bash
 # Simulate basic TN5250 client
-nc 10.100.200.1 23 << EOF
+nc as400.example.com 23 << EOF
 \xff\xfb\x18\xff\xfd\x19\xff\xfd\x03\xff\xfe\x00\xff\xfb\x01
 EOF
 ```
@@ -155,7 +155,7 @@ EOF
 **Resolution:**
 ```bash
 # Test with different LU names
-telnet -E 10.100.200.1 23
+telnet -E as400.example.com 23
 
 # Check AS/400 LU configuration
 WRKCFGSTS *DEV *TELNET
@@ -178,7 +178,7 @@ WRKCFGSTS *DEV *TELNET
 **Resolution:**
 ```bash
 # Test with keepalive
-telnet -K 10.100.200.1 23
+telnet -K as400.example.com 23
 
 # Check server timeout configuration
 CHGTELNA TIMEOUT(3600)
@@ -202,7 +202,7 @@ CHGTELNA TIMEOUT(3600)
 ```bash
 # Force specific character set
 export LANG=C
-telnet 10.100.200.1 23
+telnet as400.example.com 23
 
 # Check EBCDIC conversion
 echo "Test message" | iconv -f ASCII -t EBCDIC
@@ -225,7 +225,7 @@ echo "Test message" | iconv -f ASCII -t EBCDIC
 **Resolution:**
 ```bash
 # Test with standard terminal type
-TERM=IBM-5250 telnet 10.100.200.1 23
+TERM=IBM-5250 telnet as400.example.com 23
 
 # Check server terminal type support
 DSPDEVDSP DEV(*TELNET)
@@ -249,8 +249,8 @@ DSPDEVDSP DEV(*TELNET)
 ```bash
 # Test environment variable format
 export DEVNAME=TN5250R
-export USER=testuser
-telnet 10.100.200.1 23
+export USER=myuser
+telnet as400.example.com 23
 ```
 
 ### SSL/TLS Certificate Problems
@@ -270,7 +270,7 @@ telnet 10.100.200.1 23
 **Resolution:**
 ```bash
 # Test SSL connection
-openssl s_client -connect 10.100.200.1:992
+openssl s_client -connect as400.example.com:992
 
 # Check certificate details
 openssl x509 -in certificate.pem -text -noout
@@ -316,8 +316,8 @@ CHGTELNA ALWSSL(*YES)
 **Mainframe Security:**
 ```bash
 # RACF configuration for TN3270
-RDEFINE SERVAUTH EZB.PORTACCESS.10.100.200.1.TN3270 UACC(NONE)
-PERMIT EZB.PORTACCESS.10.100.200.1.TN3270 CLASS(SERVAUTH) ID(userid) ACCESS(READ)
+RDEFINE SERVAUTH EZB.PORTACCESS.as400.example.com.TN3270 UACC(NONE)
+PERMIT EZB.PORTACCESS.as400.example.com.TN3270 CLASS(SERVAUTH) ID(userid) ACCESS(READ)
 ```
 
 ### Protocol Behavior Differences
@@ -567,16 +567,16 @@ graph TD
 ### Useful Commands Summary
 ```bash
 # Quick connectivity test
-telnet 10.100.200.1 23
+telnet as400.example.com 23
 
 # Port scan
-nmap -p 23,992 10.100.200.1
+nmap -p 23,992 as400.example.com
 
 # Packet capture
-sudo tcpdump -i any host 10.100.200.1 -w capture.pcap
+sudo tcpdump -i any host as400.example.com -w capture.pcap
 
 # SSL test
-openssl s_client -connect 10.100.200.1:992
+openssl s_client -connect as400.example.com:992
 ```
 
 This comprehensive guide provides the diagnostic tools and procedures necessary to troubleshoot TN5250/TN3270 connection issues effectively. Always start with basic connectivity tests and work systematically through the diagnostic steps.

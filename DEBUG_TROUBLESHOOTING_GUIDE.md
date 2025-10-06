@@ -11,7 +11,7 @@ Added comprehensive debug and troubleshooting capabilities to TN5250R to help di
 Enables verbose logging and activates the debug panel in the GUI.
 
 ```bash
-cargo run --bin tn5250r -- --debug --server 10.100.200.1 --port 23 --user dave3 --password dave3
+cargo run --bin tn5250r -- --debug --server as400.example.com --port 23 --user myuser --password myuser
 ```
 
 **What it does:**
@@ -25,7 +25,7 @@ cargo run --bin tn5250r -- --debug --server 10.100.200.1 --port 23 --user dave3 
 Enables detailed connection logging without full debug mode.
 
 ```bash
-cargo run --bin tn5250r -- --verbose --server 10.100.200.1 --port 23
+cargo run --bin tn5250r -- --verbose --server as400.example.com --port 23
 ```
 
 **What it does:**
@@ -84,7 +84,7 @@ When debug mode is enabled, click the **🐛 Debug** button in the top-right of 
 
 1. **Launch with debug mode:**
    ```bash
-   cargo run --bin tn5250r -- --debug -s 10.100.200.1 -p 23 -u dave3 --pass dave3
+   cargo run --bin tn5250r -- --debug -s as400.example.com -p 23 -u myuser --pass myuser
    ```
 
 2. **Open Debug Panel** (click 🐛 button)
@@ -130,12 +130,12 @@ When debug mode is enabled, click the **🐛 Debug** button in the top-right of 
 
 1. **Launch with verbose mode:**
    ```bash
-   cargo run --bin tn5250r -- --verbose -s 10.100.200.1 -p 23 -u dave3 --pass dave3
+   cargo run --bin tn5250r -- --verbose -s as400.example.com -p 23 -u myuser --pass myuser
    ```
 
 2. **Check console for:**
    ```
-   CLI: Configured credentials for user: DAVE3
+   CLI: Configured credentials for user: MYUSER
    Network: Credentials configured for telnet negotiation
    ```
 
@@ -174,19 +174,19 @@ When debug mode is enabled, click the **🐛 Debug** button in the top-right of 
 
 1. **Use test_connection for raw output:**
    ```bash
-   cargo run --bin test_connection -- --host 10.100.200.1 --port 23 --user dave3 --password dave3
+   cargo run --bin test_connection -- --host as400.example.com --port 23 --user myuser --password myuser
    ```
    This bypasses GUI and shows raw protocol flow.
 
 2. **Check firewall/network:**
    ```bash
-   telnet 10.100.200.1 23
+   telnet as400.example.com 23
    ```
    Should connect and show telnet prompt.
 
 3. **Try with debug mode:**
    ```bash
-   cargo run --bin tn5250r -- --debug -s 10.100.200.1 -p 23
+   cargo run --bin tn5250r -- --debug -s as400.example.com -p 23
    ```
    Watch console for where connection stops.
 
@@ -240,8 +240,8 @@ When running with `--debug` or `--verbose`, you'll see detailed logging:
 
 ### Connection Flow Logs:
 ```
-CLI: Configured credentials for user: DAVE3
-Controller: Configuring authentication for user: DAVE3
+CLI: Configured credentials for user: MYUSER
+Controller: Configuring authentication for user: MYUSER
 Network: Credentials configured for telnet negotiation
 Controller: Detected ANSI/VT100 data - switching to ANSI mode
 DEBUG: Retrieved terminal content (660 chars): '[screen content]'
@@ -285,7 +285,7 @@ When reporting issues, include:
 
 1. **Command used:**
    ```bash
-   cargo run --bin tn5250r -- --debug -s 10.100.200.1 -p 23 -u dave3 --pass dave3
+   cargo run --bin tn5250r -- --debug -s as400.example.com -p 23 -u myuser --pass myuser
    ```
 
 2. **Console output:**
@@ -419,7 +419,7 @@ cargo run --bin tn5250r -- --verbose
 # Should print: "VERBOSE MODE: Detailed connection logs active"
 
 # Test debug panel
-cargo run --bin tn5250r -- --debug -s 10.100.200.1 -p 23 -u dave3 --pass dave3
+cargo run --bin tn5250r -- --debug -s as400.example.com -p 23 -u myuser --pass myuser
 # Click 🐛 button, should open debug panel with all sections
 ```
 

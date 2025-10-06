@@ -179,7 +179,7 @@ mod e2e_tests {
         harness.press_key(egui::Key::Tab).unwrap();
 
         // Enter password
-        harness.type_text("secret123").unwrap();
+        harness.type_text("mypass").unwrap();
         harness.press_enter().unwrap();
 
         // Simulate successful signon
