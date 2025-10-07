@@ -124,7 +124,7 @@ impl ErrorRateLimiter {
         let now = Instant::now();
         
         // Get or create entry for this error type
-        let timestamps = counts.entry(error_type.to_string()).or_insert_with(Vec::new);
+        let timestamps = counts.entry(error_type.to_string()).or_default();
         
         // Remove old timestamps outside the window
         timestamps.retain(|&ts| now.duration_since(ts) < self.time_window);
@@ -168,6 +168,12 @@ impl ErrorRateLimiter {
                 (k.clone(), recent_count)
             })
             .collect()
+    }
+}
+
+impl Default for ErrorRateLimiter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -354,7 +360,7 @@ impl ProtocolViolationTracker {
     ) -> bool {
         let mut violations = self.violations.lock().unwrap();
         let conn_violations = violations.entry(connection_id.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
         
         conn_violations.push(ProtocolViolation {
             violation_type,
@@ -370,7 +376,7 @@ impl ProtocolViolationTracker {
     pub fn get_violations(&self, connection_id: &str) -> Vec<ProtocolViolation> {
         let violations = self.violations.lock().unwrap();
         violations.get(connection_id)
-            .map(|v| v.clone())
+            .cloned()
             .unwrap_or_default()
     }
 
@@ -447,6 +453,12 @@ impl SequenceValidator {
     pub fn get_statistics(&self, session_id: &str) -> usize {
         let out_of_order = self.out_of_order_count.lock().unwrap();
         *out_of_order.get(session_id).unwrap_or(&0)
+    }
+}
+
+impl Default for SequenceValidator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

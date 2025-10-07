@@ -1290,27 +1290,25 @@ impl Session {
             return Err("Session authentication required".to_string());
         }
 
-        let responses;
-
-        match self.protocol_mode {
+        let responses = match self.protocol_mode {
             ProtocolMode::TN5250 => {
                 // INTEGRATION: Use integrated 5250 processing
-                responses = self.process_5250_data_integrated(data)?;
+                self.process_5250_data_integrated(data)?
             },
             ProtocolMode::NVT => {
                 // INTEGRATION: Handle NVT data (plain text)
-                responses = self.process_nvt_data(data)?;
+                self.process_nvt_data(data)?
             },
             ProtocolMode::AutoDetect => {
                 // INTEGRATION: Auto-detect and switch mode
-                responses = self.process_auto_detect_data(data)?;
+                self.process_auto_detect_data(data)?
             },
             ProtocolMode::TN3270 => {
                 // TN3270 protocol is not supported in this session type
                 // This should be handled by a separate 3270 session processor
                 return Err("TN3270 protocol not supported in TN5250 session".to_string());
             }
-        }
+        };
 
         // INTEGRATION: Update command tracking
         self.command_count += 1;

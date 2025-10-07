@@ -160,8 +160,14 @@ pub enum NegotiationState {
     Disabling,
 }
 
+impl Default for NegotiationState {
+    fn default() -> Self {
+        NegotiationState::Disabled
+    }
+}
+
 /// Telnet option negotiation tracker
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct OptionState {
     /// Local state (our side)
     pub local: NegotiationState,
@@ -172,10 +178,7 @@ pub struct OptionState {
 impl OptionState {
     /// Create a new option state with both sides disabled
     pub fn new() -> Self {
-        Self {
-            local: NegotiationState::Disabled,
-            remote: NegotiationState::Disabled,
-        }
+        Self::default()
     }
 
     /// Check if the option is fully enabled on both sides
@@ -184,11 +187,8 @@ impl OptionState {
     }
 }
 
-impl Default for OptionState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Tuple type for parsed telnet command info
+pub type TelnetCommandInfo = (TelnetCommand, Option<u8>, Option<Vec<u8>>);
 
 /// Build a telnet negotiation sequence
 ///
@@ -262,7 +262,7 @@ pub fn build_subnegotiation(option: u8, data: &[u8]) -> Vec<u8> {
 ///
 /// A tuple of (regular_data, commands) where commands is a vector of
 /// (command, option, subnegotiation_data) tuples
-pub fn parse_telnet_stream(data: &[u8]) -> (Vec<u8>, Vec<(TelnetCommand, Option<u8>, Option<Vec<u8>>)>) {
+pub fn parse_telnet_stream(data: &[u8]) -> (Vec<u8>, Vec<TelnetCommandInfo>) {
     let mut regular_data = Vec::new();
     let mut commands = Vec::new();
     let mut i = 0;

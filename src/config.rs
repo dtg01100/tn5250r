@@ -473,7 +473,7 @@ pub fn default_config_path() -> PathBuf {
                 std::env::var_os("HOME").map(|h| Path::new(&h).join(".config"))
             })
             .unwrap_or_else(|| PathBuf::from("."));
-        return base.join("tn5250r").join("session.json");
+        base.join("tn5250r").join("session.json")
     }
 
     #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "dragonfly", target_os = "openbsd", target_os = "netbsd"))]
@@ -481,7 +481,7 @@ pub fn default_config_path() -> PathBuf {
         let base = std::env::var_os("HOME")
             .map(|h| Path::new(&h).join("Library").join("Application Support"))
             .unwrap_or_else(|| PathBuf::from("."));
-        return base.join("tn5250r").join("session.json");
+        base.join("tn5250r").join("session.json")
     }
 
     #[cfg(target_os = "windows")]
@@ -489,7 +489,7 @@ pub fn default_config_path() -> PathBuf {
         let base = std::env::var_os("APPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        return base.join("tn5250r").join("session.json");
+        base.join("tn5250r").join("session.json")
     }
 
     // Fallback for unsupported platforms
@@ -734,20 +734,18 @@ mod tests {
         
         config.set_property("test.string", "hello");
         config.set_property("test.int", 42i64);
-        config.set_property("test.float", 3.14f64);
+        config.set_property("test.float", std::f64::consts::PI);
         config.set_property("test.bool", true);
         
         assert_eq!(config.get_string_property("test.string"), Some("hello".to_string()));
         assert_eq!(config.get_int_property("test.int"), Some(42));
-        assert_eq!(config.get_float_property("test.float"), Some(3.14));
+        assert_eq!(config.get_float_property("test.float"), Some(std::f64::consts::PI));
         assert_eq!(config.get_boolean_property("test.bool"), Some(true));
     }
 
     #[test]
     fn test_change_listeners() {
         let mut config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
-        let mut listener = TestListener::new();
-        
         config.add_listener(Box::new(TestListener::new()));
         config.set_property("test.key", "test.value");
         

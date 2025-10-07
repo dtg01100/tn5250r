@@ -421,7 +421,7 @@ async fn test_input_transmission_3270() -> Vec<TestResult> {
     let encoded = processor.encode_field_data(&field_data);
     
     // Verify SBA orders are present
-    if encoded.len() > 0 {
+    if !encoded.is_empty() {
         results.push(TestResult::pass("Field data encoded successfully"));
         
         // Check for SBA order (0x11)
@@ -834,7 +834,7 @@ async fn test_buffer_addressing() -> Vec<TestResult> {
     let field_data = vec![(100u16, "TEST".to_string())];
     let encoded_12bit = processor_12bit.encode_field_data(&field_data);
     
-    if encoded_12bit.len() > 0 {
+    if !encoded_12bit.is_empty() {
         results.push(TestResult::pass("12-bit addressing mode works in processor"));
     } else {
         results.push(TestResult::fail("12-bit addressing mode works in processor", "No data encoded"));
@@ -845,7 +845,7 @@ async fn test_buffer_addressing() -> Vec<TestResult> {
     processor_14bit.set_14bit_addressing(true);
     let encoded_14bit = processor_14bit.encode_field_data(&field_data);
     
-    if encoded_14bit.len() > 0 {
+    if !encoded_14bit.is_empty() {
         results.push(TestResult::pass("14-bit addressing mode works in processor"));
     } else {
         results.push(TestResult::fail("14-bit addressing mode works in processor", "No data encoded"));

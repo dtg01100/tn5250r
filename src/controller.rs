@@ -1018,6 +1018,15 @@ impl AsyncTerminalController {
             cancel_connect_flag: Arc::new(AtomicBool::new(false)),
         }
     }
+}
+
+impl Default for AsyncTerminalController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AsyncTerminalController {
 
     /// Set credentials for AS/400 authentication (RFC 4777)
     /// Must be called before connect() or connect_async()

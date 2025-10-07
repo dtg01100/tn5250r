@@ -198,7 +198,8 @@ impl Default for PerformanceConfig {
     fn default() -> Self {
         Self {
             enable_detailed_tracking: true,
-            history_retention_count: 100,
+            // Keep fewer snapshots to lower memory in constrained environments
+            history_retention_count: 30,
             snapshot_interval_seconds: 60,
             cpu_warning_threshold: 70.0,
             cpu_critical_threshold: 90.0,
@@ -275,7 +276,13 @@ impl PerformanceMonitor {
             start_time: Instant::now(),
         }
     }
+}
 
+impl Default for PerformanceMonitor {
+    fn default() -> Self { Self::new() }
+}
+
+impl PerformanceMonitor {
     /// Check performance health and detect issues
     pub fn check_performance_health(&self) -> Result<ComponentHealthCheck, String> {
         let mut details = HashMap::new();

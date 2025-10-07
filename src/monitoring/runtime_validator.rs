@@ -360,6 +360,12 @@ impl RuntimeValidator {
     }
 }
 
+impl Default for RuntimeValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Memory information structure
 #[derive(Debug, Clone)]
 struct MemoryInfo {

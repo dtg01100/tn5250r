@@ -341,6 +341,12 @@ impl BufferPool {
     }
 }
 
+impl Default for BufferPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub struct TelnetNegotiator {
     /// Current state of each telnet option
@@ -375,6 +381,12 @@ pub struct TelnetNegotiator {
 
     /// Logical unit name for session binding
     logical_unit_name: Option<String>,
+}
+
+impl Default for TelnetNegotiator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TelnetNegotiator {
@@ -871,7 +883,7 @@ impl TelnetNegotiator {
                 },
                 TelnetOption::TN3270E => {
                     // Handle TN3270E subnegotiation
-                    if data.len() >= 1 {
+                    if !data.is_empty() {
                         self.handle_tn3270e_subnegotiation(&data[1..]);
                     }
                 },
@@ -1015,7 +1027,7 @@ impl TelnetNegotiator {
 
         // Parse bind data - typically includes logical unit name
         // Format: <bind-data> where bind-data starts with logical unit information
-        if data.len() >= 1 {
+        if !data.is_empty() {
             // For now, extract logical unit name if present
             // In a full implementation, this would parse the complete bind structure
             let lu_name = if data.len() > 1 {
@@ -1329,6 +1341,7 @@ impl TelnetNegotiator {
 
     /// Parse environment variables sent by the remote side
     /// ENHANCED: Allows unknown AS/400 variables while maintaining basic security
+    #[allow(dead_code)]
     fn validate_variable_name_format(&self, name: &[u8]) -> bool {
         // Length constraints
         if name.is_empty() || name.len() > 128 {
@@ -1406,6 +1419,7 @@ impl TelnetNegotiator {
 
     /// SECURITY: Validate environment variable values
     /// ENHANCED: More permissive validation for AS/400 compatibility
+    #[allow(dead_code)]
     fn validate_variable_value(&self, value: &[u8]) -> bool {
         // Length constraints - increased for AS/400 compatibility
         if value.len() > 512 {

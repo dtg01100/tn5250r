@@ -125,11 +125,12 @@ pub struct ComponentStatus {
 }
 
 /// Component operational states
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum ComponentState {
     /// Component is starting up
     Starting,
     /// Component is running normally
+    #[default]
     Running,
     /// Component is in warning state
     Warning,
@@ -139,10 +140,6 @@ pub enum ComponentState {
     Stopped,
     /// Component is restarting
     Restarting,
-}
-
-impl Default for ComponentState {
-    fn default() -> Self { ComponentState::Running }
 }
 
 /// Integration event types
@@ -247,7 +244,13 @@ impl IntegrationMonitor {
             }
         }
     }
+}
 
+impl Default for IntegrationMonitor {
+    fn default() -> Self { Self::new() }
+}
+
+impl IntegrationMonitor {
     /// Check integration health and component status
     pub fn check_integration_health(&self) -> Result<ComponentHealthCheck, String> {
         let mut details = HashMap::new();
@@ -405,7 +408,7 @@ impl IntegrationMonitor {
             "network" | "controller" | "terminal" | "protocol" | "field_manager" | "telnet_negotiator" => true,
 
             // Non-essential in headless environments: treat as healthy when TN5250R_HEADLESS=1
-            "ansi_processor" | "keyboard" => headless || true, // still healthy by default
+            "ansi_processor" | "keyboard" => headless,
 
             _ => false,
         }
@@ -611,7 +614,7 @@ mod tests {
     fn test_integration_monitor_creation() {
         let monitor = IntegrationMonitor::new();
         let components = monitor.get_all_components();
-        assert!(components.len() > 0);
+        assert!(!components.is_empty());
         assert!(components.contains_key("network"));
         assert!(components.contains_key("controller"));
     }
@@ -632,7 +635,7 @@ mod tests {
     fn test_critical_components() {
         let monitor = IntegrationMonitor::new();
         let critical = monitor.get_critical_components();
-        assert!(critical.len() > 0);
+        assert!(!critical.is_empty());
 
         // All critical components should be marked as critical
         for (_, status) in critical {

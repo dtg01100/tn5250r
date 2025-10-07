@@ -43,6 +43,7 @@ use std::fs;
 use crate::telnet_negotiation::TelnetNegotiator;
 use crate::error::{TN5250Error};
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
+#[cfg(windows)]
 use crate::network_platform;
 
 
@@ -82,7 +83,7 @@ impl std::io::Write for OwnedTlsStream {
 #[derive(Debug)]
 enum StreamType {
     Plain(std::net::TcpStream),
-    Tls(OwnedTlsStream),
+    Tls(Box<OwnedTlsStream>),
 }
 
 impl std::io::Read for StreamType {
@@ -349,7 +350,7 @@ pub struct AS400Connection {
     host: String,
     port: u16,
     receiver: Option<mpsc::Receiver<Vec<u8>>>,
-    sender: Option<mpsc::Sender<Vec<u8>>>,
+    sender: Option<mpsc::SyncSender<Vec<u8>>>,
     running: bool,
     telnet_negotiator: TelnetNegotiator,
     negotiation_complete: bool,
@@ -368,7 +369,16 @@ pub struct AS400Connection {
 impl AS400Connection {
     /// Creates a new connection instance
     pub fn new(host: String, port: u16) -> Self {
-        let (tx, rx) = mpsc::channel();
+        // Use a bounded channel to prevent unbounded memory growth under backpressure
+        // Capacity can be tuned via TN5250R_CHANNEL_CAPACITY env var (min 64, max 4096)
+        fn channel_capacity_from_env() -> usize {
+            std::env::var("TN5250R_CHANNEL_CAPACITY")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+                .map(|n| n.clamp(64, 4096))
+                .unwrap_or(512)
+        }
+        let (tx, rx) = mpsc::sync_channel(channel_capacity_from_env());
         Self {
             stream: None,
             host,
@@ -500,10 +510,10 @@ impl AS400Connection {
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
                     set_component_error("network", Some(format!("TLS connection failed: {}", e)));
-                    return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e)));
+                    return Err(std::io::Error::other(format!("TLS connection failed: {}", e)));
                 }
             };
-            rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
+            rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: tcp })));
             // Record successful TLS connection in monitoring
             let monitoring = crate::monitoring::MonitoringSystem::global();
             monitoring.integration_monitor.record_integration_event(crate::monitoring::IntegrationEvent {
@@ -727,10 +737,10 @@ let tls_conn = match ClientConnection::new(tls_config, server_name) {
     Err(e) => {
         set_component_status("network", ComponentState::Error);
         set_component_error("network", Some(format!("TLS connection failed: {}", e)));
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("TLS connection failed: {}", e)))
+        return Err(std::io::Error::other(format!("TLS connection failed: {}", e)))
     },
 };
-rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
+rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: tcp })));
         } else {
             let tcp = match TcpStream::connect_timeout(&addr, timeout) {
                 Ok(s) => s,
@@ -806,10 +816,10 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         
         // Add native certificates
         for cert in rustls_native_certs::load_native_certs().map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to load native certificates: {}", e))
+            std::io::Error::other(format!("Failed to load native certificates: {}", e))
         })? {
             root_store.add(cert).map_err(|e| {
-                std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to add certificate: {}", e))
+                std::io::Error::other(format!("Failed to add certificate: {}", e))
             })?;
         }
 
@@ -1173,9 +1183,19 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
 
                             // PERFORMANCE OPTIMIZATION: Clone data from pooled buffer instead of allocating new Vec
                             let data_to_send = pooled_buffer[..n].to_vec();
-                            if sender.send(data_to_send).is_err() {
-                                eprintln!("SECURITY: Channel send failed - receiver may be closed");
-                                break;
+                            // Avoid blocking if channel is full; drop packet to cap memory usage
+                            match sender.try_send(data_to_send) {
+                                Ok(()) => {}
+                                Err(mpsc::TrySendError::Full(_)) => {
+                                    // Drop oldest by ignoring this packet; log at debug level
+                                    eprintln!(
+                                        "PERF: Dropping incoming packet due to full channel (backpressure)"
+                                    );
+                                }
+                                Err(mpsc::TrySendError::Disconnected(_)) => {
+                                    eprintln!("SECURITY: Channel send failed - receiver may be closed");
+                                    break;
+                                }
                             }
                         }
                         Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
@@ -1285,7 +1305,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         }
 
         let result = if let Some(ref shared) = self.stream {
-            let mut guard = shared.lock().map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Stream lock poisoned"))?;
+            let mut guard = shared.lock().map_err(|_| std::io::Error::other("Stream lock poisoned"))?;
 
             // CRITICAL FIX: Validate data before sending
             if AS400Connection::validate_network_data(data) {
@@ -1346,7 +1366,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                     // SESSION MANAGEMENT: Update activity timestamp on data receipt
                     self.update_last_activity();
                     println!("DEBUG: Received data from network: {} bytes", data.len());
-                    if data.len() > 0 {
+                    if !data.is_empty() {
                         println!("DEBUG: Raw data: {:02x?}", &data[..data.len().min(50)]);
                     }
                     if !self.protocol_detector.is_detection_complete() {
@@ -1398,7 +1418,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
                             // Filter out telnet negotiation from the data and return clean 5250 data
                             let clean_data = self.extract_5250_data(&data);
                             println!("DEBUG: TN5250 mode - extracted {} bytes from {} bytes", clean_data.len(), data.len());
-                            if clean_data.len() > 0 {
+if !clean_data.is_empty() {
                                 println!("DEBUG: Clean 5250 data first 20 bytes: {:02x?}", &clean_data[..clean_data.len().min(20)]);
                                 Some(clean_data)
                             } else {
@@ -1591,7 +1611,7 @@ rw = Box::new(StreamType::Tls(OwnedTlsStream { conn: tls_conn, stream: tcp }));
         
         if !clean_data.is_empty() {
             println!("DEBUG: Extracted {} bytes of 3270 data", clean_data.len());
-            if clean_data.len() > 0 {
+            if !clean_data.is_empty() {
                 println!("DEBUG: Clean 3270 data first 20 bytes: {:02x?}", &clean_data[..clean_data.len().min(20)]);
             }
         }

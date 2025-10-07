@@ -5,6 +5,10 @@
 
 set -e
 
+# Low-memory friendly defaults for CI/devcontainers
+export RUST_TEST_THREADS=${RUST_TEST_THREADS:-1}
+export RUST_BACKTRACE=${RUST_BACKTRACE:-1}
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -56,32 +60,32 @@ check_system() {
 # Run specific test categories
 run_component_tests() {
     print_status "Running component tests..."
-    $XVFB_CMD cargo test tests::gui::components -- --nocapture
+    $XVFB_CMD cargo test -j 2 tests::gui::components -- --nocapture --test-threads=1
     print_success "Component tests completed"
 }
 
 run_integration_tests() {
     print_status "Running integration tests..."
-    $XVFB_CMD cargo test tests::gui::integration -- --nocapture
+    $XVFB_CMD cargo test -j 2 tests::gui::integration -- --nocapture --test-threads=1
     print_success "Integration tests completed"
 }
 
     run_e2e_tests() {
         print_status "Running E2E tests..."
-        $XVFB_CMD cargo test tests::gui::components::test_e2e_scenarios -- --nocapture
+    $XVFB_CMD cargo test -j 2 tests::gui::components::test_e2e_scenarios -- --nocapture --test-threads=1
         print_success "E2E tests completed"
     }
 
 run_all_tests() {
     print_status "Running all GUI tests..."
-    $XVFB_CMD cargo test --test gui -- --nocapture
+    $XVFB_CMD cargo test -j 2 --test gui -- --nocapture --test-threads=1
     print_success "All GUI tests completed"
 }
 
 # Update snapshots (for visual regression tests)
 update_snapshots() {
     print_status "Updating visual regression snapshots..."
-    $XVFB_CMD cargo test tests::gui::visual -- --nocapture --update-snapshots
+    $XVFB_CMD cargo test -j 2 tests::gui::visual -- --nocapture --update-snapshots --test-threads=1
     print_success "Snapshots updated"
 }
 
@@ -149,7 +153,7 @@ main() {
 
     # Build the project first
     print_status "Building project..."
-    cargo build
+    cargo build -j 2
     print_success "Build completed"
 
     # Run the requested tests

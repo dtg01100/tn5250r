@@ -108,18 +108,13 @@ pub trait Networking {
 }
 
 /// INTEGRATION: Concrete implementation of platform abstractions
+#[derive(Default)]
 pub struct Platform;
 
 impl Platform {
     /// Create new platform abstraction instance
     pub fn new() -> Self {
         Self
-    }
-}
-
-impl Default for Platform {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

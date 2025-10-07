@@ -142,7 +142,7 @@ mod tests {
     #[test]
     fn test_profile_manager_creation() {
         let temp_dir = tempdir().unwrap();
-        let config_dir = temp_dir.path().join("profiles");
+        let _config_dir = temp_dir.path().join("profiles");
 
         // This test would need mocking for dirs::config_dir
         // For now, just test that the struct can be created conceptually
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn test_profile_crud_operations() {
         let temp_dir = tempdir().unwrap();
-        let config_dir = temp_dir.path().join("profiles");
+        let _config_dir = temp_dir.path().join("profiles");
 
         // Create a temporary profile manager with a custom config dir
         // This is a simplified test since we can't easily mock dirs::config_dir

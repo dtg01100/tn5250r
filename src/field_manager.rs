@@ -51,7 +51,7 @@ pub enum FieldType {
     UppercaseOnly,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FieldBehavior {
     /// FER - must use Field Exit key to leave field
     pub field_exit_required: bool,
@@ -71,22 +71,6 @@ pub struct FieldBehavior {
     pub dup_enabled: bool,
     /// Custom next field ID for progression
     pub cursor_progression: Option<usize>,
-}
-
-impl Default for FieldBehavior {
-    fn default() -> Self {
-        Self {
-            field_exit_required: false,
-            auto_enter: false,
-            mandatory: false,
-            bypass: false,
-            right_adjust: false,
-            zero_fill: false,
-            uppercase_convert: false,
-            dup_enabled: false,
-            cursor_progression: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -995,7 +979,7 @@ impl FieldManager {
     
     /// Add field to continued group
     pub fn add_field_to_continued_group(&mut self, field_idx: usize, group_id: usize) {
-        self.continued_groups.entry(group_id).or_insert_with(Vec::new).push(field_idx);
+        self.continued_groups.entry(group_id).or_default().push(field_idx);
         if field_idx < self.fields.len() {
             self.fields[field_idx].continued_group_id = Some(group_id);
         }
@@ -1295,4 +1279,8 @@ impl FieldManager {
 
         Ok(())
     }
+}
+
+impl Default for FieldManager {
+    fn default() -> Self { Self::new() }
 }

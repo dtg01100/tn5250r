@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let content = controller.get_terminal_content();
                     println!("=== Loop {} - Terminal Content ===", i);
                     println!("Content length: {} chars", content.len());
-                    if !content.is_empty() && content.trim().len() > 0 {
+                    if !content.is_empty() && !content.trim().is_empty() {
                         println!("First 200 chars: '{}'", 
                             content.chars().take(200).collect::<String>());
                         // Also check if there's actual non-space content

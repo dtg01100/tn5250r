@@ -530,6 +530,12 @@ impl TelnetCommand {
 }
 
 /// Negotiate required telnet options for 5250 protocol (legacy function)
+impl Default for TelnetNegotiator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn negotiate_options(options: &[TelnetOption]) -> bool {
     let required = [TelnetOption::Binary, TelnetOption::EndOfRecord, TelnetOption::SuppressGoAhead];
     required.iter().all(|req| options.contains(req))

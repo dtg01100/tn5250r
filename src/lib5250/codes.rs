@@ -7,10 +7,6 @@
 /// Source: lib5250/codes5250.h from the tn5250 project
 /// Copyright (C) 2000-2008 Michael Madore
 /// Miscellaneous constants
-
-
-
-
 /// 5250 Protocol Commands
 pub const CMD_CLEAR_UNIT: u8 = 0x40;
 pub const CMD_CLEAR_UNIT_ALTERNATE: u8 = 0x20;

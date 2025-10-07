@@ -11,8 +11,9 @@ pub const TERMINAL_WIDTH: usize = 80;
 pub const TERMINAL_HEIGHT: usize = 24;
 
 // Character attributes for 5250 terminal
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum CharAttribute {
+    #[default]
     Normal,
     Intensified,      // Highlighted/bright text
     NonDisplay,       // Hidden characters (password fields)
@@ -24,20 +25,12 @@ pub enum CharAttribute {
 }
 
 // Represents a single character on the terminal screen
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct TerminalChar {
     pub character: char,
     pub attribute: CharAttribute,
 }
 
-impl Default for TerminalChar {
-    fn default() -> Self {
-        Self {
-            character: ' ',
-            attribute: CharAttribute::Normal,
-        }
-    }
-}
 
 // Represents the terminal screen buffer
 #[derive(Debug)]
@@ -444,6 +437,12 @@ impl Clone for TerminalScreen {
     }
 }
 
+impl Default for TerminalScreen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Display for TerminalScreen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // PERFORMANCE OPTIMIZATION: Iterate through 1D vector for better cache locality
@@ -528,6 +527,12 @@ impl TerminalEmulator {
     // Reset dirty flag after redrawing
     pub fn mark_clean(&mut self) {
         self.screen.dirty = false;
+    }
+}
+
+impl Default for TerminalEmulator {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -64,7 +64,8 @@ impl Display {
     }
 
     /// Get the current screen content as a string
-    pub fn to_string(&self) -> String {
+    /// Prefer `Display` impl for formatting; keep helper for compatibility
+    pub fn screen_to_string(&self) -> String {
         self.screen.to_string()
     }
     
@@ -362,7 +363,7 @@ impl Display {
             0x40 => ' ',  // Space
             0x4a => '!',
             0x4f => '|',
-            0x50..=0x59 => ('0' as u8 + (ebcdic - 0x50)) as char, // 0-9
+            0x50..=0x59 => (b'0' + (ebcdic - 0x50)) as char, // 0-9
             0x5a => '!',
             0x5b => '$',
             0x5c => '*',
@@ -371,14 +372,20 @@ impl Display {
             0x5f => '^',
             0x60 => '-',
             0x61 => '/',
-            0x81..=0x89 => ('a' as u8 + (ebcdic - 0x81)) as char, // a-i
-            0x91..=0x99 => ('j' as u8 + (ebcdic - 0x91)) as char, // j-r
-            0xa2..=0xa9 => ('s' as u8 + (ebcdic - 0xa2)) as char, // s-z
-            0xc1..=0xc9 => ('A' as u8 + (ebcdic - 0xc1)) as char, // A-I
-            0xd1..=0xd9 => ('J' as u8 + (ebcdic - 0xd1)) as char, // J-R
-            0xe2..=0xe9 => ('S' as u8 + (ebcdic - 0xe2)) as char, // S-Z
+            0x81..=0x89 => (b'a' + (ebcdic - 0x81)) as char, // a-i
+            0x91..=0x99 => (b'j' + (ebcdic - 0x91)) as char, // j-r
+            0xa2..=0xa9 => (b's' + (ebcdic - 0xa2)) as char, // s-z
+            0xc1..=0xc9 => (b'A' + (ebcdic - 0xc1)) as char, // A-I
+            0xd1..=0xd9 => (b'J' + (ebcdic - 0xd1)) as char, // J-R
+            0xe2..=0xe9 => (b'S' + (ebcdic - 0xe2)) as char, // S-Z
             _ => '?',  // Unknown character
         }
+    }
+}
+
+impl std::fmt::Display for Display {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.screen_to_string())
     }
 }
 

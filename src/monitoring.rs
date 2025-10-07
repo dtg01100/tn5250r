@@ -333,6 +333,12 @@ impl MonitoringSystem {
     }
 }
 
+impl Default for MonitoringSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Result of a health check operation
 #[derive(Debug, Clone)]
 pub struct HealthCheckResult {

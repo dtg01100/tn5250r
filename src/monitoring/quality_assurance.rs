@@ -555,6 +555,10 @@ impl QualityAssurance {
     }
 }
 
+impl Default for QualityAssurance {
+    fn default() -> Self { Self::new() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

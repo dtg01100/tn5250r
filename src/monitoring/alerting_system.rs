@@ -69,13 +69,15 @@ impl Default for AlertConfig {
     fn default() -> Self {
         Self {
             enable_alerting: true,
-            max_alert_history: 2000,
-            alert_cooldown_seconds: 300, // 5 minutes
+            // Keep history bounded to a modest size to reduce memory in tests/runs
+            max_alert_history: 200,
+            alert_cooldown_seconds: 120, // 2 minutes
             enable_email_notifications: false, // Disabled for security
             enable_logging_notifications: true,
             enable_dashboard_notifications: true,
             critical_alert_threshold: 5,
-            auto_resolve_after_seconds: 3600, // 1 hour
+            // Resolve automatically sooner to allow cleanup and history trimming
+            auto_resolve_after_seconds: 600, // 10 minutes
         }
     }
 }
@@ -496,6 +498,10 @@ impl AlertingSystem {
 
         report
     }
+}
+
+impl Default for AlertingSystem {
+    fn default() -> Self { Self::new() }
 }
 
 #[cfg(test)]

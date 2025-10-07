@@ -1244,3 +1244,7 @@ Ready...
         buffer
     }
 }
+
+impl Default for ProtocolProcessor {
+    fn default() -> Self { Self::new() }
+}

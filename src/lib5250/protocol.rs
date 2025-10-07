@@ -483,6 +483,12 @@ impl ProtocolProcessor {
     }
 }
 
+impl Default for ProtocolProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // Protocol parser struct for parsing 5250 data streams
 pub struct ProtocolParser {
     pub buffer: Vec<u8>,

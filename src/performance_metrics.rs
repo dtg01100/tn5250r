@@ -229,6 +229,12 @@ impl PerformanceMetrics {
     }
 }
 
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
+        PerformanceMetrics::new()
+    }
+}
+
 /// Performance timing helper
 pub struct PerformanceTimer {
     start_time: Instant,

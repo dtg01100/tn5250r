@@ -65,7 +65,7 @@ impl ScreenSize {
 }
 
 /// Cell in the display buffer
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DisplayCell {
     /// Character data (EBCDIC)
     pub char_data: u8,
@@ -75,16 +75,6 @@ pub struct DisplayCell {
     
     /// Extended attribute data
     pub extended_attr: u8,
-}
-
-impl Default for DisplayCell {
-    fn default() -> Self {
-        Self {
-            char_data: 0x00,  // Null character
-            is_field_attr: false,
-            extended_attr: 0x00,
-        }
-    }
 }
 
 /// 3270 Display Buffer
@@ -338,30 +328,6 @@ impl Display3270 {
         self.alarm
     }
     
-    /// Get the display buffer as a string (for debugging/display)
-    pub fn to_string(&self) -> String {
-        let mut result = String::new();
-        let cols = self.cols();
-        
-        for (i, cell) in self.buffer.iter().enumerate() {
-            if i > 0 && i % cols == 0 {
-                result.push('\n');
-            }
-            
-            if cell.is_field_attr {
-                result.push('█'); // Field attribute marker
-            } else {
-                let ch = ebcdic_to_ascii(cell.char_data);
-                result.push(if ch.is_ascii_graphic() || ch == ' ' {
-                    ch
-                } else {
-                    '.'
-                });
-            }
-        }
-        
-        result
-    }
     
     /// Get a specific row as a string
     pub fn get_row(&self, row: usize) -> Option<String> {
@@ -400,13 +366,32 @@ impl Display3270 {
     
     /// Get modified field data for Read Modified command
     pub fn get_modified_data(&self) -> Vec<u8> {
-        let data = Vec::new();
-        
         // TODO: Implement proper Read Modified logic
         // This should return only fields with MDT bit set
         // Format: AID + cursor address + field data
-        
-        data
+        Vec::new()
+    }
+}
+
+impl std::fmt::Display for Display3270 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cols = self.cols();
+
+        for (i, cell) in self.buffer.iter().enumerate() {
+            if i > 0 && i % cols == 0 {
+                writeln!(f)?;
+            }
+
+            if cell.is_field_attr {
+                write!(f, "█")?;
+            } else {
+                let ch = ebcdic_to_ascii(cell.char_data);
+                let out_ch = if ch.is_ascii_graphic() || ch == ' ' { ch } else { '.' };
+                write!(f, "{}", out_ch)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

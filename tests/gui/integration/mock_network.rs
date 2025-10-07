@@ -220,6 +220,6 @@ mod tests {
     #[test]
     fn test_signon_scenario() {
         let (mock, _) = MockScenario::successful_connection();
-        assert!(mock.responses.lock().unwrap().len() > 0);
+        assert!(!mock.responses.lock().unwrap().is_empty());
     }
 }

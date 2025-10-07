@@ -76,6 +76,10 @@ impl DeviceAttributes {
     }
 }
 
+impl Default for DeviceAttributes {
+    fn default() -> Self { Self::new() }
+}
+
 #[derive(Debug)]
 pub struct ProtocolStateMachine {
     pub state: ProtocolState,
@@ -471,6 +475,9 @@ impl ProtocolStateMachine {
 // TODO: Implement session-based protocol state management
 // The old ProtocolState trait is being replaced with direct session integration
 
+impl Default for ProtocolStateMachine {
+    fn default() -> Self { Self::new() }
+}
 
 
 #[cfg(test)]

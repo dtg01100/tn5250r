@@ -214,7 +214,13 @@ impl SecurityMonitor {
             description: "Suspicious network traffic pattern".to_string(),
         });
     }
+}
 
+impl Default for SecurityMonitor {
+    fn default() -> Self { Self::new() }
+}
+
+impl SecurityMonitor {
     /// Check security health and detect threats
     pub fn check_security_health(&self) -> Result<ComponentHealthCheck, String> {
         let mut details = HashMap::new();

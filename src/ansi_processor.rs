@@ -5,7 +5,7 @@
 
 use crate::terminal::{TerminalScreen, CharAttribute, TerminalChar};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AnsiProcessor {
     /// Current cursor position (row, col) - 1-based
     cursor_row: usize,
@@ -31,7 +31,7 @@ impl AnsiProcessor {
             in_escape: false,
         }
     }
-    
+
     /// Process incoming data and update terminal screen
     pub fn process_data(&mut self, data: &[u8], screen: &mut TerminalScreen) {
         for &byte in data {
