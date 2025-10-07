@@ -1,8 +1,9 @@
 //! Rust port of lib5250 display.c - Core display operations for 5250 protocol
-//! 
+//!
 //! This module provides the display buffer management and screen update functions
 //! that are called by the session module during 5250 protocol processing.
 
+use crate::ebcdic;
 use crate::terminal::TerminalScreen;
 
 /// Display buffer that manages the 5250 terminal screen state
@@ -142,8 +143,28 @@ impl Display {
             self.cursor_col = self.insert_cursor_col;
             self.screen.set_cursor(self.cursor_row, self.cursor_col);
         } else {
-            // For now, just go to 0,0 - TODO: Find first non-bypass field
-            self.set_cursor(0, 0);
+            // Scan display buffer to find first non-bypass (non-protected) field
+            let mut found = false;
+            for row in 0..self.height {
+                for col in 0..self.width {
+                    let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                    if let Some(cell) = self.screen.buffer.get(index) {
+                        // Bypass fields are protected fields - skip them
+                        if !matches!(cell.attribute, crate::terminal::CharAttribute::Protected) {
+                            self.set_cursor(row, col);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if found {
+                    break;
+                }
+            }
+            // If no non-bypass field found, default to (0,0)
+            if !found {
+                self.set_cursor(0, 0);
+            }
         }
     }
 
@@ -356,30 +377,9 @@ impl Display {
 
     // ===== EBCDIC conversion =====
 
-    /// Convert EBCDIC character to ASCII
-    /// TODO: This is a simplified conversion - should use proper EBCDIC tables
+    /// Convert EBCDIC character to ASCII using proper EBCDIC CP037 table
     fn ebcdic_to_ascii(&self, ebcdic: u8) -> char {
-        match ebcdic {
-            0x40 => ' ',  // Space
-            0x4a => '!',
-            0x4f => '|',
-            0x50..=0x59 => (b'0' + (ebcdic - 0x50)) as char, // 0-9
-            0x5a => '!',
-            0x5b => '$',
-            0x5c => '*',
-            0x5d => ')',
-            0x5e => ';',
-            0x5f => '^',
-            0x60 => '-',
-            0x61 => '/',
-            0x81..=0x89 => (b'a' + (ebcdic - 0x81)) as char, // a-i
-            0x91..=0x99 => (b'j' + (ebcdic - 0x91)) as char, // j-r
-            0xa2..=0xa9 => (b's' + (ebcdic - 0xa2)) as char, // s-z
-            0xc1..=0xc9 => (b'A' + (ebcdic - 0xc1)) as char, // A-I
-            0xd1..=0xd9 => (b'J' + (ebcdic - 0xd1)) as char, // J-R
-            0xe2..=0xe9 => (b'S' + (ebcdic - 0xe2)) as char, // S-Z
-            _ => '?',  // Unknown character
-        }
+        ebcdic::ebcdic_to_ascii(ebcdic)
     }
 }
 
