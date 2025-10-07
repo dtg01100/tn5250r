@@ -1,3 +1,19 @@
+/// EBCDIC CHARACTER TRANSLATION: EBCDIC to ASCII conversion utilities
+/// Consolidated EBCDIC translation functionality for IBM terminal protocols
+pub mod ebcdic;
+
+/// CURSOR VALIDATION: Cursor position validation and bounds checking utilities
+/// Centralized cursor validation logic for terminal emulation security
+pub mod cursor_utils;
+
+/// COMPONENT UTILITIES: Component configuration and monitoring helpers
+/// Centralized utilities for component management and health checks
+pub mod component_utils;
+
+/// BUFFER UTILITIES: Terminal buffer iteration and manipulation utilities
+/// Efficient iterators and utilities for terminal screen buffer operations
+pub mod buffer_utils;
+
 /// PERFORMANCE MONITORING: Global performance metrics
 /// Tracks key performance indicators across the application
 pub mod performance_metrics;

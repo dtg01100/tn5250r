@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::{HashMap, VecDeque};
 use super::{HealthStatus, ComponentHealthCheck};
-use super::component_signals::{set_component_critical, set_component_status};
 use super::component_signals::{get_component_signal, is_headless};
+use crate::component_utils::configure_component;
 
 /// Integration monitoring system for component interaction validation
 #[derive(Debug)]
@@ -239,8 +239,7 @@ impl IntegrationMonitor {
                 });
 
                 // Seed component signals registry with initial state and criticality
-                set_component_status(name, ComponentState::Running);
-                set_component_critical(name, is_critical);
+                configure_component(name, ComponentState::Running, is_critical);
             }
         }
     }

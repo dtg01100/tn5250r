@@ -9,7 +9,11 @@
 //! MIGRATION COMPLETE: The main application now uses lib5250::ProtocolProcessor
 //! instead of ProtocolProcessor. This file is kept for reference only.
 
-use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT, CharAttribute, TerminalChar};
+use std::collections::HashMap;
+use crate::ebcdic::ebcdic_to_ascii;
+use crate::cursor_utils::validate_cursor_bounds;
+use crate::buffer_utils::TerminalPositionIterator;
+use crate::terminal::{TerminalScreen, TerminalChar, CharAttribute, TERMINAL_WIDTH, TERMINAL_HEIGHT};
 
 /// PERFORMANCE OPTIMIZATION: EBCDIC to ASCII lookup table
 /// Pre-computed conversion table for fast EBCDIC character translation
@@ -70,12 +74,7 @@ static EBCDIC_TO_ASCII: [char; 256] = [
     '\0', '\0', '\0', '\0', '\0', '\0',
 ];
 
-/// PERFORMANCE OPTIMIZATION: Fast EBCDIC to ASCII conversion using lookup table
-#[inline(always)]
-#[allow(dead_code)] // Part of complete EBCDIC implementation
-fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
-    EBCDIC_TO_ASCII[ebcdic_byte as usize]
-}
+
 
 // 5250 protocol command codes as defined in RFC 2877
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -1019,10 +1018,9 @@ impl ProtocolProcessor {
     fn restore_screen_state(&mut self) {
         // Restore the saved screen state if it exists
         if let Some(saved_state) = &self.saved_state {
-            // Restore the screen buffer
-            for y in 0..TERMINAL_HEIGHT {
-                for x in 0..TERMINAL_WIDTH {
-                    let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+            // Restore the screen buffer using buffer utilities
+            for (x, y, index) in TerminalPositionIterator::full_screen() {
+                if index < self.screen.buffer.len() {
                     self.screen.buffer[index] = saved_state.buffer[y][x];
                 }
             }
@@ -1061,8 +1059,8 @@ impl ProtocolProcessor {
         let end_col = data[3] as usize;
 
         // SECURITY: Validate coordinates are within terminal bounds
-        if start_row >= TERMINAL_HEIGHT || start_col >= TERMINAL_WIDTH ||
-           end_row >= TERMINAL_HEIGHT || end_col >= TERMINAL_WIDTH {
+        if validate_cursor_bounds(start_col, start_row).is_err() ||
+           validate_cursor_bounds(end_col, end_row).is_err() {
             eprintln!("SECURITY: Invalid coordinates for partial screen save: start=({start_row},{start_col}), end=({end_row},{end_col})");
             return;
         }
@@ -1082,11 +1080,10 @@ impl ProtocolProcessor {
             return;
         }
 
-        // Create a new saved state with current full screen
+        // Create a new saved state with current full screen using buffer utilities
         let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
-        for y in 0..TERMINAL_HEIGHT {
-            for x in 0..TERMINAL_WIDTH {
-                let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+        for (x, y, index) in TerminalPositionIterator::full_screen() {
+            if index < self.screen.buffer.len() {
                 saved_buffer[y][x] = self.screen.buffer[index];
             }
         }

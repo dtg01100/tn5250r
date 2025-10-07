@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use std::thread;
+use crate::component_utils::configure_component;
 
 /// Global monitoring system instance
 static GLOBAL_MONITORING: once_cell::sync::Lazy<Arc<MonitoringSystem>> =
@@ -411,7 +412,7 @@ pub fn init_monitoring() {
     monitoring.start_continuous_monitoring(30);
 
     // Mark system as running in component signals
-    set_component_status("system", integration_monitor::ComponentState::Running);
+    configure_component("system", integration_monitor::ComponentState::Running, true);
 
     println!("MONITORING: Comprehensive monitoring system initialized");
 }
@@ -435,7 +436,7 @@ pub fn shutdown_monitoring() {
     println!("MONITORING: Monitoring system shutdown complete");
 
     // Mark system as stopped in component signals
-    set_component_status("system", integration_monitor::ComponentState::Stopped);
+    configure_component("system", integration_monitor::ComponentState::Stopped, true);
 }
 
 #[cfg(test)]

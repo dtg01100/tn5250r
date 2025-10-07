@@ -1,48 +1,9 @@
 // TODO: Will need session integration later
+use crate::component_utils::error_messages;
 use crate::error::ProtocolError;
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
 use crate::field_manager::{FieldManager, FieldType, Field as FmField};
 use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT};
-
-// EBCDIC CP037 to ASCII translation table for IBM 5250 terminals
-const EBCDIC_CP037_TO_ASCII: [char; 256] = [
-    '\x00', '\x01', '\x02', '\x03', '\x37', '\x2D', '\x2E', '\x2F',
-    '\x16', '\x05', '\x25', '\x0B', '\x0C', '\r',   '\x0E', '\x0F',
-    '\x10', '\x11', '\x12', '\x13', '\x3C', '\x3D', '\x32', '\x26',
-    '\x18', '\x19', '\x3F', '\x27', '\x1C', '\x1D', '\x1E', '\x1F',
-    '\x40', '\x5A', '\x7F', '\x7B', '\x5B', '\n',   '\x17', '\x1B',
-    '\x60', '\x61', '\x62', '\x63', '\x64', '\x65', '\x66', '\x67',
-    '\x68', '\x69', '\x70', '\x71', '\x72', '\x73', '\x74', '\x75',
-    '\x76', '\x77', '\x78', '\x79', '\x7A', '\x7B', '\x7C', '\x7D',
-    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '[',    '.',    '<',    '(',    '+',    '|',
-    '&',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '!',    '$',    '*',    ')',    ';',    ' ',
-    '-',    '/',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '|',    ',',    '%',    '_',    '>',    '?',
-    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    '`',    ':',    '#',    '@',    '\'',   '=',    '"',
-    ' ',    'a',    'b',    'c',    'd',    'e',    'f',    'g',
-    'h',    'i',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    'j',    'k',    'l',    'm',    'n',    'o',    'p',
-    'q',    'r',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    '~',    's',    't',    'u',    'v',    'w',    'x',
-    'y',    'z',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '^',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    ' ',    ' ',    '[',    ']',    ' ',    ' ',    ' ',    ' ',
-    '{',    'A',    'B',    'C',    'D',    'E',    'F',    'G',
-    'H',    'I',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '}',    'J',    'K',    'L',    'M',    'N',    'O',    'P',
-    'Q',    'R',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '\\',   ' ',    'S',    'T',    'U',    'V',    'W',    'X',
-    'Y',    'Z',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-    '0',    '1',    '2',    '3',    '4',    '5',    '6',    '7',
-    '8',    '9',    ' ',    ' ',    ' ',    ' ',    ' ',    ' ',
-];
-
-pub fn ebcdic_to_ascii(ebcdic_byte: u8) -> char {
-    EBCDIC_CP037_TO_ASCII[ebcdic_byte as usize]
-}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProtocolState {
@@ -401,8 +362,9 @@ impl ProtocolStateMachine {
 
         // Validate field manager state
         if let Some(active_idx) = self.field_manager.get_active_field_index() {
-            if active_idx >= self.field_manager.field_count() {
-                return Err(format!("Active field index {active_idx} out of bounds"));
+            let field_count = self.field_manager.field_count();
+            if active_idx >= field_count {
+                return Err(error_messages::out_of_bounds("Active field", active_idx, field_count));
             }
         }
 
@@ -450,8 +412,11 @@ impl ProtocolStateMachine {
         // Validate field manager
         if let Some(active_idx) = self.field_manager.get_active_field_index() {
             if active_idx >= self.field_manager.field_count() {
-                return Err(format!("Active field index {} out of bounds (max: {})",
-                                 active_idx, self.field_manager.field_count().saturating_sub(1)));
+                return Err(error_messages::out_of_bounds(
+                    "Active field", 
+                    active_idx, 
+                    self.field_manager.field_count().saturating_sub(1)
+                ));
             }
         }
 

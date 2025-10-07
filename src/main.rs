@@ -18,6 +18,12 @@ mod error;
 mod protocol_state;
 mod protocol_common;
 mod lib3270;
+
+// DRY improvement modules
+mod ebcdic;
+mod cursor_utils;
+mod component_utils;
+mod buffer_utils;
 mod protocol;
 mod constants;
 
