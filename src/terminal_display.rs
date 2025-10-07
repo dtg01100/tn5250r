@@ -91,9 +91,9 @@ impl TN5250RApp {
             }
 
             // Draw cursor if it's beyond the text content
-            if cursor_pos.0 as usize > lines.len() ||
-                (cursor_pos.0 as usize <= lines.len() &&
-                 cursor_pos.1 as usize > lines.get(cursor_pos.0 - 1).map_or(0, |l| l.len())) {
+            if cursor_pos.0 > lines.len() ||
+                (cursor_pos.0 <= lines.len() &&
+                 cursor_pos.1 > lines.get(cursor_pos.0 - 1).map_or(0, |l| l.len())) {
 
                 let cursor_char_pos = rect.min + egui::vec2(
                     (cursor_pos.1 - 1) as f32 * char_width,

@@ -77,7 +77,7 @@ impl TN5250RApp {
                     100.0
                 };
                 let color = if success_rate > 90.0 { egui::Color32::GREEN } else { egui::Color32::YELLOW };
-                ui.colored_label(color, format!("{:.1}%", success_rate));
+                ui.colored_label(color, format!("{success_rate:.1}%"));
             });
 
             ui.label("Quality Metrics:");
@@ -85,14 +85,14 @@ impl TN5250RApp {
                 ui.label("  Code Quality:");
                 let code_quality = report.quality_metrics.code_quality_score.load(Ordering::Relaxed);
                 let quality_color = if code_quality > 80 { egui::Color32::GREEN } else { egui::Color32::YELLOW };
-                ui.colored_label(quality_color, format!("{}/100", code_quality));
+                ui.colored_label(quality_color, format!("{code_quality}/100"));
             });
 
             ui.horizontal(|ui| {
                 ui.label("  Test Coverage:");
                 let test_coverage = report.quality_metrics.test_coverage_percent.load(Ordering::Relaxed);
                 let coverage_color = if test_coverage > 80 { egui::Color32::GREEN } else { egui::Color32::YELLOW };
-                ui.colored_label(coverage_color, format!("{}%", test_coverage));
+                ui.colored_label(coverage_color, format!("{test_coverage}%"));
             });
         });
 
@@ -103,18 +103,18 @@ impl TN5250RApp {
             ui.horizontal(|ui| {
                 ui.label("Security Events:");
                 let security_events = report.security_metrics.total_security_events.load(Ordering::Relaxed);
-                ui.label(format!("{}", security_events));
+                ui.label(format!("{security_events}"));
             });
 
             ui.horizontal(|ui| {
                 ui.label("Threats Mitigated:");
                 let threats_mitigated = report.security_metrics.threat_mitigations.load(Ordering::Relaxed);
-                ui.label(format!("{}", threats_mitigated));
+                ui.label(format!("{threats_mitigated}"));
             });
 
             let auth_failures = report.security_metrics.authentication_failures.load(Ordering::Relaxed);
             if auth_failures > 0 {
-                ui.colored_label(egui::Color32::RED, format!("Auth Failures: {}", auth_failures));
+                ui.colored_label(egui::Color32::RED, format!("Auth Failures: {auth_failures}"));
             }
         });
 
@@ -164,7 +164,7 @@ impl TN5250RApp {
                         eprintln!("MONITORING: Manual health check completed: {:?}", result.overall_status);
                     }
                     Err(e) => {
-                        eprintln!("MONITORING: Manual health check failed: {}", e);
+                        eprintln!("MONITORING: Manual health check failed: {e}");
                     }
                 }
             }
@@ -234,26 +234,26 @@ impl TN5250RApp {
         let validation_success_rate = if total_validations > 0 {
             (successful_validations as f64 / total_validations as f64) * 100.0
         } else { 100.0 };
-        full_report.push_str(&format!("  Validation Success Rate: {:.1}%\n", validation_success_rate));
+        full_report.push_str(&format!("  Validation Success Rate: {validation_success_rate:.1}%\n"));
 
         let code_quality = report.quality_metrics.code_quality_score.load(Ordering::Relaxed);
         let test_coverage = report.quality_metrics.test_coverage_percent.load(Ordering::Relaxed);
-        full_report.push_str(&format!("  Code Quality Score: {}/100\n", code_quality));
-        full_report.push_str(&format!("  Test Coverage: {}%\n", test_coverage));
+        full_report.push_str(&format!("  Code Quality Score: {code_quality}/100\n"));
+        full_report.push_str(&format!("  Test Coverage: {test_coverage}%\n"));
 
         // Security summary
         full_report.push_str("\nSECURITY SUMMARY:\n");
         let total_security_events = report.security_metrics.total_security_events.load(Ordering::Relaxed);
         let threats_mitigated = report.security_metrics.threat_mitigations.load(Ordering::Relaxed);
-        full_report.push_str(&format!("  Total Security Events: {}\n", total_security_events));
-        full_report.push_str(&format!("  Threats Mitigated: {}\n", threats_mitigated));
+        full_report.push_str(&format!("  Total Security Events: {total_security_events}\n"));
+        full_report.push_str(&format!("  Threats Mitigated: {threats_mitigated}\n"));
 
         // Integration summary
         full_report.push_str("\nINTEGRATION SUMMARY:\n");
         let component_interactions = report.integration_metrics.component_interactions.load(Ordering::Relaxed);
         let integration_failures = report.integration_metrics.integration_failures.load(Ordering::Relaxed);
-        full_report.push_str(&format!("  Component Interactions: {}\n", component_interactions));
-        full_report.push_str(&format!("  Integration Failures: {}\n", integration_failures));
+        full_report.push_str(&format!("  Component Interactions: {component_interactions}\n"));
+        full_report.push_str(&format!("  Integration Failures: {integration_failures}\n"));
 
         // Recent alerts
         let active_alerts: Vec<_> = report.recent_alerts.iter().filter(|a| !a.resolved).collect();

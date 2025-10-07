@@ -108,11 +108,11 @@ impl TerminalScreen {
         let chars_to_write = chars.len().min(max_chars);
 
         // PERFORMANCE: Direct buffer access with bounds checking minimized
-        for i in 0..chars_to_write {
+        for (i, &ch) in chars.iter().enumerate().take(chars_to_write) {
             let buffer_idx = start_idx + i;
             if buffer_idx < self.buffer.len() {
                 self.buffer[buffer_idx] = TerminalChar {
-                    character: chars[i],
+                    character: ch,
                     attribute: attr,
                 };
             }
@@ -243,7 +243,7 @@ impl TerminalScreen {
 
         // Validate coordinates are within reasonable bounds
         if x > TERMINAL_WIDTH || y > TERMINAL_HEIGHT {
-            eprintln!("SECURITY: Invalid cursor position ({}, {}) - exceeds terminal dimensions", y, x);
+            eprintln!("SECURITY: Invalid cursor position ({y}, {x}) - exceeds terminal dimensions");
             return;
         }
 
@@ -263,13 +263,13 @@ impl TerminalScreen {
 
         // Validate coordinates are within bounds
         if x >= TERMINAL_WIDTH || y >= TERMINAL_HEIGHT {
-            eprintln!("SECURITY: Attempted to write outside terminal bounds at ({}, {})", y, x);
+            eprintln!("SECURITY: Attempted to write outside terminal bounds at ({y}, {x})");
             return;
         }
 
         // Additional validation: ensure coordinates are reasonable
         if x > TERMINAL_WIDTH || y > TERMINAL_HEIGHT {
-            eprintln!("SECURITY: Invalid coordinates ({}, {}) - exceeds maximum values", y, x);
+            eprintln!("SECURITY: Invalid coordinates ({y}, {x}) - exceeds maximum values");
             return;
         }
 

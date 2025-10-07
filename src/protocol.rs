@@ -449,15 +449,15 @@ impl Packet {
         let data = bytes[data_start..data_start + length].to_vec();
 
         // SECURITY: Validate command byte is within valid range
-        if command_byte >= 0x80 && command_byte <= 0xFF {
+        if command_byte >= 0x80 {
             if let Some(command) = CommandCode::from_u8(command_byte) {
                 Some(Packet::new_with_flags(command, sequence_number, data, flags))
             } else {
-                eprintln!("SECURITY: Unknown command byte: 0x{:02x}", command_byte);
+                eprintln!("SECURITY: Unknown command byte: 0x{command_byte:02x}");
                 None
             }
         } else {
-            eprintln!("SECURITY: Invalid command byte range: 0x{:02x}", command_byte);
+            eprintln!("SECURITY: Invalid command byte range: 0x{command_byte:02x}");
             None
         }
     }
@@ -798,7 +798,7 @@ impl ProtocolProcessor {
         };
 
         // SECURITY: Validate SFID byte range
-        if sfid >= 0x80 && sfid <= 0xFF {
+        if sfid >= 0x80 {
             if let Some(sf_id) = StructuredFieldID::from_u8(sfid) {
                 match sf_id {
                     StructuredFieldID::CreateChangeExtendedAttribute => {
@@ -849,10 +849,10 @@ impl ProtocolProcessor {
                     },
                 }
             } else {
-                eprintln!("SECURITY: Unknown structured field ID: 0x{:02x}", sfid);
+                eprintln!("SECURITY: Unknown structured field ID: 0x{sfid:02x}");
             }
         } else {
-            eprintln!("SECURITY: Invalid structured field ID range: 0x{:02x}", sfid);
+            eprintln!("SECURITY: Invalid structured field ID range: 0x{sfid:02x}");
         }
 
         Ok(())
@@ -870,7 +870,7 @@ impl ProtocolProcessor {
         let _reserved = data[2];
         
         // For now, just print the attribute
-        println!("Processed extended attribute: type={}, value={}", attribute_type, attribute_value);
+        println!("Processed extended attribute: type={attribute_type}, value={attribute_value}");
         
         Ok(())
     }
@@ -884,7 +884,7 @@ impl ProtocolProcessor {
             let attribute_value = data[pos + 1];
             let _reserved = data[pos + 2];
             
-            println!("Set extended attribute: type={}, value={}", attribute_type, attribute_value);
+            println!("Set extended attribute: type={attribute_type}, value={attribute_value}");
             
             pos += 3;
         }
@@ -1063,8 +1063,7 @@ impl ProtocolProcessor {
         // SECURITY: Validate coordinates are within terminal bounds
         if start_row >= TERMINAL_HEIGHT || start_col >= TERMINAL_WIDTH ||
            end_row >= TERMINAL_HEIGHT || end_col >= TERMINAL_WIDTH {
-            eprintln!("SECURITY: Invalid coordinates for partial screen save: start=({},{}), end=({},{})",
-                     start_row, start_col, end_row, end_col);
+            eprintln!("SECURITY: Invalid coordinates for partial screen save: start=({start_row},{start_col}), end=({end_row},{end_col})");
             return;
         }
 
@@ -1136,8 +1135,7 @@ impl ProtocolProcessor {
         // SECURITY: Validate coordinates are within terminal bounds
         if start_row >= TERMINAL_HEIGHT || start_col >= TERMINAL_WIDTH ||
            end_row >= TERMINAL_HEIGHT || end_col >= TERMINAL_WIDTH {
-            eprintln!("SECURITY: Invalid coordinates for partial screen restore: start=({},{}), end=({},{})",
-                     start_row, start_col, end_row, end_col);
+            eprintln!("SECURITY: Invalid coordinates for partial screen restore: start=({start_row},{start_col}), end=({end_row},{end_col})");
             return;
         }
 

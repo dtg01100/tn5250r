@@ -290,7 +290,7 @@ impl Packet {
         // CRITICAL FIX: Validate length is within reasonable bounds
         // Reject impossibly large data payloads (> 65530 bytes to account for header)
         if length > 65530 {
-            eprintln!("[PACKET] Rejected: Data length {} exceeds maximum (65530)", length);
+            eprintln!("[PACKET] Rejected: Data length {length} exceeds maximum (65530)");
             return None;
         }
 
@@ -309,7 +309,7 @@ impl Packet {
 
         // CRITICAL FIX: Ensure data_start <= data_end to prevent slice panic
         if data_start > data_end {
-            eprintln!("[PACKET] Rejected: Invalid data range [{}..{}]", data_start, data_end);
+            eprintln!("[PACKET] Rejected: Invalid data range [{data_start}..{data_end}]");
             return None;
         }
 
@@ -319,11 +319,10 @@ impl Packet {
 
         // Verify command code is valid
         if let Some(command) = CommandCode::from_u8(command_byte) {
-            eprintln!("[PACKET] Successfully parsed: cmd={:?}, seq={}, flags=0x{:02X}, data_len={}",
-                      command, sequence_number, flags, data_len);
+            eprintln!("[PACKET] Successfully parsed: cmd={command:?}, seq={sequence_number}, flags=0x{flags:02X}, data_len={data_len}");
             Some(Packet::new_with_flags(command, sequence_number, data, flags))
         } else {
-            eprintln!("[PACKET] Rejected: Invalid command code 0x{:02X}", command_byte);
+            eprintln!("[PACKET] Rejected: Invalid command code 0x{command_byte:02X}");
             None
         }
     }
@@ -595,8 +594,7 @@ impl ProtocolParser {
                 let dup_enable = (attr & 0x04) != 0;
                 let non_display = (attr & 0x0C) == 0x0C;
                 
-                println!("5250: Field attribute - Protected: {}, Numeric: {}, Skip: {}, DupEnable: {}, NonDisplay: {}", 
-                         protected, numeric, skip, dup_enable, non_display);
+                println!("5250: Field attribute - Protected: {protected}, Numeric: {numeric}, Skip: {skip}, DupEnable: {dup_enable}, NonDisplay: {non_display}");
                 Ok(())
             },
             0x1A => { // Set buffer address (cursor position)
@@ -607,7 +605,7 @@ impl ProtocolParser {
                 let col = self.buffer[self.cursor + 1] as usize;
                 self.cursor += 2;
                 
-                println!("5250: Set cursor position to row {}, col {}", row, col);
+                println!("5250: Set cursor position to row {row}, col {col}");
                 Ok(())
             },
             0x29 => { // Roll (move screen contents up/down)
@@ -617,7 +615,7 @@ impl ProtocolParser {
                 let roll_lines = self.buffer[self.cursor] as usize;
                 self.cursor += 1;
                 
-                println!("5250: Roll screen {} lines", roll_lines);
+                println!("5250: Roll screen {roll_lines} lines");
                 Ok(())
             },
             0x12 => { // Insert cursor
@@ -643,7 +641,7 @@ impl ProtocolParser {
                     0x03 => "down",
                     _ => "unknown",
                 };
-                println!("5250: Move cursor {} {} positions", dir_str, distance);
+                println!("5250: Move cursor {dir_str} {distance} positions");
                 Ok(())
             },
             0x2A => { // Clear unit alternate
@@ -671,20 +669,20 @@ impl ProtocolParser {
                 
                 // Skip over format table data
                 self.cursor += length;
-                println!("5250: Set format table (length: {})", length);
+                println!("5250: Set format table (length: {length})");
                 Ok(())
             },
             // Data characters (0x40-0xFF typically)
             0x40..=0xFF => {
                 // This is character data, convert from EBCDIC and handle
                 let ch = ebcdic_to_ascii(order);
-                println!("5250: Character data: '{}'", ch);
+                println!("5250: Character data: '{ch}'");
                 // Don't advance cursor again as we already did it at the start
                 Ok(())
             },
             // Other orders that don't take parameters
             _ => {
-                println!("5250: Unknown order: 0x{:02X}", order);
+                println!("5250: Unknown order: 0x{order:02X}");
                 Ok(())
             }
         }
@@ -746,7 +744,7 @@ impl ProtocolParser {
                         0x00 => println!("  - Clear screen to null"),
                         0x01 => println!("  - Clear screen to blanks"),
                         0x02 => println!("  - Clear input fields only"),
-                        _ => println!("  - Unknown reset type: 0x{:02X}", reset_type),
+                        _ => println!("  - Unknown reset type: 0x{reset_type:02X}"),
                     }
                 }
             },
@@ -759,7 +757,7 @@ impl ProtocolParser {
                         0x00 => println!("  - Query device capabilities"),
                         0x01 => println!("  - Query supported structured fields"),
                         0x02 => println!("  - Query character sets"),
-                        _ => println!("  - Query type: 0x{:02X}", query_type),
+                        _ => println!("  - Query type: 0x{query_type:02X}"),
                     }
                 }
             },
@@ -774,7 +772,7 @@ impl ProtocolParser {
                 println!("5250: Request minimum timestamp interval");
                 if data_length >= 2 {
                     let interval = u16::from_be_bytes([self.buffer[self.cursor], self.buffer[self.cursor + 1]]);
-                    println!("  - Interval: {} milliseconds", interval);
+                    println!("  - Interval: {interval} milliseconds");
                 }
             },
             0x84 => { // Query Command (variant)
@@ -788,7 +786,7 @@ impl ProtocolParser {
                         0x00 => println!("  - Character mode"),
                         0x01 => println!("  - Field mode"),
                         0x02 => println!("  - Extended field mode"),
-                        _ => println!("  - Mode: 0x{:02X}", reply_mode),
+                        _ => println!("  - Mode: 0x{reply_mode:02X}"),
                     }
                 }
             },
@@ -799,7 +797,7 @@ impl ProtocolParser {
                     match direction {
                         0x00 => println!("  - Roll up"),
                         0x01 => println!("  - Roll down"),
-                        _ => println!("  - Direction: 0x{:02X}", direction),
+                        _ => println!("  - Direction: 0x{direction:02X}"),
                     }
                 }
             },
@@ -825,7 +823,7 @@ impl ProtocolParser {
                 println!("5250: Define named logical unit");
             },
             _ => {
-                println!("5250: Unknown structured field ID: 0x{:02X}", sf_id);
+                println!("5250: Unknown structured field ID: 0x{sf_id:02X}");
             }
         }
         
@@ -849,8 +847,7 @@ impl ProtocolParser {
             let save_attributes = (save_options & 0x04) != 0;
             let save_format_table = (save_options & 0x08) != 0;
             
-            println!("5250: Save screen - Data: {}, Cursor: {}, Attributes: {}, Format: {}", 
-                     save_screen_data, save_cursor, save_attributes, save_format_table);
+            println!("5250: Save screen - Data: {save_screen_data}, Cursor: {save_cursor}, Attributes: {save_attributes}, Format: {save_format_table}");
             self.cursor += 1;
         } else {
             println!("5250: Save screen - default (all data)");
@@ -871,8 +868,7 @@ impl ProtocolParser {
             let restore_attributes = (restore_options & 0x04) != 0;
             let restore_format_table = (restore_options & 0x08) != 0;
             
-            println!("5250: Restore screen - Data: {}, Cursor: {}, Attributes: {}, Format: {}", 
-                     restore_screen_data, restore_cursor, restore_attributes, restore_format_table);
+            println!("5250: Restore screen - Data: {restore_screen_data}, Cursor: {restore_cursor}, Attributes: {restore_attributes}, Format: {restore_format_table}");
             self.cursor += 1;
         } else {
             println!("5250: Restore screen - default (all data)");
@@ -929,7 +925,7 @@ impl ProtocolParser {
                     CommandCode::ReadMdtFieldsAlt => self.parse_read_modified_all_with_state_trait(state)?,
                     _ => {},
                 },
-                None => return Err(format!("Invalid command code: 0x{:02X}", cmd)),
+                None => return Err(format!("Invalid command code: 0x{cmd:02X}")),
             }
         }
         Ok(())

@@ -142,7 +142,7 @@ impl MonitoringSystem {
                 overall_status = HealthStatus::Critical;
                 results.push(("runtime".to_string(), ComponentHealthCheck {
                     status: HealthStatus::Critical,
-                    message: format!("Runtime validation failed: {}", e),
+                    message: format!("Runtime validation failed: {e}"),
                     details: HashMap::new(),
                 }));
             }
@@ -164,7 +164,7 @@ impl MonitoringSystem {
                 overall_status = HealthStatus::Critical;
                 results.push(("performance".to_string(), ComponentHealthCheck {
                     status: HealthStatus::Critical,
-                    message: format!("Performance check failed: {}", e),
+                    message: format!("Performance check failed: {e}"),
                     details: HashMap::new(),
                 }));
             }
@@ -186,7 +186,7 @@ impl MonitoringSystem {
                 overall_status = HealthStatus::Critical;
                 results.push(("security".to_string(), ComponentHealthCheck {
                     status: HealthStatus::Critical,
-                    message: format!("Security check failed: {}", e),
+                    message: format!("Security check failed: {e}"),
                     details: HashMap::new(),
                 }));
             }
@@ -208,7 +208,7 @@ impl MonitoringSystem {
                 overall_status = HealthStatus::Critical;
                 results.push(("integration".to_string(), ComponentHealthCheck {
                     status: HealthStatus::Critical,
-                    message: format!("Integration check failed: {}", e),
+                    message: format!("Integration check failed: {e}"),
                     details: HashMap::new(),
                 }));
             }
@@ -248,7 +248,7 @@ impl MonitoringSystem {
                 timestamp: Instant::now(),
                 level: AlertLevel::Critical,
                 component: "system".to_string(),
-                message: format!("System health check failed with {} critical issues", critical_count),
+                message: format!("System health check failed with {critical_count} critical issues"),
                 details: HashMap::new(),
                 acknowledged: false,
                 acknowledged_at: None,
@@ -307,7 +307,7 @@ impl MonitoringSystem {
                         }
                     }
                     Err(e) => {
-                        eprintln!("MONITORING ERROR: Health check failed: {}", e);
+                        eprintln!("MONITORING ERROR: Health check failed: {e}");
                     }
                 }
 

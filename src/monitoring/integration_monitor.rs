@@ -267,7 +267,7 @@ impl IntegrationMonitor {
         details.insert("unhealthy_critical_components".to_string(), unhealthy_critical.to_string());
 
         if unhealthy_critical > 0 {
-            issues.push(format!("{} critical components unhealthy", unhealthy_critical));
+            issues.push(format!("{unhealthy_critical} critical components unhealthy"));
             overall_status = HealthStatus::Critical;
         }
 
@@ -287,7 +287,7 @@ impl IntegrationMonitor {
         details.insert("communication_errors".to_string(), comm_errors.to_string());
 
         if comm_errors > 5 {
-            issues.push(format!("Communication errors: {}", comm_errors));
+            issues.push(format!("Communication errors: {comm_errors}"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -298,7 +298,7 @@ impl IntegrationMonitor {
         details.insert("dependency_failures".to_string(), dep_failures.to_string());
 
         if dep_failures > 0 {
-            issues.push(format!("Dependency failures: {}", dep_failures));
+            issues.push(format!("Dependency failures: {dep_failures}"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -309,7 +309,7 @@ impl IntegrationMonitor {
         details.insert("avg_integration_time_us".to_string(), avg_time.to_string());
 
         if avg_time > self.config.max_integration_time_ms * 1000 {
-            issues.push(format!("Slow integration time: {} μs", avg_time));
+            issues.push(format!("Slow integration time: {avg_time} μs"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -355,7 +355,7 @@ impl IntegrationMonitor {
                     event_type: IntegrationEventType::ComponentHealthChange,
                     source_component: name.clone(),
                     target_component: None,
-                    description: format!("Component {} recovered", name),
+                    description: format!("Component {name} recovered"),
                     details: HashMap::new(),
                     duration_us: None,
                     success: true,
@@ -370,7 +370,7 @@ impl IntegrationMonitor {
                     event_type: IntegrationEventType::ComponentHealthChange,
                     source_component: name.clone(),
                     target_component: None,
-                    description: format!("Component {} became unhealthy", name),
+                    description: format!("Component {name} became unhealthy"),
                     details: HashMap::new(),
                     duration_us: None,
                     success: false,
@@ -427,7 +427,7 @@ impl IntegrationMonitor {
                             event_type: IntegrationEventType::DependencyFailure,
                             source_component: name.clone(),
                             target_component: Some(dependency.clone()),
-                            description: format!("Dependency {} is not running", dependency),
+                            description: format!("Dependency {dependency} is not running"),
                             details: HashMap::new(),
                             duration_us: None,
                             success: false,
@@ -578,9 +578,9 @@ impl IntegrationMonitor {
         let error = components.values().filter(|s| s.status == ComponentState::Error).count();
 
         report.push_str("Component Status:\n");
-        report.push_str(&format!("  Running: {}\n", running));
-        report.push_str(&format!("  Warning: {}\n", warning));
-        report.push_str(&format!("  Error: {}\n", error));
+        report.push_str(&format!("  Running: {running}\n"));
+        report.push_str(&format!("  Warning: {warning}\n"));
+        report.push_str(&format!("  Error: {error}\n"));
         report.push_str(&format!("  Total: {}\n", components.len()));
 
         // Integration metrics

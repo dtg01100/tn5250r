@@ -529,7 +529,7 @@ impl DSNRGenerator {
             _ => "Unknown DSNR error",
         };
         
-        eprintln!("DSNR Generated: 0x{:02X} - {} ({})", error_code, message, context);
+        eprintln!("DSNR Generated: 0x{error_code:02X} - {message} ({context})");
     }
 }
 
@@ -603,7 +603,7 @@ pub fn sanitize_error(error: &TN5250Error) -> SanitizedError {
 /// Create detailed error for debug logging
 pub fn create_detailed_error(error: &TN5250Error) -> DetailedError {
     let sanitized = sanitize_error(error);
-    let debug_message = format!("{:?}", error);
+    let debug_message = format!("{error:?}");
     let severity = match error {
         TN5250Error::Network(_) => LogSeverity::Error,
         TN5250Error::Protocol(_) => LogSeverity::Warning,
@@ -632,8 +632,7 @@ impl StructuredLogger {
 
     pub fn log_sanitized(&self, error: &SanitizedError) {
         println!(
-            "[{}] {} (Code: {})",
-            "ERROR",
+            "[ERROR] {} (Code: {})",
             error.user_message,
             error.error_code
         );
@@ -650,24 +649,23 @@ impl StructuredLogger {
             );
             
             for ctx in &error.context {
-                eprintln!("  Context: {}", ctx);
+                eprintln!("  Context: {ctx}");
             }
         }
     }
 
     pub fn log_recovery_attempt(&self, attempt: usize, max_attempts: usize, operation: &str) {
         eprintln!(
-            "[RECOVERY] Attempt {}/{} for operation: {}",
-            attempt, max_attempts, operation
+            "[RECOVERY] Attempt {attempt}/{max_attempts} for operation: {operation}"
         );
     }
 
     pub fn log_recovery_success(&self, operation: &str) {
-        println!("[RECOVERY] Successfully recovered: {}", operation);
+        println!("[RECOVERY] Successfully recovered: {operation}");
     }
 
     pub fn log_recovery_failure(&self, operation: &str) {
-        eprintln!("[RECOVERY] Failed to recover: {}", operation);
+        eprintln!("[RECOVERY] Failed to recover: {operation}");
     }
 }
 

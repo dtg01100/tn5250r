@@ -149,8 +149,10 @@ impl TelnetOption {
 
 /// Telnet negotiation state for an option
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default)]
 pub enum NegotiationState {
     /// Option is disabled
+    #[default]
     Disabled,
     /// We want to enable the option
     Wanting,
@@ -160,11 +162,6 @@ pub enum NegotiationState {
     Disabling,
 }
 
-impl Default for NegotiationState {
-    fn default() -> Self {
-        NegotiationState::Disabled
-    }
-}
 
 /// Telnet option negotiation tracker
 #[derive(Debug, Clone, Default)]

@@ -275,8 +275,8 @@ impl Field {
         self.modified = true;
 
         // Apply transformations if needed (with bounds checking)
-        if self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert {
-            if offset < self.content.len() {
+        if (self.field_type == FieldType::UppercaseOnly || self.behavior.uppercase_convert)
+            && offset < self.content.len() {
                 if let Some(last_char) = self.content.chars().nth(offset) {
                     let upper_char = last_char.to_uppercase().collect::<String>();
                     if upper_char.len() == 1 && upper_char != last_char.to_string() {
@@ -285,7 +285,6 @@ impl Field {
                     }
                 }
             }
-        }
 
         Ok(true)
     }
@@ -349,14 +348,10 @@ impl Field {
             return Err("Field is required".to_string());
         }
         
-        match self.field_type {
-            FieldType::Numeric => {
-                if !self.content.is_empty() && self.content.parse::<f64>().is_err() {
-                    return Err("Invalid numeric value".to_string());
-                }
+        if self.field_type == FieldType::Numeric
+            && !self.content.is_empty() && self.content.parse::<f64>().is_err() {
+                return Err("Invalid numeric value".to_string());
             }
-            _ => {}
-        }
         
         Ok(())
     }
@@ -437,11 +432,10 @@ impl Field {
             self.content = format!("{:>width$}", self.content, width = self.max_length);
         }
 
-        if self.behavior.zero_fill && self.field_type == FieldType::Numeric {
-            if let Ok(_) = self.content.parse::<i32>() {
+        if self.behavior.zero_fill && self.field_type == FieldType::Numeric
+            && self.content.parse::<i32>().is_ok() {
                 self.content = format!("{:0width$}", self.content, width = self.max_length);
             }
-        }
     }
 
     /// SECURITY: Check if character is safe for input
@@ -675,13 +669,13 @@ impl FieldManager {
 
         // Validate input coordinates
         if row == 0 || col == 0 {
-            eprintln!("SECURITY: Invalid position ({}, {}) - zero coordinate", row, col);
+            eprintln!("SECURITY: Invalid position ({row}, {col}) - zero coordinate");
             return false;
         }
 
         // Validate coordinates are within reasonable terminal bounds
         if row > 100 || col > 200 {
-            eprintln!("SECURITY: Position ({}, {}) exceeds reasonable bounds", row, col);
+            eprintln!("SECURITY: Position ({row}, {col}) exceeds reasonable bounds");
             return false;
         }
 
@@ -730,7 +724,7 @@ impl FieldManager {
         if let Some(field_idx) = self.active_field {
             // CRITICAL FIX: Enhanced field index validation with bounds checking
             if field_idx >= self.fields.len() {
-                eprintln!("SECURITY: Invalid field index: {}", field_idx);
+                eprintln!("SECURITY: Invalid field index: {field_idx}");
                 return Err("Invalid field index".to_string());
             }
 
@@ -810,13 +804,13 @@ impl FieldManager {
 
         // Validate row and column are reasonable (terminal dimensions)
         if row == 0 || col == 0 {
-            eprintln!("SECURITY: Invalid cursor position ({}, {}) - zero coordinate", row, col);
+            eprintln!("SECURITY: Invalid cursor position ({row}, {col}) - zero coordinate");
             return;
         }
 
         // Additional validation: check against reasonable terminal bounds
         if row > 100 || col > 200 { // Reasonable terminal size limits
-            eprintln!("SECURITY: Cursor position ({}, {}) exceeds reasonable bounds", row, col);
+            eprintln!("SECURITY: Cursor position ({row}, {col}) exceeds reasonable bounds");
             return;
         }
 
@@ -851,7 +845,7 @@ impl FieldManager {
 
             // CRITICAL FIX: Validate field index before accessing
             if field_idx >= self.fields.len() {
-                eprintln!("SECURITY: Field index {} out of bounds", field_idx);
+                eprintln!("SECURITY: Field index {field_idx} out of bounds");
                 return false;
             }
 
@@ -1225,7 +1219,7 @@ impl FieldManager {
 
             // Validate active field is actually marked as active
             if !self.fields[active_idx].active {
-                return Err(format!("Active field index {} is not marked as active", active_idx));
+                return Err(format!("Active field index {active_idx} is not marked as active"));
             }
         }
 
@@ -1238,12 +1232,12 @@ impl FieldManager {
             }
 
             if field.start_row > 100 || field.start_col > 200 {
-                return Err(format!("Field {} coordinates exceed reasonable bounds", idx));
+                return Err(format!("Field {idx} coordinates exceed reasonable bounds"));
             }
 
             // Validate field length
             if field.length == 0 {
-                return Err(format!("Field {} has zero length", idx));
+                return Err(format!("Field {idx} has zero length"));
             }
 
             if field.length > 1000 {
@@ -1266,13 +1260,12 @@ impl FieldManager {
         // Validate continued groups
         for (group_id, field_indices) in &self.continued_groups {
             if field_indices.is_empty() {
-                return Err(format!("Empty continued group {}", group_id));
+                return Err(format!("Empty continued group {group_id}"));
             }
 
             for &field_idx in field_indices {
                 if field_idx >= self.fields.len() {
-                    return Err(format!("Continued group {} references invalid field index {}",
-                                     group_id, field_idx));
+                    return Err(format!("Continued group {group_id} references invalid field index {field_idx}"));
                 }
             }
         }

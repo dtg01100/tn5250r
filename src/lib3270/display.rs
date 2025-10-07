@@ -387,7 +387,7 @@ impl std::fmt::Display for Display3270 {
             } else {
                 let ch = ebcdic_to_ascii(cell.char_data);
                 let out_ch = if ch.is_ascii_graphic() || ch == ' ' { ch } else { '.' };
-                write!(f, "{}", out_ch)?;
+                write!(f, "{out_ch}")?;
             }
         }
 

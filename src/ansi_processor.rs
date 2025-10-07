@@ -63,12 +63,12 @@ impl AnsiProcessor {
                     }
                 }
                 0x09 => { // TAB
-                    self.cursor_col = ((self.cursor_col + 7) / 8) * 8 + 1;
+                    self.cursor_col = self.cursor_col.div_ceil(8) * 8 + 1;
                     self.cursor_col = self.cursor_col.min(80);
                 }
                 0x07 => { // BEL - Bell (ignore for now)
                 }
-                _ if byte >= 32 && byte <= 126 => { // Printable ASCII
+                _ if (32..=126).contains(&byte) => { // Printable ASCII
                     self.write_char_at_cursor(byte as char, screen);
                 }
                 _ => {
@@ -104,8 +104,8 @@ impl AnsiProcessor {
     fn process_escape_sequence(&mut self, screen: &mut TerminalScreen) {
         let seq = self.escape_buffer.clone(); // Clone to avoid borrowing issues
         
-        if seq.starts_with("\x1B[") {
-            self.process_csi_sequence(&seq[2..], screen);
+        if let Some(stripped) = seq.strip_prefix("\x1B[") {
+            self.process_csi_sequence(stripped, screen);
         } else if seq.len() >= 2 {
             // Simple escape sequences
             match &seq[1..2] {
@@ -151,8 +151,8 @@ impl AnsiProcessor {
                     parts[1].parse().unwrap_or(1)
                 };
                 
-                self.cursor_row = row.max(1).min(24);
-                self.cursor_col = col.max(1).min(80);
+                self.cursor_row = row.clamp(1, 24);
+                self.cursor_col = col.clamp(1, 80);
             }
             'A' => { // Cursor Up
                 let count: usize = if params.is_empty() {

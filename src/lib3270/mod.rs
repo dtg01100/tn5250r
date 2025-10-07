@@ -70,12 +70,7 @@ pub mod field;
 pub mod protocol;
 
 // Re-exports for easy access
-pub use codes::*;
-pub use display::{Display3270, ScreenSize};
-pub use field::*;
-pub use protocol::ProtocolProcessor3270;
 
 // Re-export EBCDIC functions from protocol_common for convenience
-pub use crate::protocol_common::ebcdic::{ascii_to_ebcdic, ebcdic_to_ascii};
 
 // Entry point for lib3270 functionality

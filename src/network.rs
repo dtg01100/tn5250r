@@ -143,8 +143,10 @@ impl Default for SessionConfig {
 /// INTEGRATION: Protocol auto-detection and mode switching
 /// Resolves NVT Mode vs 5250 Protocol Confusion (Issue #1)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum ProtocolMode {
     /// Auto-detect protocol from initial data patterns
+    #[default]
     AutoDetect,
     /// NVT (Network Virtual Terminal) mode - plain text communication
     NVT,
@@ -154,11 +156,6 @@ pub enum ProtocolMode {
     TN3270,
 }
 
-impl Default for ProtocolMode {
-    fn default() -> Self {
-        ProtocolMode::AutoDetect
-    }
-}
 
 /// INTEGRATION: Protocol detector for automatic mode switching
 /// Analyzes initial data patterns to distinguish NVT from 5250 protocol
@@ -233,7 +230,7 @@ impl ProtocolDetector {
                     // WCC byte or order codes indicate 3270
                     if second_byte <= 0x7F || matches!(second_byte, 0x11 | 0x1D | 0x29 | 0x28 | 0x2C | 0x13 | 0x05 | 0x3C | 0x12 | 0x08) {
                         self.mode = ProtocolMode::TN3270;
-                        println!("INTEGRATION: Auto-detected 3270 protocol (command: 0x{:02X})", first_byte);
+                        println!("INTEGRATION: Auto-detected 3270 protocol (command: 0x{first_byte:02X})");
                         return Ok(self.mode);
                     }
                 }
@@ -250,7 +247,7 @@ impl ProtocolDetector {
                     // Check for known 5250 command codes after ESC
                     if matches!(next_byte, 0xF1..=0xFF) { // 5250 command range
                         self.mode = ProtocolMode::TN5250;
-                        println!("INTEGRATION: Auto-detected 5250 protocol (ESC + command: 0x04, 0x{:02X})", next_byte);
+                        println!("INTEGRATION: Auto-detected 5250 protocol (ESC + command: 0x04, 0x{next_byte:02X})");
                         return Ok(self.mode);
                     }
                 }
@@ -459,7 +456,7 @@ impl AS400Connection {
             Ok(s) => s,
             Err(e) => {
                 set_component_status("network", ComponentState::Error);
-                set_component_error("network", Some(format!("TCP connect failed: {}", e)));
+                set_component_error("network", Some(format!("TCP connect failed: {e}")));
                 return Err(e);
             }
         };
@@ -479,7 +476,7 @@ impl AS400Connection {
                 Ok(cfg) => cfg,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TLS config creation failed: {}", e)));
+                    set_component_error("network", Some(format!("TLS config creation failed: {e}")));
                     return Err(e);
                 }
             };
@@ -489,15 +486,15 @@ impl AS400Connection {
                 Ok(name) => name,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("Invalid server name: {}", e)));
-                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e)));
+                    set_component_error("network", Some(format!("Invalid server name: {e}")));
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {e}")));
                 }
             };
             let tcp = match TcpStream::connect(&address) {
                 Ok(s) => s,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TCP connect failed (TLS): {}", e)));
+                    set_component_error("network", Some(format!("TCP connect failed (TLS): {e}")));
                     return Err(e);
                 }
             };
@@ -509,8 +506,8 @@ impl AS400Connection {
                 Ok(conn) => conn,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TLS connection failed: {}", e)));
-                    return Err(std::io::Error::other(format!("TLS connection failed: {}", e)));
+                    set_component_error("network", Some(format!("TLS connection failed: {e}")));
+                    return Err(std::io::Error::other(format!("TLS connection failed: {e}")));
                 }
             };
             rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: tcp })));
@@ -531,7 +528,7 @@ impl AS400Connection {
                 Ok(s) => s,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TCP connect failed: {}", e)));
+                    set_component_error("network", Some(format!("TCP connect failed: {e}")));
                     return Err(e);
                 }
             };
@@ -545,9 +542,9 @@ impl AS400Connection {
         set_component_status("telnet_negotiator", ComponentState::Starting);
         if let Err(e) = self.perform_telnet_negotiation_rw(&mut *rw) {
             set_component_status("telnet_negotiator", ComponentState::Error);
-            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {}", e)));
+            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {e}")));
             set_component_status("network", ComponentState::Error);
-            set_component_error("network", Some(format!("Telnet negotiation error: {}", e)));
+            set_component_error("network", Some(format!("Telnet negotiation error: {e}")));
             return Err(e);
         }
         set_component_status("telnet_negotiator", ComponentState::Running);
@@ -685,7 +682,7 @@ impl AS400Connection {
             Ok(s) => s,
             Err(e) => {
                 set_component_status("network", ComponentState::Error);
-                set_component_error("network", Some(format!("TCP connect (timeout) failed: {}", e)));
+                set_component_error("network", Some(format!("TCP connect (timeout) failed: {e}")));
                 return Err(e);
             }
         };
@@ -705,7 +702,7 @@ impl AS400Connection {
                 Ok(cfg) => cfg,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TLS config creation failed: {}", e)));
+                    set_component_error("network", Some(format!("TLS config creation failed: {e}")));
                     return Err(e);
                 }
             };
@@ -715,8 +712,8 @@ impl AS400Connection {
                 Ok(name) => name,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("Invalid server name: {}", e)));
-                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {}", e)));
+                    set_component_error("network", Some(format!("Invalid server name: {e}")));
+                    return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Invalid server name: {e}")));
                 }
             };
 
@@ -724,7 +721,7 @@ impl AS400Connection {
                 Ok(s) => s,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TCP connect (TLS, timeout) failed: {}", e)));
+                    set_component_error("network", Some(format!("TCP connect (TLS, timeout) failed: {e}")));
                     return Err(e);
                 }
             };
@@ -736,8 +733,8 @@ let tls_conn = match ClientConnection::new(tls_config, server_name) {
     Ok(conn) => conn,
     Err(e) => {
         set_component_status("network", ComponentState::Error);
-        set_component_error("network", Some(format!("TLS connection failed: {}", e)));
-        return Err(std::io::Error::other(format!("TLS connection failed: {}", e)))
+        set_component_error("network", Some(format!("TLS connection failed: {e}")));
+        return Err(std::io::Error::other(format!("TLS connection failed: {e}")))
     },
 };
 rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: tcp })));
@@ -746,7 +743,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                 Ok(s) => s,
                 Err(e) => {
                     set_component_status("network", ComponentState::Error);
-                    set_component_error("network", Some(format!("TCP connect (timeout) failed: {}", e)));
+                    set_component_error("network", Some(format!("TCP connect (timeout) failed: {e}")));
                     return Err(e);
                 }
             };
@@ -760,9 +757,9 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
         set_component_status("telnet_negotiator", ComponentState::Starting);
         if let Err(e) = self.perform_telnet_negotiation_rw(&mut *rw) {
             set_component_status("telnet_negotiator", ComponentState::Error);
-            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {}", e)));
+            set_component_error("telnet_negotiator", Some(format!("Telnet negotiation failed: {e}")));
             set_component_status("network", ComponentState::Error);
-            set_component_error("network", Some(format!("Telnet negotiation error: {}", e)));
+            set_component_error("network", Some(format!("Telnet negotiation error: {e}")));
             return Err(e);
         }
         set_component_status("telnet_negotiator", ComponentState::Running);
@@ -816,10 +813,10 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
         
         // Add native certificates
         for cert in rustls_native_certs::load_native_certs().map_err(|e| {
-            std::io::Error::other(format!("Failed to load native certificates: {}", e))
+            std::io::Error::other(format!("Failed to load native certificates: {e}"))
         })? {
             root_store.add(cert).map_err(|e| {
-                std::io::Error::other(format!("Failed to add certificate: {}", e))
+                std::io::Error::other(format!("Failed to add certificate: {e}"))
             })?;
         }
 
@@ -829,16 +826,16 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                 Ok(certificates) => {
                     for cert in &certificates {
                         if let Err(e) = root_store.add(cert.clone()) {
-                            eprintln!("SECURITY WARNING: Failed to add certificate to root store: {}", e);
+                            eprintln!("SECURITY WARNING: Failed to add certificate to root store: {e}");
                         }
                     }
                     println!("SECURITY: Added {} trusted CA certificates from {}", certificates.len(), path);
                 }
                 Err(e) => {
-                    eprintln!("SECURITY ERROR: Failed to load CA bundle {}: {}", path, e);
+                    eprintln!("SECURITY ERROR: Failed to load CA bundle {path}: {e}");
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidData,
-                        format!("Failed to load CA bundle {}: {}", path, e)
+                        format!("Failed to load CA bundle {path}: {e}")
                     ));
                 }
             }
@@ -907,7 +904,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                             certificates.push(cert);
                         }
                         Err(e) => {
-                            eprintln!("SECURITY WARNING: Failed to decode certificate: {}", e);
+                            eprintln!("SECURITY WARNING: Failed to decode certificate: {e}");
                         }
                     }
                     start = epos + marker_end.len();
@@ -917,18 +914,18 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
             }
 
             if certificates.is_empty() {
-                return Err(std::io::Error::new(
+                Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "No valid certificates found in PEM bundle"
-                ));
+                ))
             } else {
-                return Ok(certificates);
+                Ok(certificates)
             }
         } else {
-            return Err(std::io::Error::new(
+            Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "CA bundle contains invalid UTF-8"
-            ));
+            ))
         }
 
 
@@ -961,7 +958,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                     break;
                 }
                 Ok(n) => {
-                    println!("Received negotiation data ({} bytes)", n);
+                    println!("Received negotiation data ({n} bytes)");
                     let response = self.telnet_negotiator.process_incoming_data(&buffer[..n]);
                     
                     if !response.is_empty() {
@@ -969,11 +966,11 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                         match stream.write_all(&response) {
                             Ok(()) => {
                                 if let Err(e) = stream.flush() {
-                                    println!("Warning: Failed to flush negotiation response: {}", e);
+                                    println!("Warning: Failed to flush negotiation response: {e}");
                                 }
                             }
                             Err(e) => {
-                                println!("Error sending negotiation response: {}", e);
+                                println!("Error sending negotiation response: {e}");
                                 return Err(e);
                             }
                         }
@@ -998,7 +995,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                     break;
                 }
                 Err(e) => {
-                    println!("Negotiation error: {}", e);
+                    println!("Negotiation error: {e}");
                     return Err(e);
                 }
             }
@@ -1030,7 +1027,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
             let status = self.telnet_negotiator.get_negotiation_state_details();
             println!("Final negotiation status:");
             for (option, state) in status {
-                println!("  {:?}: {:?}", option, state);
+                println!("  {option:?}: {state:?}");
             }
             
             // Try to proceed anyway if essential options are somewhat negotiated
@@ -1111,7 +1108,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                             Ok(n) => {
                                 // CRITICAL FIX: Additional validation of read size
                                 if n > MAX_READ_SIZE {
-                                    eprintln!("SECURITY: Read size {} exceeds maximum allowed {}", n, MAX_READ_SIZE);
+                                    eprintln!("SECURITY: Read size {n} exceeds maximum allowed {MAX_READ_SIZE}");
                                     Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Read size too large"))
                                 } else if n == 0 {
                                     // CRITICAL FIX: Handle zero reads properly
@@ -1177,7 +1174,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
 
                             // SECURITY: Validate data size before sending
                             if n > MAX_READ_SIZE {
-                                eprintln!("SECURITY: Invalid data size received: {}", n);
+                                eprintln!("SECURITY: Invalid data size received: {n}");
                                 break;
                             }
 
@@ -1207,11 +1204,11 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                             // SECURITY: Track consecutive errors to prevent infinite retry loops
                             consecutive_errors += 1;
                             if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
-                                eprintln!("SECURITY: Too many consecutive read errors ({}), terminating thread", consecutive_errors);
+                                eprintln!("SECURITY: Too many consecutive read errors ({consecutive_errors}), terminating thread");
                                 break;
                             }
 
-                            eprintln!("SECURITY: Read error ({} consecutive): {}", consecutive_errors, e);
+                            eprintln!("SECURITY: Read error ({consecutive_errors} consecutive): {e}");
                             thread::sleep(Duration::from_millis(100 * consecutive_errors as u64));
                         }
                     }
@@ -1378,7 +1375,7 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Protocol detection error: {} - falling back to NVT mode", e);
+                                eprintln!("Protocol detection error: {e} - falling back to NVT mode");
                                 self.detected_mode = ProtocolMode::NVT;
                                 self.protocol_detector.mode = ProtocolMode::NVT;
                             }
@@ -1398,9 +1395,9 @@ rw = Box::new(StreamType::Tls(Box::new(OwnedTlsStream { conn: tls_conn, stream: 
                             match shared.lock() {
                                 Ok(mut guard) => {
                                     if let Err(e) = guard.write_all(&negotiation_response) {
-                                        eprintln!("Failed to send telnet negotiation response: {}", e);
+                                        eprintln!("Failed to send telnet negotiation response: {e}");
                                     } else if let Err(e) = guard.flush() {
-                                        eprintln!("Failed to flush telnet negotiation response: {}", e);
+                                        eprintln!("Failed to flush telnet negotiation response: {e}");
                                     } else {
                                         println!("Sent telnet negotiation response ({} bytes)", negotiation_response.len());
                                     }
@@ -1487,7 +1484,7 @@ if !clean_data.is_empty() {
 
         // Allow up to 50% nulls or 0xFF in protocol data (common in 5250/3270)
         if null_ratio > 0.5 || ff_ratio > 0.5 {
-            eprintln!("SECURITY: Excessive null/FF bytes in network data (null: {:.2}, FF: {:.2})", null_ratio, ff_ratio);
+            eprintln!("SECURITY: Excessive null/FF bytes in network data (null: {null_ratio:.2}, FF: {ff_ratio:.2})");
             return false;
         }
 
@@ -1643,7 +1640,7 @@ if !clean_data.is_empty() {
     pub fn set_protocol_mode(&mut self, mode: ProtocolMode) {
         self.detected_mode = mode;
         self.protocol_detector.mode = mode;
-        println!("INTEGRATION: Protocol mode manually set to {:?}", mode);
+        println!("INTEGRATION: Protocol mode manually set to {mode:?}");
     }
 
     /// Set credentials for AS/400 authentication (RFC 4777)
@@ -1698,11 +1695,10 @@ if !clean_data.is_empty() {
         }
 
         // Validate channel state
-        if self.running {
-            if self.sender.is_none() || self.receiver.is_none() {
+        if self.running
+            && (self.sender.is_none() || self.receiver.is_none()) {
                 return Err("Connection is running but channels are not available".to_string());
             }
-        }
 
         // Validate negotiation state consistency
         if self.negotiation_complete && !self.running {

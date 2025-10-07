@@ -82,7 +82,7 @@ impl TN5250RApp {
                     ui.label(format!("Host: {}:{}", profile.host, profile.port));
                     ui.label(format!("Protocol: {:?}", profile.protocol));
                     if let Some(username) = &profile.username {
-                        ui.label(format!("User: {}", username));
+                        ui.label(format!("User: {username}"));
                     }
                     ui.label(format!("Screen: {}x{}", profile.screen_size.cols(), profile.screen_size.rows()));
                 });
@@ -90,7 +90,7 @@ impl TN5250RApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui.button("🗑 Delete").clicked() {
                         if let Err(e) = self.profile_manager.delete_profile(&profile.id) {
-                            eprintln!("Failed to delete profile: {}", e);
+                            eprintln!("Failed to delete profile: {e}");
                         }
                     }
 
@@ -223,7 +223,7 @@ impl TN5250RApp {
                         // Don't restore editing_profile since we saved
                     }
                     Err(e) => {
-                        ui.colored_label(egui::Color32::RED, format!("Error saving profile: {}", e));
+                        ui.colored_label(egui::Color32::RED, format!("Error saving profile: {e}"));
                         self.editing_profile = Some(profile); // Restore on error
                     }
                 }

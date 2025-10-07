@@ -178,14 +178,14 @@ pub enum RecoveryError {
 impl fmt::Display for TN5250Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TN5250Error::Network(err) => write!(f, "Network error: {}", err),
-            TN5250Error::Telnet(err) => write!(f, "Telnet error: {}", err),
-            TN5250Error::Protocol(err) => write!(f, "Protocol error: {}", err),
-            TN5250Error::Terminal(err) => write!(f, "Terminal error: {}", err),
-            TN5250Error::Field(err) => write!(f, "Field error: {}", err),
-            TN5250Error::Buffer(err) => write!(f, "Buffer error: {}", err),
-            TN5250Error::Config(err) => write!(f, "Configuration error: {}", err),
-            TN5250Error::Recovery(err) => write!(f, "Recovery error: {}", err),
+            TN5250Error::Network(err) => write!(f, "Network error: {err}"),
+            TN5250Error::Telnet(err) => write!(f, "Telnet error: {err}"),
+            TN5250Error::Protocol(err) => write!(f, "Protocol error: {err}"),
+            TN5250Error::Terminal(err) => write!(f, "Terminal error: {err}"),
+            TN5250Error::Field(err) => write!(f, "Field error: {err}"),
+            TN5250Error::Buffer(err) => write!(f, "Buffer error: {err}"),
+            TN5250Error::Config(err) => write!(f, "Configuration error: {err}"),
+            TN5250Error::Recovery(err) => write!(f, "Recovery error: {err}"),
         }
     }
 }
@@ -194,19 +194,19 @@ impl fmt::Display for NetworkError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NetworkError::ConnectionRefused { host, port } => 
-                write!(f, "Connection refused to {}:{}", host, port),
+                write!(f, "Connection refused to {host}:{port}"),
             NetworkError::Timeout { host, port, timeout_seconds } => 
-                write!(f, "Connection timeout to {}:{} after {}s", host, port, timeout_seconds),
+                write!(f, "Connection timeout to {host}:{port} after {timeout_seconds}s"),
             NetworkError::DnsResolution { host } => 
-                write!(f, "DNS resolution failed for {}", host),
+                write!(f, "DNS resolution failed for {host}"),
             NetworkError::NetworkUnreachable { host } => 
-                write!(f, "Network unreachable to {}", host),
+                write!(f, "Network unreachable to {host}"),
             NetworkError::ConnectionLost { reason } => 
-                write!(f, "Connection lost: {}", reason),
+                write!(f, "Connection lost: {reason}"),
             NetworkError::InvalidAddress { address } => 
-                write!(f, "Invalid network address: {}", address),
+                write!(f, "Invalid network address: {address}"),
             NetworkError::SslError { message } => 
-                write!(f, "SSL/TLS error: {}", message),
+                write!(f, "SSL/TLS error: {message}"),
         }
     }
 }
@@ -215,19 +215,19 @@ impl fmt::Display for TelnetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TelnetError::InvalidCommand { command } => 
-                write!(f, "Invalid telnet command: {:?}", command),
+                write!(f, "Invalid telnet command: {command:?}"),
             TelnetError::NegotiationTimeout { option, timeout_ms } => 
-                write!(f, "Telnet negotiation timeout for option {} after {}ms", option, timeout_ms),
+                write!(f, "Telnet negotiation timeout for option {option} after {timeout_ms}ms"),
             TelnetError::OptionNegotiationFailed { option, reason } => 
-                write!(f, "Option {} negotiation failed: {}", option, reason),
+                write!(f, "Option {option} negotiation failed: {reason}"),
             TelnetError::RequiredOptionUnsupported { option } => 
-                write!(f, "Required telnet option {} not supported by server", option),
+                write!(f, "Required telnet option {option} not supported by server"),
             TelnetError::MalformedSubnegotiation { option, data } => 
-                write!(f, "Malformed subnegotiation for option {}: {:?}", option, data),
+                write!(f, "Malformed subnegotiation for option {option}: {data:?}"),
             TelnetError::StateMachineError { current_state, invalid_transition } => 
-                write!(f, "State machine error: invalid transition '{}' from state '{}'", invalid_transition, current_state),
+                write!(f, "State machine error: invalid transition '{invalid_transition}' from state '{current_state}'"),
             TelnetError::BufferPoolExhausted { pool_type } => 
-                write!(f, "Buffer pool exhausted: {}", pool_type),
+                write!(f, "Buffer pool exhausted: {pool_type}"),
         }
     }
 }
@@ -236,29 +236,29 @@ impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ProtocolError::InvalidCommandCode { code } =>
-                write!(f, "Invalid 5250 command code: 0x{:02X}", code),
+                write!(f, "Invalid 5250 command code: 0x{code:02X}"),
             ProtocolError::IncompleteData { expected, received } =>
-                write!(f, "Incomplete data: expected {} bytes, received {}", expected, received),
+                write!(f, "Incomplete data: expected {expected} bytes, received {received}"),
             ProtocolError::EbcdicConversion { byte, context } =>
-                write!(f, "EBCDIC conversion error for byte 0x{:02X} in context: {}", byte, context),
+                write!(f, "EBCDIC conversion error for byte 0x{byte:02X} in context: {context}"),
             ProtocolError::InvalidStructuredField { field_id, reason } =>
-                write!(f, "Invalid structured field 0x{:02X}: {}", field_id, reason),
+                write!(f, "Invalid structured field 0x{field_id:02X}: {reason}"),
             ProtocolError::InvalidCursorPosition { row, col } =>
-                write!(f, "Invalid cursor position: row {}, col {}", row, col),
+                write!(f, "Invalid cursor position: row {row}, col {col}"),
             ProtocolError::ScreenBufferOverflow { position, buffer_size } =>
-                write!(f, "Screen buffer overflow: position {} exceeds buffer size {}", position, buffer_size),
+                write!(f, "Screen buffer overflow: position {position} exceeds buffer size {buffer_size}"),
             ProtocolError::InvalidFieldAttribute { attribute } =>
-                write!(f, "Invalid field attribute: 0x{:02X}", attribute),
+                write!(f, "Invalid field attribute: 0x{attribute:02X}"),
             ProtocolError::DeviceIdError { message } =>
-                write!(f, "Device identification error: {}", message),
+                write!(f, "Device identification error: {message}"),
             ProtocolError::UnsupportedProtocol { protocol, reason } =>
-                write!(f, "Unsupported protocol '{}': {}", protocol, reason),
+                write!(f, "Unsupported protocol '{protocol}': {reason}"),
             ProtocolError::ProtocolMismatch { configured, detected } =>
-                write!(f, "Protocol mismatch: configured for '{}' but detected '{}'", configured, detected),
+                write!(f, "Protocol mismatch: configured for '{configured}' but detected '{detected}'"),
             ProtocolError::ProtocolSwitchFailed { from, to, reason } =>
-                write!(f, "Failed to switch protocol from '{}' to '{}': {}", from, to, reason),
+                write!(f, "Failed to switch protocol from '{from}' to '{to}': {reason}"),
             ProtocolError::InvalidProtocolConfiguration { parameter, value, reason } =>
-                write!(f, "Invalid protocol configuration: parameter '{}' = '{}': {}", parameter, value, reason),
+                write!(f, "Invalid protocol configuration: parameter '{parameter}' = '{value}': {reason}"),
         }
     }
 }
@@ -269,15 +269,15 @@ impl fmt::Display for TerminalError {
             TerminalError::ScreenSizeMismatch { expected, actual } => 
                 write!(f, "Screen size mismatch: expected {}x{}, actual {}x{}", expected.0, expected.1, actual.0, actual.1),
             TerminalError::CharsetConversion { char, target_charset } => 
-                write!(f, "Character '{}' cannot be converted to charset {}", char, target_charset),
+                write!(f, "Character '{char}' cannot be converted to charset {target_charset}"),
             TerminalError::DisplayRender { message } => 
-                write!(f, "Display rendering error: {}", message),
+                write!(f, "Display rendering error: {message}"),
             TerminalError::InputProcessing { input, reason } => 
-                write!(f, "Input processing error for '{}': {}", input, reason),
+                write!(f, "Input processing error for '{input}': {reason}"),
             TerminalError::FunctionKeyMapping { key_code } => 
-                write!(f, "Unknown function key code: {}", key_code),
+                write!(f, "Unknown function key code: {key_code}"),
             TerminalError::StateCorruption { component, details } => 
-                write!(f, "Terminal state corruption in {}: {}", component, details),
+                write!(f, "Terminal state corruption in {component}: {details}"),
         }
     }
 }
@@ -286,19 +286,19 @@ impl fmt::Display for FieldError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             FieldError::FieldNotFound { row, col } => 
-                write!(f, "No field found at position ({}, {})", row, col),
+                write!(f, "No field found at position ({row}, {col})"),
             FieldError::InvalidFieldType { field_type } => 
-                write!(f, "Invalid field type: {}", field_type),
+                write!(f, "Invalid field type: {field_type}"),
             FieldError::ValidationFailure { field_id, message } => 
-                write!(f, "Field {} validation failed: {}", field_id, message),
+                write!(f, "Field {field_id} validation failed: {message}"),
             FieldError::InputOutOfBounds { field_id, input_length, max_length } => 
-                write!(f, "Field {} input length {} exceeds maximum {}", field_id, input_length, max_length),
+                write!(f, "Field {field_id} input length {input_length} exceeds maximum {max_length}"),
             FieldError::RequiredFieldEmpty { field_id, field_name } => 
-                write!(f, "Required field {} '{}' is empty", field_id, field_name),
+                write!(f, "Required field {field_id} '{field_name}' is empty"),
             FieldError::FormatError { field_id, expected_format, actual_input } => 
-                write!(f, "Field {} format error: expected '{}', got '{}'", field_id, expected_format, actual_input),
+                write!(f, "Field {field_id} format error: expected '{expected_format}', got '{actual_input}'"),
             FieldError::ContinuationError { field_id, reason } => 
-                write!(f, "Field {} continuation error: {}", field_id, reason),
+                write!(f, "Field {field_id} continuation error: {reason}"),
         }
     }
 }
@@ -307,15 +307,15 @@ impl fmt::Display for BufferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BufferError::AllocationFailure { requested_size, pool_type } => 
-                write!(f, "Failed to allocate {} bytes from {} pool", requested_size, pool_type),
+                write!(f, "Failed to allocate {requested_size} bytes from {pool_type} pool"),
             BufferError::SizeExceeded { size, max_size } => 
-                write!(f, "Buffer size {} exceeds maximum {}", size, max_size),
+                write!(f, "Buffer size {size} exceeds maximum {max_size}"),
             BufferError::Corruption { buffer_id, checksum_mismatch } => 
-                write!(f, "Buffer corruption detected in {}: checksum_mismatch={}", buffer_id, checksum_mismatch),
+                write!(f, "Buffer corruption detected in {buffer_id}: checksum_mismatch={checksum_mismatch}"),
             BufferError::ConcurrentAccessViolation { buffer_id } => 
-                write!(f, "Concurrent access violation on buffer {}", buffer_id),
+                write!(f, "Concurrent access violation on buffer {buffer_id}"),
             BufferError::MemoryPressure { current_usage, max_usage } => 
-                write!(f, "Memory pressure: {} bytes used, {} bytes maximum", current_usage, max_usage),
+                write!(f, "Memory pressure: {current_usage} bytes used, {max_usage} bytes maximum"),
         }
     }
 }
@@ -324,15 +324,15 @@ impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ConfigError::InvalidParameter { parameter, value, reason } => 
-                write!(f, "Invalid configuration parameter '{}' = '{}': {}", parameter, value, reason),
+                write!(f, "Invalid configuration parameter '{parameter}' = '{value}': {reason}"),
             ConfigError::MissingRequired { parameter } => 
-                write!(f, "Missing required configuration parameter: {}", parameter),
+                write!(f, "Missing required configuration parameter: {parameter}"),
             ConfigError::FileError { path, error } => 
-                write!(f, "Configuration file error '{}': {}", path, error),
+                write!(f, "Configuration file error '{path}': {error}"),
             ConfigError::EnvironmentError { variable, error } => 
-                write!(f, "Environment variable '{}' error: {}", variable, error),
+                write!(f, "Environment variable '{variable}' error: {error}"),
             ConfigError::VersionMismatch { expected, actual } => 
-                write!(f, "Version mismatch: expected {}, got {}", expected, actual),
+                write!(f, "Version mismatch: expected {expected}, got {actual}"),
         }
     }
 }
@@ -341,13 +341,13 @@ impl fmt::Display for RecoveryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             RecoveryError::RecoveryFailed { attempt, max_attempts, reason } => 
-                write!(f, "Recovery failed on attempt {}/{}: {}", attempt, max_attempts, reason),
+                write!(f, "Recovery failed on attempt {attempt}/{max_attempts}: {reason}"),
             RecoveryError::RecoveryTimeout { operation, timeout_seconds } => 
-                write!(f, "Recovery timeout for operation '{}' after {}s", operation, timeout_seconds),
+                write!(f, "Recovery timeout for operation '{operation}' after {timeout_seconds}s"),
             RecoveryError::StrategyUnavailable { strategy, context } => 
-                write!(f, "Recovery strategy '{}' unavailable in context: {}", strategy, context),
+                write!(f, "Recovery strategy '{strategy}' unavailable in context: {context}"),
             RecoveryError::StateInconsistent { expected_state, actual_state } => 
-                write!(f, "Recovery state inconsistent: expected '{}', found '{}'", expected_state, actual_state),
+                write!(f, "Recovery state inconsistent: expected '{expected_state}', found '{actual_state}'"),
         }
     }
 }
@@ -446,7 +446,7 @@ impl From<io::Error> for TN5250Error {
                 })
             },
             _ => TN5250Error::Network(NetworkError::ConnectionLost {
-                reason: format!("IO Error: {}", err),
+                reason: format!("IO Error: {err}"),
             }),
         }
     }

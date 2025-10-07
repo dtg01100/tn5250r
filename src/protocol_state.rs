@@ -160,9 +160,8 @@ impl ProtocolStateMachine {
             FieldType::Bypass
         } else if attribute & 0x0C != 0 {
             FieldType::Mandatory
-        } else if attribute & 0x04 != 0 {
-            FieldType::Input
         } else {
+            // Both 0x04 and default cases are Input type
             FieldType::Input
         }
     }
@@ -238,7 +237,7 @@ impl ProtocolStateMachine {
                     },
                     Err(e) => {
                         set_component_status("protocol", ComponentState::Error);
-                        set_component_error("protocol", Some(format!("Negotiation error: {}", e)));
+                        set_component_error("protocol", Some(format!("Negotiation error: {e}")));
                         Err(e)
                     }
                 }
@@ -337,7 +336,7 @@ impl ProtocolStateMachine {
             self.set_cursor(row - 1, col - 1); // Convert to 0-based indexing
         } else {
             // Log invalid cursor position attempt for debugging
-            eprintln!("SECURITY: Invalid cursor position ({}, {}) - out of bounds", row, col);
+            eprintln!("SECURITY: Invalid cursor position ({row}, {col}) - out of bounds");
             // Set to safe default position (1,1) in 1-based coordinates
             self.set_cursor(0, 0);
         }
@@ -403,7 +402,7 @@ impl ProtocolStateMachine {
         // Validate field manager state
         if let Some(active_idx) = self.field_manager.get_active_field_index() {
             if active_idx >= self.field_manager.field_count() {
-                return Err(format!("Active field index {} out of bounds", active_idx));
+                return Err(format!("Active field index {active_idx} out of bounds"));
             }
         }
 
@@ -533,6 +532,8 @@ mod tests {
         let mut proto = ProtocolStateMachine::new();
         proto.screen.write_string("Test screen with fields");
         proto.detect_fields();
-        assert!(proto.field_manager.field_count() >= 0);
+        // field_count() returns usize which is always >= 0, so test actual functionality
+        let field_count = proto.field_manager.field_count();
+        assert!(field_count < 1000); // Reasonable upper bound for testing
     }
 }

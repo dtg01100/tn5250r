@@ -255,7 +255,7 @@ impl<'a> DataStreamParser<'a> {
             if let Some(command) = CommandCode::from_u8(cmd_byte) {
                 self.process_command(command, display)?;
             } else {
-                return Err(format!("Unknown command code: 0x{:02X}", cmd_byte));
+                return Err(format!("Unknown command code: 0x{cmd_byte:02X}"));
             }
         }
         

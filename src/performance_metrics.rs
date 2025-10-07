@@ -180,7 +180,7 @@ impl PerformanceMetrics {
         } else {
             0.0
         };
-        report.push_str(&format!("  Buffer pool efficiency: {:.1}%\n", buffer_pool_efficiency));
+        report.push_str(&format!("  Buffer pool efficiency: {buffer_pool_efficiency:.1}%\n"));
 
         // Terminal metrics
         report.push_str("\nTerminal Operations:\n");
@@ -194,7 +194,7 @@ impl PerformanceMetrics {
         } else {
             0.0
         };
-        report.push_str(&format!("  Cache efficiency: {:.1}%\n", cache_efficiency));
+        report.push_str(&format!("  Cache efficiency: {cache_efficiency:.1}%\n"));
 
         // Protocol metrics
         report.push_str("\nProtocol Processing:\n");
@@ -215,13 +215,13 @@ impl PerformanceMetrics {
         // Timing metrics
         report.push_str("\nTiming Metrics:\n");
         let uptime_secs = self.timing_metrics.total_uptime.load(Ordering::Relaxed);
-        report.push_str(&format!("  Total uptime: {} seconds\n", uptime_secs));
+        report.push_str(&format!("  Total uptime: {uptime_secs} seconds\n"));
         let total_commands = self.timing_metrics.total_commands.load(Ordering::Relaxed);
         if total_commands > 0 {
             let avg_time_ns = self.timing_metrics.average_command_time.load(Ordering::Relaxed);
             let max_time_ns = self.timing_metrics.max_command_time.load(Ordering::Relaxed);
-            report.push_str(&format!("  Average command time: {} ns\n", avg_time_ns));
-            report.push_str(&format!("  Max command time: {} ns\n", max_time_ns));
+            report.push_str(&format!("  Average command time: {avg_time_ns} ns\n"));
+            report.push_str(&format!("  Max command time: {max_time_ns} ns\n"));
             report.push_str(&format!("  Commands per second: {:.1}\n", total_commands as f64 / uptime_secs as f64));
         }
 

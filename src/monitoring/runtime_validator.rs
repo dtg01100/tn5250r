@@ -123,8 +123,8 @@ impl RuntimeValidator {
                     details.insert("memory_status".to_string(), "healthy".to_string());
                 }
                 Err(e) => {
-                    issues.push(format!("Memory validation: {}", e));
-                    details.insert("memory_status".to_string(), format!("error: {}", e));
+                    issues.push(format!("Memory validation: {e}"));
+                    details.insert("memory_status".to_string(), format!("error: {e}"));
                     overall_status = HealthStatus::Warning;
                     self.metrics.memory_validation_failures.fetch_add(1, Ordering::Relaxed);
                 }
@@ -138,8 +138,8 @@ impl RuntimeValidator {
                     details.insert("thread_status".to_string(), "healthy".to_string());
                 }
                 Err(e) => {
-                    issues.push(format!("Thread validation: {}", e));
-                    details.insert("thread_status".to_string(), format!("error: {}", e));
+                    issues.push(format!("Thread validation: {e}"));
+                    details.insert("thread_status".to_string(), format!("error: {e}"));
                     overall_status = HealthStatus::Warning;
                     self.metrics.thread_state_failures.fetch_add(1, Ordering::Relaxed);
                 }
@@ -153,8 +153,8 @@ impl RuntimeValidator {
                     details.insert("resource_status".to_string(), "healthy".to_string());
                 }
                 Err(e) => {
-                    issues.push(format!("Resource validation: {}", e));
-                    details.insert("resource_status".to_string(), format!("error: {}", e));
+                    issues.push(format!("Resource validation: {e}"));
+                    details.insert("resource_status".to_string(), format!("error: {e}"));
                     overall_status = HealthStatus::Warning;
                     self.metrics.resource_leak_detections.fetch_add(1, Ordering::Relaxed);
                 }
@@ -166,7 +166,7 @@ impl RuntimeValidator {
         let validation_time_us = validation_time.as_micros() as u64;
 
         if validation_time_us > self.config.max_validation_time_ms * 1000 {
-            issues.push(format!("Validation took too long: {} μs", validation_time_us));
+            issues.push(format!("Validation took too long: {validation_time_us} μs"));
             overall_status = HealthStatus::Warning;
         }
 
@@ -225,11 +225,11 @@ impl RuntimeValidator {
         let memory_usage_percent = (memory_info.current_usage as f64 / memory_info.peak_usage as f64) * 100.0;
 
         if memory_usage_percent > self.config.memory_critical_threshold {
-            return Err(format!("Memory usage critical: {:.1}%", memory_usage_percent));
+            return Err(format!("Memory usage critical: {memory_usage_percent:.1}%"));
         }
 
         if memory_usage_percent > self.config.memory_warning_threshold {
-            return Err(format!("Memory usage high: {:.1}%", memory_usage_percent));
+            return Err(format!("Memory usage high: {memory_usage_percent:.1}%"));
         }
 
         // Check for potential memory leaks (allocations much higher than deallocations)
@@ -273,7 +273,7 @@ impl RuntimeValidator {
         // For now, we'll check basic system resources
         let open_files = self.get_open_file_count()?;
         if open_files > 1000 {
-            return Err(format!("Too many open files: {}", open_files));
+            return Err(format!("Too many open files: {open_files}"));
         }
 
         Ok(())
@@ -340,10 +340,10 @@ impl RuntimeValidator {
                 details.insert("quick_memory_check".to_string(), "passed".to_string());
             }
             Err(e) => {
-                details.insert("quick_memory_check".to_string(), format!("failed: {}", e));
+                details.insert("quick_memory_check".to_string(), format!("failed: {e}"));
                 return Ok(ComponentHealthCheck {
                     status: HealthStatus::Warning,
-                    message: format!("Quick validation warning: {}", e),
+                    message: format!("Quick validation warning: {e}"),
                     details,
                 });
             }
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_validation_config_default() {
         let config = ValidationConfig::default();
-        assert_eq!(config.enable_memory_validation, true);
+        assert!(config.enable_memory_validation);
         assert_eq!(config.memory_warning_threshold, 80.0);
         assert_eq!(config.memory_critical_threshold, 95.0);
     }

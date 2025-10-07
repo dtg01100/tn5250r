@@ -516,7 +516,7 @@ impl QualityAssurance {
         let total_tests = self.metrics.tests_passed.load(Ordering::Relaxed) + self.metrics.tests_failed.load(Ordering::Relaxed);
         if total_tests > 0 {
             let pass_rate = (self.metrics.tests_passed.load(Ordering::Relaxed) as f64 / total_tests as f64) * 100.0;
-            report.push_str(&format!("  Test Pass Rate: {:.1}%\n", pass_rate));
+            report.push_str(&format!("  Test Pass Rate: {pass_rate:.1}%\n"));
         }
 
         report.push_str(&format!("  Regressions Detected: {}\n", self.metrics.regressions_detected.load(Ordering::Relaxed)));
@@ -525,7 +525,7 @@ impl QualityAssurance {
         let total_validations = self.metrics.total_validations.load(Ordering::Relaxed);
         if total_validations > 0 {
             let success_rate = (self.metrics.successful_validations.load(Ordering::Relaxed) as f64 / total_validations as f64) * 100.0;
-            report.push_str(&format!("  Validation Success Rate: {:.1}%\n", success_rate));
+            report.push_str(&format!("  Validation Success Rate: {success_rate:.1}%\n"));
         }
 
         // Test suite information
@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn test_quality_config_default() {
         let config = QualityConfig::default();
-        assert_eq!(config.enable_automated_validation, true);
+        assert!(config.enable_automated_validation);
         assert_eq!(config.min_test_coverage_threshold, 80.0);
         assert_eq!(config.regression_sensitivity, 0.8);
     }

@@ -10,7 +10,7 @@ impl TN5250RApp {
     pub fn send_function_key(&mut self, key_name: &str) {
         // In a real implementation, this would send the actual function key
         // For now, we'll just update the terminal content
-        self.terminal_content.push_str(&format!("\n[{}] pressed", key_name));
+        self.terminal_content.push_str(&format!("\n[{key_name}] pressed"));
 
         // Parse the key name to determine which function key to send
         let func_key = self.parse_function_key_name(key_name);
@@ -21,7 +21,7 @@ impl TN5250RApp {
                 // Function key sent successfully
             }
             Err(e) => {
-                self.terminal_content.push_str(&format!("\nError sending function key: {}", e));
+                self.terminal_content.push_str(&format!("\nError sending function key: {e}"));
             }
         }
     }
@@ -69,10 +69,10 @@ impl TN5250RApp {
         match self.controller.send_function_key(func_key) {
             Ok(()) => {
                 // Function key sent successfully
-                self.terminal_content.push_str(&format!("\n[{:?}] pressed", func_key));
+                self.terminal_content.push_str(&format!("\n[{func_key:?}] pressed"));
             }
             Err(e) => {
-                self.terminal_content.push_str(&format!("\nError sending function key: {}", e));
+                self.terminal_content.push_str(&format!("\nError sending function key: {e}"));
             }
         }
     }
@@ -98,12 +98,10 @@ impl TN5250RApp {
 
             if is_shift {
                 if let Err(e) = self.controller.previous_field() {
-                    eprintln!("Failed to navigate to previous field: {}", e);
+                    eprintln!("Failed to navigate to previous field: {e}");
                 }
-            } else {
-                if let Err(e) = self.controller.next_field() {
-                    eprintln!("Failed to navigate to next field: {}", e);
-                }
+            } else if let Err(e) = self.controller.next_field() {
+                eprintln!("Failed to navigate to next field: {e}");
             }
         }
 
@@ -121,32 +119,32 @@ impl TN5250RApp {
                             egui::Key::Enter => {
                                 // Handle Enter in fields
                                 if let Err(e) = self.controller.send_enter() {
-                                    eprintln!("Failed to send Enter: {}", e);
+                                    eprintln!("Failed to send Enter: {e}");
                                 }
                             }
                             egui::Key::Backspace => {
                                 if let Err(e) = self.controller.backspace() {
-                                    eprintln!("Failed to send backspace: {}", e);
+                                    eprintln!("Failed to send backspace: {e}");
                                 }
                             }
                             egui::Key::Delete => {
                                 if let Err(e) = self.controller.delete() {
-                                    eprintln!("Failed to send delete: {}", e);
+                                    eprintln!("Failed to send delete: {e}");
                                 }
                             }
                             egui::Key::F1 => {
                                 if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F1) {
-                                    eprintln!("Failed to send F1: {}", e);
+                                    eprintln!("Failed to send F1: {e}");
                                 }
                             }
                             egui::Key::F2 => {
                                 if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F2) {
-                                    eprintln!("Failed to send F2: {}", e);
+                                    eprintln!("Failed to send F2: {e}");
                                 }
                             }
                             egui::Key::F3 => {
                                 if let Err(e) = self.controller.send_function_key(keyboard::FunctionKey::F3) {
-                                    eprintln!("Failed to send F3: {}", e);
+                                    eprintln!("Failed to send F3: {e}");
                                 }
                             }
                             _ => {
@@ -160,7 +158,7 @@ impl TN5250RApp {
                             for ch in text.chars() {
                                 if ch.is_ascii() && !ch.is_control() {
                                     if let Err(e) = self.controller.type_char(ch) {
-                                        eprintln!("Failed to type character '{}': {}", ch, e);
+                                        eprintln!("Failed to type character '{ch}': {e}");
                                     }
                                 }
                             }

@@ -169,7 +169,7 @@ impl TerminalController {
         if let Ok(query_data) = self.session.send_initial_5250_data() {
             if let Some(ref mut conn) = self.network_connection {
                 if let Err(e) = conn.send_data(&query_data) {
-                    eprintln!("Failed to send Query command: {}", e);
+                    eprintln!("Failed to send Query command: {e}");
                 } else {
                     println!("DEBUG: Query command sent, waiting for Query Reply");
                 }
@@ -184,7 +184,7 @@ impl TerminalController {
                 event_type: crate::monitoring::IntegrationEventType::ComponentInteraction,
                 source_component: "controller".to_string(),
                 target_component: Some("network".to_string()),
-                description: format!("Connection attempt to {}:{}", host, port),
+                description: format!("Connection attempt to {host}:{port}"),
                 details: std::collections::HashMap::new(),
                 duration_us: None,
                 success: true,
@@ -260,8 +260,7 @@ impl TerminalController {
         let protocol_mode = protocol.to_protocol_mode();
         if !Self::validate_protocol_mode(protocol_mode) {
             return Err(format!(
-                "Protocol mode {:?} validation failed. Network may not support this protocol.",
-                protocol_mode
+                "Protocol mode {protocol_mode:?} validation failed. Network may not support this protocol."
             ));
         }
 
@@ -272,8 +271,7 @@ impl TerminalController {
         // The network layer's telnet negotiator will use these during NEW-ENVIRON negotiation
         if let (Some(ref username), Some(ref password)) = (&self.username, &self.password) {
             println!(
-                "Controller: Configuring authentication for user: {}",
-                username
+                "Controller: Configuring authentication for user: {username}"
             );
             conn.set_credentials(username, password);
         }
@@ -362,11 +360,11 @@ impl TerminalController {
         println!("DEBUG: Connected, preparing command");
         // Send Read MDT Fields command to trigger screen display
         let read_modified_cmd = vec![crate::lib5250::codes::CMD_READ_MDT_FIELDS];
-        println!("DEBUG: Command bytes: {:02x?}", read_modified_cmd);
+        println!("DEBUG: Command bytes: {read_modified_cmd:02x?}");
 
         println!("DEBUG: Calling send_input");
         let result = self.send_input(&read_modified_cmd);
-        println!("DEBUG: send_input result: {:?}", result);
+        println!("DEBUG: send_input result: {result:?}");
 
         result?;
         println!("DEBUG: request_login_screen completed successfully");
@@ -447,10 +445,8 @@ impl TerminalController {
             if self.network_connection.is_none() {
                 return Err("Connected flag is true but no network connection".to_string());
             }
-        } else {
-            if self.network_connection.is_some() {
-                return Err("Connected flag is false but network connection exists".to_string());
-            }
+        } else if self.network_connection.is_some() {
+            return Err("Connected flag is false but network connection exists".to_string());
         }
 
         // Validate session state
@@ -460,13 +456,13 @@ impl TerminalController {
 
         // Validate screen state
         if let Err(e) = self.session.display().screen_ref().validate_buffer_consistency() {
-            return Err(format!("Screen buffer validation failed: {}", e));
+            return Err(format!("Screen buffer validation failed: {e}"));
         }
 
         // Validate field manager
         if let Some(active_idx) = self.field_manager.get_active_field_index() {
             if active_idx >= self.field_manager.field_count() {
-                return Err(format!("Active field index {} out of bounds", active_idx));
+                return Err(format!("Active field index {active_idx} out of bounds"));
             }
         }
 
@@ -477,17 +473,13 @@ impl TerminalController {
         if self.use_ansi_mode {
             if ui_row == 0 || ui_col == 0 {
                 return Err(format!(
-                    "Invalid UI cursor position in ANSI mode: ({}, {})",
-                    ui_row, ui_col
+                    "Invalid UI cursor position in ANSI mode: ({ui_row}, {ui_col})"
                 ));
             }
-        } else {
-            if session_row == 0 || session_col == 0 {
-                return Err(format!(
-                    "Invalid session cursor position: ({}, {})",
-                    session_row, session_col
-                ));
-            }
+        } else if session_row == 0 || session_col == 0 {
+            return Err(format!(
+                "Invalid session cursor position: ({session_row}, {session_col})"
+            ));
         }
 
         Ok(())
@@ -520,7 +512,7 @@ impl TerminalController {
         }
 
         // CRITICAL FIX: Validate input data content
-        if input.iter().any(|&b| b == 0) {
+        if input.contains(&0) {
             println!("DEBUG: Input contains null bytes - rejecting");
             return Err("Input contains null bytes".to_string());
         }
@@ -531,10 +523,10 @@ impl TerminalController {
             println!("DEBUG: Calling conn.send_data");
             let result = conn.send_data(input).map_err(|e| {
                 eprintln!("SECURITY: Network send failed - suppressing detailed error information");
-                println!("DEBUG: Network send error: {:?}", e);
+                println!("DEBUG: Network send error: {e:?}");
                 "Network operation failed".to_string()
             });
-            println!("DEBUG: conn.send_data result: {:?}", result);
+            println!("DEBUG: conn.send_data result: {result:?}");
             result?;
         } else {
             return Err("Network connection not available".to_string());
@@ -622,7 +614,7 @@ impl TerminalController {
                     // Process through the 5250 session processor
                     println!("DEBUG: Processing data through 5250 session");
                     let result = self.session.process_integrated_data(&received_data);
-                    println!("DEBUG: Session processing result: {:?}", result);
+                    println!("DEBUG: Session processing result: {result:?}");
 
                     // Send any response data back to the server
                     if let Ok(response_data) = &result {
@@ -632,7 +624,7 @@ impl TerminalController {
                                 response_data.len()
                             );
                             if let Err(e) = self.send_input(response_data) {
-                                eprintln!("Failed to send session response: {}", e);
+                                eprintln!("Failed to send session response: {e}");
                             }
                         }
                     }
@@ -660,7 +652,7 @@ impl TerminalController {
                     if let Ok(init_data) = self.session.send_screen_initialization() {
                         if let Some(ref mut conn) = self.network_connection {
                             if let Err(e) = conn.send_data(&init_data) {
-                                eprintln!("Failed to send screen initialization: {}", e);
+                                eprintln!("Failed to send screen initialization: {e}");
                             } else {
                                 println!("DEBUG: Screen initialization sent");
                                 self.session.mark_screen_initialization_sent();
@@ -910,7 +902,7 @@ impl TerminalController {
                     .iter()
                     .find(|f| f.id == id)
                     .and_then(|f| f.label.clone())
-                    .unwrap_or_else(|| format!("Field {}", id));
+                    .unwrap_or_else(|| format!("Field {id}"));
                 (field_name, error)
             })
             .collect()
@@ -1170,7 +1162,6 @@ impl AsyncTerminalController {
                     // Enter processing loop similar to start_network_thread
                     loop {
                         // CRITICAL FIX: Enhanced thread safety with better error handling
-                        let mut processed = false;
                         let mut should_break = false;
 
                         match controller_ref.try_lock() {
@@ -1179,15 +1170,13 @@ impl AsyncTerminalController {
                                     // CRITICAL FIX: Handle processing errors gracefully
                                     match ctrl.process_incoming_data() {
                                         Ok(_) => {
-                                            processed = true;
+                                            // Processing successful
                                         }
                                         Err(e) => {
                                             eprintln!(
-                                                "SECURITY: Error processing incoming data: {}",
-                                                e
+                                                "SECURITY: Error processing incoming data: {e}"
                                             );
                                             // Continue processing but log the error
-                                            processed = true;
                                         }
                                     }
                                 } else {
@@ -1210,11 +1199,8 @@ impl AsyncTerminalController {
                             break;
                         }
 
-                        if !processed {
-                            thread::sleep(Duration::from_millis(50));
-                        } else {
-                            thread::sleep(Duration::from_millis(50));
-                        }
+                        // Sleep regardless of processing status to prevent busy waiting
+                        thread::sleep(Duration::from_millis(50));
                     }
                 }
                 Err(e) => {
@@ -1329,14 +1315,13 @@ impl AsyncTerminalController {
                 // Use a bounded timeout for TCP connect + then telnet negotiation handles its own timeouts
                 let timeout = Duration::from_secs(10);
                 conn.connect_with_timeout(timeout)
-                    .map_err(|e| format!("Connection failed: {}", e))?;
+                    .map_err(|e| format!("Connection failed: {e}"))?;
 
                 // Validate protocol mode before setting
                 let protocol_mode = protocol.to_protocol_mode();
                 if !TerminalController::validate_protocol_mode(protocol_mode) {
                     return Err(format!(
-                        "Protocol mode {:?} validation failed. Network may not support this protocol.",
-                        protocol_mode
+                        "Protocol mode {protocol_mode:?} validation failed. Network may not support this protocol."
                     ));
                 }
 
@@ -1370,7 +1355,7 @@ impl AsyncTerminalController {
                         if let Ok(query_data) = ctrl.session.send_initial_5250_data() {
                             if let Some(ref mut conn) = ctrl.network_connection {
                                 if let Err(e) = conn.send_data(&query_data) {
-                                    eprintln!("Failed to send Query command: {}", e);
+                                    eprintln!("Failed to send Query command: {e}");
                                 } else {
                                     println!("DEBUG: Query command sent, waiting for Query Reply");
                                 }
@@ -1419,7 +1404,6 @@ impl AsyncTerminalController {
                     // Enter processing loop similar to start_network_thread
                     loop {
                         // CRITICAL FIX: Enhanced thread safety with better error handling
-                        let mut processed = false;
                         let mut should_break = false;
 
                         match controller_ref.try_lock() {
@@ -1428,15 +1412,13 @@ impl AsyncTerminalController {
                                     // CRITICAL FIX: Handle processing errors gracefully
                                     match ctrl.process_incoming_data() {
                                         Ok(_) => {
-                                            processed = true;
+                                            // Processing successful
                                         }
                                         Err(e) => {
                                             eprintln!(
-                                                "SECURITY: Error processing incoming data: {}",
-                                                e
+                                                "SECURITY: Error processing incoming data: {e}"
                                             );
                                             // Continue processing but log the error
-                                            processed = true;
                                         }
                                     }
 
@@ -1449,8 +1431,7 @@ impl AsyncTerminalController {
                                             if let Some(ref mut conn) = ctrl.network_connection {
                                                 if let Err(e) = conn.send_data(&init_data) {
                                                     eprintln!(
-                                                        "Failed to send screen initialization: {}",
-                                                        e
+                                                        "Failed to send screen initialization: {e}"
                                                     );
                                                 } else {
                                                     println!("DEBUG: Screen initialization sent");
@@ -1479,11 +1460,8 @@ impl AsyncTerminalController {
                             break;
                         }
 
-                        if !processed {
-                            thread::sleep(Duration::from_millis(50));
-                        } else {
-                            thread::sleep(Duration::from_millis(50));
-                        }
+                        // Sleep regardless of processing status to prevent busy waiting
+                        thread::sleep(Duration::from_millis(50));
                     }
                 }
                 Err(e) => {
@@ -1641,8 +1619,7 @@ impl AsyncTerminalController {
                 }
                 Err(e) => {
                     eprintln!(
-                        "SECURITY WARNING: Background thread panicked during cleanup: {:?}",
-                        e
+                        "SECURITY WARNING: Background thread panicked during cleanup: {e:?}"
                     );
                 }
             });

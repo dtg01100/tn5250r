@@ -7,8 +7,7 @@ pub fn test_field_detection() {
     let mut terminal = TerminalScreen::new();
     
     // Simulate typical AS/400 login screen content
-    let login_screen_lines = vec![
-        "                                 Sign On                                     ",
+    let login_screen_lines = ["                                 Sign On                                     ",
         "                                                                            ",
         "System  . . . . . . . . . . . : ________________                          ",
         "User ID . . . . . . . . . . . : __________                                ",
@@ -19,8 +18,7 @@ pub fn test_field_detection() {
         "Current library . . . . . . . : __________                                ",
         "                                                                            ",
         "                                                                            ",
-        "(C) COPYRIGHT IBM CORP. 1980, 2013.                                        ",
-    ];
+        "(C) COPYRIGHT IBM CORP. 1980, 2013.                                        "];
     
     println!("Testing field detection with AS/400 login screen:");
     println!("================================================");
@@ -44,7 +42,7 @@ pub fn test_field_detection() {
         println!("Field ID: {}, Type: {:?}, Position: ({}, {}), Length: {}", 
                 field.id, field.field_type, field.start_row, field.start_col, field.length);
         if let Some(ref label) = field.label {
-            println!("  Label: '{}'", label);
+            println!("  Label: '{label}'");
         }
         println!("  Attributes: auto_enter={}, mandatory={}, continued={}, highlighted={}, bypass={}, right_adjust={}, zero_fill={}, uppercase={}",
             field.behavior.auto_enter,
@@ -69,11 +67,11 @@ pub fn test_field_detection() {
     println!("======================");
     if field_manager.field_count() > 0 {
         let initial_active = field_manager.get_active_field_index();
-        println!("Initial active field: {:?}", initial_active);
+        println!("Initial active field: {initial_active:?}");
         
         let _ = field_manager.next_field();
         let after_tab = field_manager.get_active_field_index();
-        println!("After Tab: {:?}", after_tab);
+        println!("After Tab: {after_tab:?}");
         
         if initial_active != after_tab {
             println!("Tab navigation working!");

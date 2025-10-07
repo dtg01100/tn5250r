@@ -16,7 +16,7 @@ impl TN5250RApp {
         ui.columns(FUNCTION_KEYS_PER_ROW, |columns| {
             for i in 1..=FUNCTION_KEYS_PER_ROW {
                 let col_idx = (i - 1) % 12;
-                if columns[col_idx].button(format!("F{}", i)).clicked() {
+                if columns[col_idx].button(format!("F{i}")).clicked() {
                     // Convert number to function key and handle it
                     use keyboard::FunctionKey::*;
                     let func_key = match i {
@@ -32,7 +32,7 @@ impl TN5250RApp {
         ui.columns(FUNCTION_KEYS_PER_ROW, |columns| {
             for i in (FUNCTION_KEYS_PER_ROW + 1)..=(FUNCTION_KEYS_PER_ROW * 2) {
                 let col_idx = (i - 13) % 12;
-                if columns[col_idx].button(format!("F{}", i)).clicked() {
+                if columns[col_idx].button(format!("F{i}")).clicked() {
                     // Convert number to function key and handle it
                     use keyboard::FunctionKey::*;
                     let func_key = match i {

@@ -232,7 +232,7 @@ impl SecurityMonitor {
         details.insert("authentication_failures".to_string(), auth_failures.to_string());
 
         if auth_failures > self.config.auth_failure_threshold as u64 {
-            issues.push(format!("High authentication failure rate: {}", auth_failures));
+            issues.push(format!("High authentication failure rate: {auth_failures}"));
             overall_status = HealthStatus::Warning;
         }
 
@@ -242,7 +242,7 @@ impl SecurityMonitor {
         details.insert("critical_events_5min".to_string(), critical_events.to_string());
 
         if critical_events > 0 {
-            issues.push(format!("{} critical security events in last 5 minutes", critical_events));
+            issues.push(format!("{critical_events} critical security events in last 5 minutes"));
             overall_status = HealthStatus::Critical;
         }
 
@@ -251,7 +251,7 @@ impl SecurityMonitor {
         details.insert("threats_detected".to_string(), threats_detected.to_string());
 
         if threats_detected > 100 { // Arbitrary threshold for demonstration
-            issues.push(format!("High threat detection rate: {}", threats_detected));
+            issues.push(format!("High threat detection rate: {threats_detected}"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -263,10 +263,10 @@ impl SecurityMonitor {
 
         if total_events > 0 {
             let mitigation_rate = (mitigations as f64 / total_events as f64) * 100.0;
-            details.insert("mitigation_success_rate".to_string(), format!("{:.1}%", mitigation_rate));
+            details.insert("mitigation_success_rate".to_string(), format!("{mitigation_rate:.1}%"));
 
             if mitigation_rate < 80.0 {
-                issues.push(format!("Low mitigation success rate: {:.1}%", mitigation_rate));
+                issues.push(format!("Low mitigation success rate: {mitigation_rate:.1}%"));
                 if overall_status == HealthStatus::Healthy {
                     overall_status = HealthStatus::Warning;
                 }
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_security_config_default() {
         let config = SecurityConfig::default();
-        assert_eq!(config.enable_threat_detection, true);
+        assert!(config.enable_threat_detection);
         assert_eq!(config.auth_failure_threshold, 5);
         assert_eq!(config.detection_sensitivity, 0.7);
     }

@@ -56,7 +56,7 @@ impl TN5250RApp {
         };
 
         if let Err(e) = self.controller.connect_async_with_tls_options(self.host.clone(), self.port, Some(use_tls), Some(insecure), ca_opt) {
-            self.terminal_content = format!("Connection failed to start: {}\n", e);
+            self.terminal_content = format!("Connection failed to start: {e}\n");
             self.connecting = false;
 
             // Record connection failure in monitoring

@@ -365,8 +365,7 @@ impl FieldManager {
             // Validate start address is within buffer
             if start_addr >= buffer_size {
                 return Err(format!(
-                    "Field {} start address {} exceeds buffer size {}",
-                    i, start_addr, buffer_size
+                    "Field {i} start address {start_addr} exceeds buffer size {buffer_size}"
                 ));
             }
             
@@ -379,16 +378,14 @@ impl FieldManager {
             // Validate end address
             if end_addr > buffer_size {
                 return Err(format!(
-                    "Field {} end address {} exceeds buffer size {}",
-                    i, end_addr, buffer_size
+                    "Field {i} end address {end_addr} exceeds buffer size {buffer_size}"
                 ));
             }
             
             // Calculate length with validation
             if end_addr < start_addr {
                 return Err(format!(
-                    "Field {} has invalid boundaries: start {} > end {}",
-                    i, start_addr, end_addr
+                    "Field {i} has invalid boundaries: start {start_addr} > end {end_addr}"
                 ));
             }
             

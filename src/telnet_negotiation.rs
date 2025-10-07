@@ -274,18 +274,16 @@ impl BufferPool {
                     return buffer;
                 }
             }
-        } else {
-            if let Ok(mut buffers) = self.large_buffers.try_lock() {
-                if let Some(mut buffer) = buffers.pop() {
-                    if let Ok(mut metrics) = self.pool_metrics.try_lock() {
-                        metrics.record_reuse(buffer.capacity());
-                    }
-                    buffer.clear();
-                    if buffer.capacity() < required_size {
-                        buffer.reserve(required_size - buffer.capacity());
-                    }
-                    return buffer;
+        } else if let Ok(mut buffers) = self.large_buffers.try_lock() {
+            if let Some(mut buffer) = buffers.pop() {
+                if let Ok(mut metrics) = self.pool_metrics.try_lock() {
+                    metrics.record_reuse(buffer.capacity());
                 }
+                buffer.clear();
+                if buffer.capacity() < required_size {
+                    buffer.reserve(required_size - buffer.capacity());
+                }
+                return buffer;
             }
         }
 
@@ -516,21 +514,21 @@ impl TelnetNegotiator {
                                                 self.output_buffer.push(TelnetCommand::IAC as u8);
                                                 self.output_buffer.push(TelnetCommand::DONT as u8);
                                                 self.output_buffer.push(unknown_option);
-                                                println!("TELNET: Rejecting unknown option 0x{:02X} (WILL -> DONT)", unknown_option);
+                                                println!("TELNET: Rejecting unknown option 0x{unknown_option:02X} (WILL -> DONT)");
                                             },
                                             TelnetCommand::DO => {
                                                 // Server wants us to enable unknown option - reject it
                                                 self.output_buffer.push(TelnetCommand::IAC as u8);
                                                 self.output_buffer.push(TelnetCommand::WONT as u8);
                                                 self.output_buffer.push(unknown_option);
-                                                println!("TELNET: Rejecting unknown option 0x{:02X} (DO -> WONT)", unknown_option);
+                                                println!("TELNET: Rejecting unknown option 0x{unknown_option:02X} (DO -> WONT)");
                                             },
                                             TelnetCommand::WONT | TelnetCommand::DONT => {
                                                 // Server is disabling unknown option - acknowledge silently
-                                                println!("TELNET: Acknowledging disable of unknown option 0x{:02X}", unknown_option);
+                                                println!("TELNET: Acknowledging disable of unknown option 0x{unknown_option:02X}");
                                             },
                                             _ => {
-                                                println!("TELNET: Ignoring unknown command 0x{:02X} with unknown option 0x{:02X}", command, unknown_option);
+                                                println!("TELNET: Ignoring unknown command 0x{command:02X} with unknown option 0x{unknown_option:02X}");
                                             }
                                         }
                                         pos += 3; // Skip IAC + command + option
@@ -562,14 +560,14 @@ impl TelnetNegotiator {
                             },
                             _ => {
                                 // PROTOCOL VIOLATION: Unknown or unsupported telnet command
-                                eprintln!("PROTOCOL VIOLATION: Unknown telnet command 0x{:02X}", command);
+                                eprintln!("PROTOCOL VIOLATION: Unknown telnet command 0x{command:02X}");
                                 pos += 2; // Skip IAC + unknown command
                                 continue;
                             }
                         }
                     } else {
                         // PROTOCOL VIOLATION: Invalid telnet command byte after IAC
-                        eprintln!("PROTOCOL VIOLATION: Invalid command byte 0x{:02X} after IAC", command);
+                        eprintln!("PROTOCOL VIOLATION: Invalid command byte 0x{command:02X} after IAC");
                         pos += 2; // Skip IAC + invalid byte
                         continue;
                     }
@@ -863,7 +861,7 @@ impl TelnetNegotiator {
                 TelnetOption::TerminalType => {
                     // INTEGRATION: Use enhanced terminal type handling
                     if let Err(e) = self.handle_terminal_type_subnegotiation(&data[1..]) {
-                        eprintln!("INTEGRATION: Terminal type subnegotiation error: {}", e);
+                        eprintln!("INTEGRATION: Terminal type subnegotiation error: {e}");
                     }
                 },
                 TelnetOption::NewEnvironment => {
@@ -888,7 +886,7 @@ impl TelnetNegotiator {
                     }
                 },
                 _ => {
-                    eprintln!("SECURITY: Unhandled subnegotiation for option: {:?}", option);
+                    eprintln!("SECURITY: Unhandled subnegotiation for option: {option:?}");
                 }
             }
         } else {
@@ -918,7 +916,7 @@ impl TelnetNegotiator {
                 self.parse_received_environment_variables(&data[1..]);
             },
             _ => {
-                eprintln!("Unknown environment negotiation command: {}", command);
+                eprintln!("Unknown environment negotiation command: {command}");
             }
         }
     }
@@ -940,13 +938,13 @@ impl TelnetNegotiator {
                 if data.len() >= 2 {
                     let device_type = data[1];
                     if let Some(dt) = TN3270EDeviceType::from_u8(device_type) {
-                        println!("TN3270E: Server requested device type: {:?}", dt);
+                        println!("TN3270E: Server requested device type: {dt:?}");
                         self.tn3270e_device_type = Some(dt);
                         self.tn3270e_session_state = TN3270ESessionState::DeviceNegotiated;
                         // Send IS response to confirm
                         self.send_tn3270e_device_type_is(dt);
                     } else {
-                        println!("TN3270E: Unknown device type requested: 0x{:02X}", device_type);
+                        println!("TN3270E: Unknown device type requested: 0x{device_type:02X}");
                         // Send IS response with default device type for invalid requests
                         self.send_tn3270e_device_type_is(TN3270EDeviceType::Model2);
                     }
@@ -973,7 +971,7 @@ impl TelnetNegotiator {
                 self.handle_tn3270e_unbind(&data[1..]);
             },
             _ => {
-                println!("TN3270E: Unknown subcommand: {}", command);
+                println!("TN3270E: Unknown subcommand: {command}");
             }
         }
     }
@@ -1012,7 +1010,7 @@ impl TelnetNegotiator {
             TelnetCommand::SE as u8,
         ]);
 
-        println!("TN3270E: Sending IS response with device type: {:?}", device_type);
+        println!("TN3270E: Sending IS response with device type: {device_type:?}");
         self.output_buffer.extend_from_slice(&response);
     }
 
@@ -1038,7 +1036,7 @@ impl TelnetNegotiator {
                 "DEFAULT".to_string()
             };
 
-            println!("TN3270E: Binding to logical unit: {}", lu_name);
+            println!("TN3270E: Binding to logical unit: {lu_name}");
             self.logical_unit_name = Some(lu_name);
             self.tn3270e_session_state = TN3270ESessionState::Bound;
 
@@ -1121,7 +1119,7 @@ impl TelnetNegotiator {
                     if i > var_start && data[i] > 127 {
                         // This might be seed data - check if we have a valid variable name so far
                         let potential_name = &data[var_start..i];
-                        if potential_name.iter().all(|&b| (b >= b'A' && b <= b'Z') || (b >= b'a' && b <= b'z') || b == b'_') {
+                        if potential_name.iter().all(|&b| b.is_ascii_uppercase() || b.is_ascii_lowercase() || b == b'_') {
                             // We have a valid variable name, rest is seed data
                             break;
                         }
@@ -1270,7 +1268,7 @@ impl TelnetNegotiator {
                         },
                         _ => {
                             let sanitized_name = self.sanitize_string_output(&var_name_str);
-                            eprintln!("INTEGRATION: Requested unknown environment variable: {}", sanitized_name);
+                            eprintln!("INTEGRATION: Requested unknown environment variable: {sanitized_name}");
                         }
                     }
                 }
@@ -1386,9 +1384,9 @@ impl TelnetNegotiator {
 
         // Allow alphanumeric, underscore, and AS/400-specific characters
         for &byte in name {
-            if !((byte >= b'A' && byte <= b'Z') ||
-                 (byte >= b'a' && byte <= b'z') ||
-                 (byte >= b'0' && byte <= b'9') ||
+            if !(byte.is_ascii_uppercase() ||
+                 byte.is_ascii_lowercase() ||
+                 byte.is_ascii_digit() ||
                  byte == b'_' ||
                  byte == b'-' || // Hyphens in AS/400 variable names
                  byte == b'.' || // Dots in some AS/400 variables
@@ -1515,7 +1513,7 @@ impl TelnetNegotiator {
                 if data.len() > 1 {
                     let remote_type = &data[1..];
                     let type_str = String::from_utf8_lossy(remote_type);
-                    println!("INTEGRATION: Remote terminal type: {}", type_str);
+                    println!("INTEGRATION: Remote terminal type: {type_str}");
 
                     // INTEGRATION: Validate and store remote terminal type for compatibility
                     if self.validate_terminal_type(remote_type) {
@@ -1596,12 +1594,11 @@ impl TelnetNegotiator {
     fn find_subnegotiation_end(&self, start: usize) -> Option<usize> {
         let mut i = start;
         while i < self.input_buffer.len() {
-            if self.input_buffer[i] == TelnetCommand::IAC as u8 {
-                if i + 1 < self.input_buffer.len() && 
+            if self.input_buffer[i] == TelnetCommand::IAC as u8
+                && i + 1 < self.input_buffer.len() && 
                    self.input_buffer[i + 1] == TelnetCommand::SE as u8 {
                     return Some(i + 2); // Position after SE
                 }
-            }
             i += 1;
         }
         None
@@ -1619,7 +1616,7 @@ impl TelnetNegotiator {
         let all_essential_active = essential_active.iter().all(|&opt| {
             let state = self.negotiation_states.get(&opt);
             let is_active = matches!(state, Some(NegotiationState::Active));
-            eprintln!("TELNET DEBUG: Option {:?} state: {:?}, active: {}", opt, state, is_active);
+            eprintln!("TELNET DEBUG: Option {opt:?} state: {state:?}, active: {is_active}");
             is_active
         });
         
@@ -1637,8 +1634,7 @@ impl TelnetNegotiator {
             true // Not negotiating TN3270E, so it's "complete"
         };
         
-        eprintln!("TELNET DEBUG: All essential active: {}, EOR active: {}, TN3270E negotiated: {}", 
-                 all_essential_active, eor_active, tn3270e_negotiated);
+        eprintln!("TELNET DEBUG: All essential active: {all_essential_active}, EOR active: {eor_active}, TN3270E negotiated: {tn3270e_negotiated}");
         if all_essential_active && tn3270e_negotiated {
             self.negotiation_complete = true;
             eprintln!("TELNET DEBUG: Negotiation marked complete!");
@@ -1714,7 +1710,7 @@ impl TelnetNegotiator {
             match handle.await {
                 Ok(result) => results.push(result),
                 Err(e) => {
-                    eprintln!("Concurrent negotiation task failed: {}", e);
+                    eprintln!("Concurrent negotiation task failed: {e}");
                     results.push(Vec::new()); // Return empty result on error
                 }
             }
@@ -1772,7 +1768,7 @@ impl TelnetNegotiator {
                     results.insert(option, success);
                 }
                 Err(e) => {
-                    eprintln!("Option negotiation failed for {:?}: {}", option, e);
+                    eprintln!("Option negotiation failed for {option:?}: {e}");
                     results.insert(option, false);
                 }
             }
@@ -1836,7 +1832,7 @@ impl TelnetNegotiator {
 
     /// Check if negotiated device supports color
     pub fn supports_color(&self) -> bool {
-        self.tn3270e_device_type.map_or(false, |dt| dt.supports_color())
+        self.tn3270e_device_type.is_some_and(|dt| dt.supports_color())
     }
 }
 
@@ -1862,7 +1858,7 @@ mod tests {
     fn test_negotiator_creation() {
         let negotiator = TelnetNegotiator::new();
         assert_eq!(negotiator.negotiation_states.len(), 6); // 6 preferred options (added TN3270E)
-        assert_eq!(negotiator.is_negotiation_complete(), false);
+        assert!(!negotiator.is_negotiation_complete());
         assert_eq!(negotiator.tn3270e_session_state(), TN3270ESessionState::NotConnected);
     }
 

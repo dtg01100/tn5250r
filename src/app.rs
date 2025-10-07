@@ -64,7 +64,7 @@ impl eframe::App for TN5250RApp {
 
             // Show error message prominently if present
             if let Some(ref error) = self.error_message {
-                ui.colored_label(egui::Color32::RED, format!("⚠ Error: {}", error));
+                ui.colored_label(egui::Color32::RED, format!("⚠ Error: {error}"));
                 ui.separator();
             }
 
@@ -124,7 +124,7 @@ impl eframe::App for TN5250RApp {
 
             // Show error message prominently if present
             if let Some(ref error) = self.error_message {
-                ui.colored_label(egui::Color32::RED, format!("⚠ Error: {}", error));
+                ui.colored_label(egui::Color32::RED, format!("⚠ Error: {error}"));
                 ui.separator();
             }
 

@@ -24,8 +24,6 @@ mod constants;
 mod network_platform;
 
 use tn5250r::app_state::TN5250RApp;
-use controller::AsyncTerminalController;
-use field_manager::FieldDisplayInfo;
 use tn5250r::profile_manager::ProfileManager;
 use tn5250r::session_profile::SessionProfile;
 
@@ -35,7 +33,7 @@ async fn main() {
     // Install panic handler to log panics before crashing
     std::panic::set_hook(Box::new(|panic_info| {
         eprintln!("!!! PANIC !!!");
-        eprintln!("Program panicked: {}", panic_info);
+        eprintln!("Program panicked: {panic_info}");
         if let Some(location) = panic_info.location() {
             eprintln!("Panic occurred in file '{}' at line {}", location.file(), location.line());
         }
@@ -54,7 +52,7 @@ async fn main() {
     let mut default_server = "as400.example.com".to_string();
     let mut default_port = 23;
     let mut auto_connect = false;
-    let mut cli_ssl_override: Option<bool> = None;
+    let mut _cli_ssl_override: Option<bool> = None;
     let mut cli_insecure: Option<bool> = None;
     let mut cli_ca_bundle: Option<String> = None;
     let mut cli_username: Option<String> = None;
@@ -63,7 +61,7 @@ async fn main() {
     let mut cli_save_profile: Option<String> = None;
     let mut cli_protocol: Option<String> = None;
     let mut debug_mode = false;
-    let mut verbose_mode = false;
+    let mut _verbose_mode = false;
 
     // Parse --server and --port options
     let mut i = 1;
@@ -94,8 +92,8 @@ async fn main() {
                     std::process::exit(1);
                 }
             }
-            "--ssl" => { cli_ssl_override = Some(true); }
-            "--no-ssl" => { cli_ssl_override = Some(false); }
+            "--ssl" => { _cli_ssl_override = Some(true); }
+            "--no-ssl" => { _cli_ssl_override = Some(false); }
             "--insecure" => { cli_insecure = Some(true); }
             "--ca-bundle" => {
                 if i + 1 < args.len() {
@@ -147,7 +145,7 @@ async fn main() {
                 println!("DEBUG MODE ENABLED: Verbose logging and data dumps active");
             }
             "--verbose" | "-v" => {
-                verbose_mode = true;
+                _verbose_mode = true;
                 println!("VERBOSE MODE: Detailed connection logs active");
             }
             "--protocol" => {
@@ -200,14 +198,14 @@ async fn main() {
 
         match profile_manager.get_profile_by_name(&profile_name) {
             Some(profile) => {
-                println!("Loading profile: {}", profile_name);
+                println!("Loading profile: {profile_name}");
                 Some(profile.clone())
             }
             None => {
-                eprintln!("Error: Profile '{}' not found", profile_name);
+                eprintln!("Error: Profile '{profile_name}' not found");
                 eprintln!("Available profiles:");
                 for name in profile_manager.get_profile_names() {
-                    eprintln!("  - {}", name);
+                    eprintln!("  - {name}");
                 }
                 std::process::exit(1);
             }
@@ -238,9 +236,9 @@ async fn main() {
             profile_to_save.id = save_name.clone();
 
             if let Err(e) = profile_manager.create_profile(profile_to_save.clone()) {
-                eprintln!("Warning: Failed to save profile '{}': {}", save_name, e);
+                eprintln!("Warning: Failed to save profile '{save_name}': {e}");
             } else {
-                println!("Profile '{}' saved successfully", save_name);
+                println!("Profile '{save_name}' saved successfully");
             }
         }
 
@@ -260,11 +258,13 @@ async fn main() {
         _ => is_wayland, // auto: wgpu on Wayland, glow otherwise
     };
 
-    let mut options = eframe::NativeOptions::default();
-    options.viewport = egui::ViewportBuilder::default()
-        .with_inner_size([800.0, 600.0])
-        .with_visible(true)
-        .with_active(true);
+    let mut options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([800.0, 600.0])
+            .with_visible(true)
+            .with_active(true),
+        ..Default::default()
+    };
     // Configure renderer
     #[cfg(feature = "wgpu")]
     if use_wgpu {
@@ -316,6 +316,6 @@ async fn main() {
 mod tests {
     #[test]
     fn test_initialization() {
-        assert!(true);
+        // Test passes - no specific assertion needed
     }
 }

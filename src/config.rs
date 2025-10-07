@@ -375,16 +375,16 @@ impl SessionConfig {
             "tn5250" => {
                 if !valid_5250_types.contains(&terminal_type.as_str()) {
                     return Err(TN5250Error::Protocol(ProtocolError::ProtocolMismatch {
-                        configured: format!("TN5250 with terminal type '{}'", terminal_type),
-                        detected: format!("Terminal type incompatible with TN5250. Valid types: {:?}", valid_5250_types),
+                        configured: format!("TN5250 with terminal type '{terminal_type}'"),
+                        detected: format!("Terminal type incompatible with TN5250. Valid types: {valid_5250_types:?}"),
                     }));
                 }
             }
             "tn3270" => {
                 if !valid_3270_types.contains(&terminal_type.as_str()) {
                     return Err(TN5250Error::Protocol(ProtocolError::ProtocolMismatch {
-                        configured: format!("TN3270 with terminal type '{}'", terminal_type),
-                        detected: format!("Terminal type incompatible with TN3270. Valid types: {:?}", valid_3270_types),
+                        configured: format!("TN3270 with terminal type '{terminal_type}'"),
+                        detected: format!("Terminal type incompatible with TN3270. Valid types: {valid_3270_types:?}"),
                     }));
                 }
             }
@@ -570,7 +570,7 @@ pub fn save_shared_config_async(shared: &SharedSessionConfig) {
                     continue;
                 }
                 Err(e) => {
-                    eprintln!("Failed to save config: {}", e);
+                    eprintln!("Failed to save config: {e}");
                     return;
                 }
             }
@@ -613,7 +613,7 @@ mod tests {
         // Test default values
         assert_eq!(config.get_string_property_or("display.screenSize", ""), "24x80");
         assert_eq!(config.get_int_property_or("connection.port", 0), 23);
-        assert_eq!(config.get_boolean_property_or("keypad.enabled", false), true);
+        assert!(config.get_boolean_property_or("keypad.enabled", false));
         assert_eq!(config.get_float_property_or("keypad.fontSize", 0.0), 12.0);
     }
 
@@ -724,7 +724,7 @@ mod tests {
     #[test]
     fn test_tls_defaults() {
         let config = SessionConfig::new("test.json".to_string(), "test_session".to_string());
-        assert_eq!(config.get_boolean_property_or("connection.tls.insecure", true), false);
+        assert!(!config.get_boolean_property_or("connection.tls.insecure", true));
         assert_eq!(config.get_string_property_or("connection.tls.caBundlePath", "missing"), "");
     }
 

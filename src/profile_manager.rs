@@ -52,7 +52,7 @@ impl ProfileManager {
                         self.profiles.insert(profile.id.clone(), profile);
                     }
                     Err(e) => {
-                        eprintln!("Warning: Failed to load profile from {:?}: {}", path, e);
+                        eprintln!("Warning: Failed to load profile from {path:?}: {e}");
                     }
                 }
             }
@@ -146,7 +146,7 @@ mod tests {
 
         // This test would need mocking for dirs::config_dir
         // For now, just test that the struct can be created conceptually
-        assert!(true);
+        // Test passes - no specific assertion needed
     }
 
     #[test]

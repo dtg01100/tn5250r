@@ -291,13 +291,13 @@ impl PerformanceMonitor {
 
         // Check CPU usage
         let cpu_usage = self.metrics.system.avg_cpu_usage_percent.load(Ordering::Relaxed) as f64;
-        details.insert("cpu_usage_percent".to_string(), format!("{:.1}", cpu_usage));
+        details.insert("cpu_usage_percent".to_string(), format!("{cpu_usage:.1}"));
 
         if cpu_usage > self.config.cpu_critical_threshold {
-            issues.push(format!("CPU usage critical: {:.1}%", cpu_usage));
+            issues.push(format!("CPU usage critical: {cpu_usage:.1}%"));
             overall_status = HealthStatus::Critical;
         } else if cpu_usage > self.config.cpu_warning_threshold {
-            issues.push(format!("CPU usage high: {:.1}%", cpu_usage));
+            issues.push(format!("CPU usage high: {cpu_usage:.1}%"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -305,13 +305,13 @@ impl PerformanceMonitor {
 
         // Check memory usage
         let memory_usage = self.get_memory_usage_percent();
-        details.insert("memory_usage_percent".to_string(), format!("{:.1}", memory_usage));
+        details.insert("memory_usage_percent".to_string(), format!("{memory_usage:.1}"));
 
         if memory_usage > self.config.memory_critical_threshold {
-            issues.push(format!("Memory usage critical: {:.1}%", memory_usage));
+            issues.push(format!("Memory usage critical: {memory_usage:.1}%"));
             overall_status = HealthStatus::Critical;
         } else if memory_usage > self.config.memory_warning_threshold {
-            issues.push(format!("Memory usage high: {:.1}%", memory_usage));
+            issues.push(format!("Memory usage high: {memory_usage:.1}%"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -322,10 +322,10 @@ impl PerformanceMonitor {
         details.insert("network_latency_us".to_string(), latency.to_string());
 
         if latency > self.config.latency_critical_threshold_us {
-            issues.push(format!("Network latency critical: {} μs", latency));
+            issues.push(format!("Network latency critical: {latency} μs"));
             overall_status = HealthStatus::Critical;
         } else if latency > self.config.latency_warning_threshold_us {
-            issues.push(format!("Network latency high: {} μs", latency));
+            issues.push(format!("Network latency high: {latency} μs"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -333,10 +333,10 @@ impl PerformanceMonitor {
 
         // Check connection success rate
         let conn_success_rate = self.metrics.network.connection_success_rate.load(Ordering::Relaxed);
-        details.insert("connection_success_rate".to_string(), format!("{}%", conn_success_rate));
+        details.insert("connection_success_rate".to_string(), format!("{conn_success_rate}%"));
 
         if conn_success_rate < 90 {
-            issues.push(format!("Connection success rate low: {}%", conn_success_rate));
+            issues.push(format!("Connection success rate low: {conn_success_rate}%"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -344,7 +344,7 @@ impl PerformanceMonitor {
 
         // Check for performance regressions
         if let Some(regression) = self.detect_performance_regression() {
-            issues.push(format!("Performance regression detected: {}", regression));
+            issues.push(format!("Performance regression detected: {regression}"));
             if overall_status == HealthStatus::Healthy {
                 overall_status = HealthStatus::Warning;
             }
@@ -421,16 +421,14 @@ impl PerformanceMonitor {
             let latency_baseline = baseline.metrics.network.avg_connection_latency_us.load(Ordering::Relaxed);
 
             if latency_recent > latency_baseline * 2 {
-                return Some(format!("Network latency increased from {} μs to {} μs",
-                    latency_baseline, latency_recent));
+                return Some(format!("Network latency increased from {latency_baseline} μs to {latency_recent} μs"));
             }
 
             let cpu_recent = recent.metrics.system.avg_cpu_usage_percent.load(Ordering::Relaxed) as f64;
             let cpu_baseline = baseline.metrics.system.avg_cpu_usage_percent.load(Ordering::Relaxed) as f64;
 
             if cpu_recent > cpu_baseline * 1.5 {
-                return Some(format!("CPU usage increased from {:.1}% to {:.1}%",
-                    cpu_baseline, cpu_recent));
+                return Some(format!("CPU usage increased from {cpu_baseline:.1}% to {cpu_recent:.1}%"));
             }
         }
 

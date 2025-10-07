@@ -84,7 +84,7 @@ impl TN5250RApp {
                             ui.separator();
                             ui.label("Raw controller content (first 1000 bytes as hex):");
                             let hex: String = content.bytes().take(1000)
-                                .map(|b| format!("{:02x} ", b))
+                                .map(|b| format!("{b:02x} "))
                                 .collect();
                             ui.code(hex);
                         }
@@ -280,14 +280,14 @@ impl TN5250RApp {
                                 ProtocolMode::AutoDetect => "Auto-Detect",
                                 ProtocolMode::NVT => "NVT (Plain Text)",
                             };
-                            ui.label(format!("Protocol: {}", protocol_name));
+                            ui.label(format!("Protocol: {protocol_name}"));
 
                             let dimensions = format!("{}×{} ({} chars)",
                                 self.selected_screen_size.rows(),
                                 self.selected_screen_size.cols(),
                                 self.selected_screen_size.buffer_size()
                             );
-                            ui.label(format!("Screen: {}", dimensions));
+                            ui.label(format!("Screen: {dimensions}"));
 
                             ui.colored_label(egui::Color32::from_rgb(150, 150, 150),
                                 "Note: Changes take effect on next connection");

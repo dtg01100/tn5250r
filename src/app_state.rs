@@ -116,7 +116,7 @@ impl TN5250RApp {
                         "tn3270" | "3270" => ProtocolMode::TN3270,
                         "auto" | "autodetect" => ProtocolMode::AutoDetect,
                         _ => {
-                            eprintln!("Warning: Invalid protocol '{}', using TN5250", protocol);
+                            eprintln!("Warning: Invalid protocol '{protocol}', using TN5250");
                             ProtocolMode::TN5250
                         }
                     }
@@ -187,7 +187,7 @@ impl TN5250RApp {
             let _ = config::save_shared_config(&shared_config);
         }
 
-        let connection_string = format!("{}:{}", host, port);
+        let connection_string = format!("{host}:{port}");
         let mut controller = AsyncTerminalController::new();
 
         // Configure credentials from CLI if provided
@@ -199,7 +199,7 @@ impl TN5250RApp {
             // Set credentials before connecting
             if !username.is_empty() && !password.is_empty() {
                 controller.set_credentials(&username, &password);
-                println!("CLI: Configured credentials for user: {}", username);
+                println!("CLI: Configured credentials for user: {username}");
             }
 
             // Use pre-read config values to avoid borrow issues
@@ -216,7 +216,7 @@ impl TN5250RApp {
                     true
                 },
                 Err(e) => {
-                    eprintln!("Connection failed: {}", e);
+                    eprintln!("Connection failed: {e}");
                     false
                 }
             }
@@ -225,9 +225,9 @@ impl TN5250RApp {
         };
 
         let terminal_content = if auto_connect && connected {
-            format!("Connected to {}:{}\nReady...\n", host, port)
+            format!("Connected to {host}:{port}\nReady...\n")
         } else if auto_connect {
-            format!("Failed to connect to {}:{}\nReady...\n", host, port)
+            format!("Failed to connect to {host}:{port}\nReady...\n")
         } else {
             "TN5250R - IBM AS/400 Terminal Emulator\nReady...\n".to_string()
         };
@@ -285,7 +285,7 @@ impl TN5250RApp {
                         "tn3270" | "3270" => ProtocolMode::TN3270,
                         "auto" | "autodetect" => ProtocolMode::AutoDetect,
                         _ => {
-                            eprintln!("Warning: Invalid protocol '{}', using TN5250", protocol);
+                            eprintln!("Warning: Invalid protocol '{protocol}', using TN5250");
                             ProtocolMode::TN5250
                         }
                     }
@@ -363,7 +363,7 @@ impl TN5250RApp {
                 } else if err.to_lowercase().contains("canceled") {
                     "Connection canceled by user\n".to_string()
                 } else {
-                    format!("Connection failed: {}\n", err)
+                    format!("Connection failed: {err}\n")
                 };
                 self.terminal_content = message.clone();
                 self.error_message = Some(message);
@@ -401,7 +401,7 @@ impl TN5250RApp {
                     event_type: crate::monitoring::IntegrationEventType::IntegrationFailure,
                     source_component: "network".to_string(),
                     target_component: Some("controller".to_string()),
-                    description: format!("Connection failed: {}", err),
+                    description: format!("Connection failed: {err}"),
                     details: std::collections::HashMap::new(),
                     duration_us: self.connection_time.map(|t| t.elapsed().as_micros() as u64),
                     success: false,
@@ -414,7 +414,7 @@ impl TN5250RApp {
             if let Some(connection_time) = self.connection_time {
                 if connection_time.elapsed() >= std::time::Duration::from_secs(2) {
                     if let Err(e) = self.controller.request_login_screen() {
-                        eprintln!("Failed to request login screen: {}", e);
+                        eprintln!("Failed to request login screen: {e}");
                     }
                     self.login_screen_requested = true;
                 }
@@ -487,18 +487,16 @@ impl TN5250RApp {
                     // TODO: Implement session-specific connect
                 }
 
-                if session.connecting {
-                    if ui.button("Cancel").clicked() {
+                if session.connecting
+                    && ui.button("Cancel").clicked() {
                         // TODO: Implement session-specific cancel
                     }
-                }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if self.debug_mode {
-                        if ui.button("🐛 Debug").on_hover_text("Show debug information panel").clicked() {
+                    if self.debug_mode
+                        && ui.button("🐛 Debug").on_hover_text("Show debug information panel").clicked() {
                             self.show_debug_panel = !self.show_debug_panel;
                         }
-                    }
                     if ui.button("⚙ Advanced").on_hover_text("Advanced connection settings").clicked() {
                         self.show_advanced_settings = true;
                     }
@@ -546,11 +544,11 @@ impl TN5250RApp {
                     let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
 
                     // Clamp to valid terminal bounds
-                    let row = row.max(1).min(24);
-                    let col = col.max(1).min(80);
+                    let row = row.clamp(1, 24);
+                    let col = col.clamp(1, 80);
 
                     // TODO: Implement session-specific click handling
-                    eprintln!("Session {}: Clicked at position ({}, {})", session_id, row, col);
+                    eprintln!("Session {session_id}: Clicked at position ({row}, {col})");
                 }
             }
 
@@ -609,9 +607,9 @@ impl TN5250RApp {
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     if session.connecting {
-                        ui.colored_label(egui::Color32::YELLOW, &format!("Connecting to {}:{} ... ", session.profile.host, session.profile.port));
+                        ui.colored_label(egui::Color32::YELLOW, format!("Connecting to {}:{} ... ", session.profile.host, session.profile.port));
                     } else if session.connected {
-                        ui.colored_label(egui::Color32::GREEN, &format!("Connected to {}:{} ", session.profile.host, session.profile.port));
+                        ui.colored_label(egui::Color32::GREEN, format!("Connected to {}:{} ", session.profile.host, session.profile.port));
                     } else {
                         ui.colored_label(egui::Color32::RED, "Disconnected");
                     }
@@ -650,21 +648,19 @@ impl TN5250RApp {
                 self.do_connect();
             }
 
-            if self.connecting {
-                if ui.button("Cancel").clicked() {
+            if self.connecting
+                && ui.button("Cancel").clicked() {
                     self.controller.cancel_connect();
                     self.connecting = false;
                     self.connection_time = None;
                     self.terminal_content.push_str("\nConnection canceled by user.\n");
                 }
-            }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if self.debug_mode {
-                    if ui.button("🐛 Debug").on_hover_text("Show debug information panel").clicked() {
+                if self.debug_mode
+                    && ui.button("🐛 Debug").on_hover_text("Show debug information panel").clicked() {
                         self.show_debug_panel = !self.show_debug_panel;
                     }
-                }
                 if ui.button("⚙ Advanced").on_hover_text("Advanced connection settings").clicked() {
                     self.show_advanced_settings = true;
                 }
@@ -708,11 +704,11 @@ impl TN5250RApp {
                 let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
 
                 // Clamp to valid terminal bounds
-                let row = row.max(1).min(24);
-                let col = col.max(1).min(80);
+                let row = row.clamp(1, 24);
+                let col = col.clamp(1, 80);
 
                 if let Err(e) = self.controller.click_at_position(row, col) {
-                    eprintln!("Failed to click at position ({}, {}): {}", row, col, e);
+                    eprintln!("Failed to click at position ({row}, {col}): {e}");
                 }
             }
         }
@@ -766,7 +762,7 @@ impl TN5250RApp {
 
                     // Send to controller
                     if let Err(e) = self.controller.send_input(self.input_buffer.as_bytes()) {
-                        self.terminal_content.push_str(&format!("\nError: {}", e));
+                        self.terminal_content.push_str(&format!("\nError: {e}"));
                     }
 
                     self.terminal_content.push_str("\nResponse would go here...\n");
@@ -780,7 +776,7 @@ impl TN5250RApp {
 
                 // Send to controller
                 if let Err(e) = self.controller.send_input(self.input_buffer.as_bytes()) {
-                    self.terminal_content.push_str(&format!("\nError: {}", e));
+                    self.terminal_content.push_str(&format!("\nError: {e}"));
                 }
 
                 self.terminal_content.push_str("\nResponse would go here...\n");
@@ -796,9 +792,9 @@ impl TN5250RApp {
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
             ui.horizontal(|ui| {
                 if self.connecting {
-                    ui.colored_label(egui::Color32::YELLOW, &format!("Connecting to {}:{} ... ", self.host, self.port));
+                    ui.colored_label(egui::Color32::YELLOW, format!("Connecting to {}:{} ... ", self.host, self.port));
                 } else if self.connected {
-                    ui.colored_label(egui::Color32::GREEN, &format!("Connected to {}:{} ", self.host, self.port));
+                    ui.colored_label(egui::Color32::GREEN, format!("Connected to {}:{} ", self.host, self.port));
                 } else {
                     ui.colored_label(egui::Color32::RED, "Disconnected");
                 }
@@ -807,7 +803,7 @@ impl TN5250RApp {
                 // Show input buffer status for feedback
                 if let Ok(pending_size) = self.controller.get_pending_input_size() {
                     if pending_size > 0 {
-                        ui.colored_label(egui::Color32::BLUE, &format!("Input buffered ({} bytes)", pending_size));
+                        ui.colored_label(egui::Color32::BLUE, format!("Input buffered ({pending_size} bytes)"));
                         ui.separator();
                     }
                 }

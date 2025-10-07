@@ -330,7 +330,7 @@ impl AlertingSystem {
             }
         }
 
-        Err(format!("Alert {} not found or already acknowledged", alert_id))
+        Err(format!("Alert {alert_id} not found or already acknowledged"))
     }
 
     /// Resolve an alert
@@ -358,7 +358,7 @@ impl AlertingSystem {
             }
         }
 
-        Err(format!("Alert {} not found or already resolved", alert_id))
+        Err(format!("Alert {alert_id} not found or already resolved"))
     }
 
     /// Update average response time
@@ -434,7 +434,7 @@ impl AlertingSystem {
             }
         }
 
-        Err(format!("Alert {} not found", alert_id))
+        Err(format!("Alert {alert_id} not found"))
     }
 
     /// Get alert metrics
