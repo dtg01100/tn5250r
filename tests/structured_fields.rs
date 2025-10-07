@@ -332,25 +332,81 @@ fn test_field_auto_advance_on_full() {
 #[test]
 fn test_mdt_tracking() {
     use tn5250r::field_manager::{FieldManager, Field, FieldType};
-    
+
     let mut manager = FieldManager::new();
-    
+
     let field = Field::new(1, FieldType::Input, 1, 1, 10);
     manager.add_field_for_test(field);
-    
+
     manager.set_active_field_for_test(Some(0));
-    
+
     // Initially no modified fields
     assert!(!manager.has_modified_fields());
     assert!(manager.get_modified_fields().is_empty());
-    
+
     // Type a character - should mark field as modified
     manager.type_char('a').unwrap();
-    
+
     assert!(manager.has_modified_fields());
     assert_eq!(manager.get_modified_fields().len(), 1);
-    
+
     // Clear modified flags
     manager.clear_modified_flags();
     assert!(!manager.has_modified_fields());
+}
+
+#[test]
+fn session_write_structured_field_create_change_extended_attribute() {
+    let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
+
+    // Create Create/Change Extended Attribute structured field
+    // Format: ESC + CMD_WRITE_STRUCTURED_FIELD + length + class + SF type + attribute data
+    let mut data = Vec::new();
+    data.push(ESC);
+    data.push(CMD_WRITE_STRUCTURED_FIELD);
+    data.extend_from_slice(&[0x00, 0x0C]); // Length (12 bytes total)
+    data.push(0xD9); // Class
+    data.push(SF_CREATE_CHANGE_EXTENDED_ATTRIBUTE); // SF type (0xC1)
+
+    // Extended attribute data: attr_id(0x01) + length(0x02) + data(0x10, 0x20)
+    data.push(0x01); // Attribute ID (color)
+    data.push(0x02); // Attribute data length
+    data.push(0x10); // FG color
+    data.push(0x20); // BG color
+
+    let resp = session.process_stream(&data).expect("process ok");
+
+    // Create/Change Extended Attribute should return no response
+    assert!(resp.is_empty());
+}
+
+#[test]
+fn session_write_structured_field_create_change_extended_attribute_multiple() {
+    let mut session = Session::new();
+    session.authenticate("testuser", "testpass").unwrap();
+
+    // Create Create/Change Extended Attribute structured field with multiple attributes
+    let mut data = Vec::new();
+    data.push(ESC);
+    data.push(CMD_WRITE_STRUCTURED_FIELD);
+    data.extend_from_slice(&[0x00, 0x14]); // Length (20 bytes total)
+    data.push(0xD9); // Class
+    data.push(SF_CREATE_CHANGE_EXTENDED_ATTRIBUTE); // SF type (0xC1)
+
+    // First attribute: color
+    data.push(0x01); // Attribute ID (color)
+    data.push(0x02); // Attribute data length
+    data.push(0x10); // FG color
+    data.push(0x20); // BG color
+
+    // Second attribute: font
+    data.push(0x02); // Attribute ID (font)
+    data.push(0x01); // Attribute data length
+    data.push(0x01); // Bold flag
+
+    let resp = session.process_stream(&data).expect("process ok");
+
+    // Create/Change Extended Attribute should return no response
+    assert!(resp.is_empty());
 }

@@ -1,5 +1,5 @@
 /// Field attribute and management logic for 5250
-use crate::lib5250::FieldAttribute;
+use super::protocol::FieldAttribute;
 
 /// Detected field struct
 #[derive(Debug, Clone, PartialEq)]
@@ -9,6 +9,8 @@ pub struct Field {
     pub col: usize,
     pub length: usize,
     pub attribute: FieldAttribute,
+    /// Modified Data Tag - set when field content is modified by user input
+    pub mdt: bool,
 }
 
 /// Detect fields from a terminal screen and parse attributes
@@ -26,6 +28,7 @@ pub fn detect_fields_from_screen(screen: &crate::terminal::TerminalScreen) -> Ve
                 col: col + 1,
                 length,
                 attribute: FieldAttribute::Protected, // Stub: always Protected
+                mdt: false, // Initialize MDT as false
             });
         }
     }
@@ -62,6 +65,7 @@ pub fn detect_fields_from_protocol_data(data: &[u8]) -> Vec<Field> {
                     col: 0, // Would need cursor position tracking
                     length: field_length,
                     attribute,
+                    mdt: false, // Initialize MDT as false
                 });
             } else {
                 break;

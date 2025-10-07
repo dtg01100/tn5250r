@@ -19,7 +19,10 @@ use crate::protocol_common::traits::TerminalProtocol;
 pub struct ProtocolProcessor3270 {
     /// Current state of the processor
     state: ProcessorState,
-    
+
+    /// Display buffer for the terminal
+    display: Display3270,
+
     /// Use 14-bit addressing (for larger screens)
     use_14bit_addressing: bool,
 }
@@ -29,9 +32,18 @@ pub struct ProtocolProcessor3270 {
 enum ProcessorState {
     /// Ready to process commands
     Ready,
-    
+
     /// Processing a command
     Processing,
+
+    /// Pending Read Buffer response
+    PendingReadBuffer,
+
+    /// Pending Read Modified response
+    PendingReadModified,
+
+    /// Pending Read Modified All response
+    PendingReadModifiedAll,
 }
 
 impl ProtocolProcessor3270 {
@@ -39,6 +51,7 @@ impl ProtocolProcessor3270 {
     pub fn new() -> Self {
         Self {
             state: ProcessorState::Ready,
+            display: Display3270::new(),
             use_14bit_addressing: false,
         }
     }
@@ -57,9 +70,29 @@ impl ProtocolProcessor3270 {
         }
         
         let mut parser = DataStreamParser::new(data, self.use_14bit_addressing);
-        parser.parse(display)
+        let pending_state = parser.parse(display)?;
+        if let Some(state) = pending_state {
+            self.state = state;
+        }
+        Ok(())
     }
-    
+
+    /// Process a 3270 data stream using internal display
+    ///
+    /// This is used by the trait implementation.
+    fn process_data_internal(&mut self, data: &[u8]) -> Result<(), String> {
+        if data.is_empty() {
+            return Ok(());
+        }
+
+        let mut parser = DataStreamParser::new(data, self.use_14bit_addressing);
+        let pending_state = parser.parse(&mut self.display)?;
+        if let Some(state) = pending_state {
+            self.state = state;
+        }
+        Ok(())
+    }
+
     /// Create a Read Buffer response
     ///
     /// Returns the entire display buffer contents with AID and cursor address.
@@ -229,6 +262,46 @@ impl Default for ProtocolProcessor3270 {
     }
 }
 
+impl ProtocolProcessor3270 {
+    /// Handle TN3270E subnegotiation commands
+    fn handle_tn3270e_negotiation(&mut self, data: &[u8]) -> Option<Vec<u8>> {
+        if data.is_empty() {
+            return None;
+        }
+
+        match data[0] {
+            // DEVICE-TYPE request
+            2 => {
+                // Server is requesting device type, respond with IS DEVICE-TYPE Model2Color
+                let mut response = vec![255, 250, 40, 4, 2, 0x82]; // IAC SB TN3270E IS DEVICE-TYPE Model2Color
+                response.extend_from_slice(&[255, 240]); // IAC SE
+                Some(response)
+            }
+            // BIND command
+            6 => {
+                // Server is binding the session, respond with BIND response
+                let mut response = vec![255, 250, 40, 4, 6]; // IAC SB TN3270E IS BIND
+                // Add logical unit name (empty for now)
+                response.push(0); // Null terminator
+                response.extend_from_slice(&[255, 240]); // IAC SE
+                Some(response)
+            }
+            // CONNECT command
+            1 => {
+                // Server wants to connect, acknowledge
+                let response = vec![255, 250, 40, 4, 1, 255, 240]; // IAC SB TN3270E IS CONNECT IAC SE
+                Some(response)
+            }
+            // Other commands - acknowledge with IS response
+            _ => {
+                let mut response = vec![255, 250, 40, 4, data[0]]; // IAC SB TN3270E IS <command>
+                response.extend_from_slice(&[255, 240]); // IAC SE
+                Some(response)
+            }
+        }
+    }
+}
+
 /// Data stream parser for 3270 protocol
 struct DataStreamParser<'a> {
     data: &'a [u8],
@@ -247,32 +320,50 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Parse the data stream
-    fn parse(&mut self, display: &mut Display3270) -> Result<(), String> {
+    fn parse(&mut self, display: &mut Display3270) -> Result<Option<ProcessorState>, String> {
+        let mut pending_state = None;
         while self.pos < self.data.len() {
             let cmd_byte = self.data[self.pos];
             self.pos += 1;
-            
+
             if let Some(command) = CommandCode::from_u8(cmd_byte) {
-                self.process_command(command, display)?;
+                if let Some(state) = self.process_command(command, display)? {
+                    pending_state = Some(state);
+                }
             } else {
                 return Err(format!("Unknown command code: 0x{cmd_byte:02X}"));
             }
         }
-        
-        Ok(())
+
+        Ok(pending_state)
     }
     
     /// Process a command
-    fn process_command(&mut self, command: CommandCode, display: &mut Display3270) -> Result<(), String> {
+    fn process_command(&mut self, command: CommandCode, display: &mut Display3270) -> Result<Option<ProcessorState>, String> {
         match command {
-            CommandCode::Write => self.process_write(display, false, false),
-            CommandCode::EraseWrite => self.process_write(display, true, false),
-            CommandCode::EraseWriteAlternate => self.process_write(display, true, true),
-            CommandCode::ReadBuffer => Ok(()), // Response handled separately
-            CommandCode::ReadModified => Ok(()), // Response handled separately
-            CommandCode::ReadModifiedAll => Ok(()), // Response handled separately
-            CommandCode::EraseAllUnprotected => self.process_erase_all_unprotected(display),
-            CommandCode::WriteStructuredField => self.process_write_structured_field(display),
+            CommandCode::Write => {
+                self.process_write(display, false, false)?;
+                Ok(None)
+            }
+            CommandCode::EraseWrite => {
+                self.process_write(display, true, false)?;
+                Ok(None)
+            }
+            CommandCode::EraseWriteAlternate => {
+                self.process_write(display, true, true)?;
+                Ok(None)
+            }
+            CommandCode::ReadBuffer => Ok(Some(ProcessorState::PendingReadBuffer)),
+            CommandCode::ReadModified => Ok(Some(ProcessorState::PendingReadModified)),
+            CommandCode::ReadModifiedAll => Ok(Some(ProcessorState::PendingReadModifiedAll)),
+            CommandCode::EraseAllUnprotected => {
+                self.process_erase_all_unprotected(display)?;
+                Ok(None)
+            }
+            CommandCode::WriteStructuredField => {
+                self.process_write_structured_field(display)?;
+                Ok(None)
+            }
         }
     }
     
@@ -520,20 +611,119 @@ impl<'a> DataStreamParser<'a> {
     }
     
     /// Process Write Structured Field command
-    fn process_write_structured_field(&mut self, _display: &mut Display3270) -> Result<(), String> {
-        // TODO: Implement structured field processing
-        // Structured fields are used for advanced features like:
-        // - Query replies
-        // - Partition management
-        // - Color definitions
-        // - Extended data streams
-        
-        // For Phase 2, we'll just skip structured field data
-        // This will be implemented in Phase 4
-        
+    fn process_write_structured_field(&mut self, display: &mut Display3270) -> Result<(), String> {
+        // Parse structured fields from the data stream
+        while self.pos < self.data.len() {
+            // Read structured field length (2 bytes, big-endian)
+            if self.pos + 2 > self.data.len() {
+                return Err("Insufficient data for structured field length".to_string());
+            }
+            let length = u16::from_be_bytes([self.data[self.pos], self.data[self.pos + 1]]) as usize;
+            self.pos += 2;
+
+            if length < 4 {
+                return Err("Invalid structured field length".to_string());
+            }
+
+            // Read structured field type (2 bytes, big-endian)
+            if self.pos + 2 > self.data.len() {
+                return Err("Insufficient data for structured field type".to_string());
+            }
+            let sf_type = u16::from_be_bytes([self.data[self.pos], self.data[self.pos + 1]]);
+            self.pos += 2;
+
+            // Read structured field data
+            let data_len = length - 4;
+            if self.pos + data_len > self.data.len() {
+                return Err("Insufficient data for structured field content".to_string());
+            }
+            let sf_data = &self.data[self.pos..self.pos + data_len];
+            self.pos += data_len;
+
+            // Process the structured field based on type
+            self.process_structured_field(sf_type, sf_data, display)?;
+        }
+
         Ok(())
     }
-    
+
+    /// Process a structured field
+    fn process_structured_field(&mut self, sf_type: u16, sf_data: &[u8], display: &mut Display3270) -> Result<(), String> {
+        match sf_type {
+            SF_QUERY_REPLY => self.process_query_reply(sf_data, display),
+            SF_OUTBOUND_3270DS => {
+                // Outbound 3270DS - data stream content
+                // For now, just skip as it's handled elsewhere
+                Ok(())
+            }
+            _ => {
+                // Unknown structured field type, skip
+                Ok(())
+            }
+        }
+    }
+
+    /// Process Query Reply structured field
+    fn process_query_reply(&mut self, sf_data: &[u8], display: &mut Display3270) -> Result<(), String> {
+        // Query Reply contains terminal capabilities
+        // Parse the reply to understand what features are supported
+        let mut pos = 0;
+        while pos < sf_data.len() {
+            if pos + 1 > sf_data.len() {
+                break;
+            }
+            let query_type = sf_data[pos];
+            pos += 1;
+
+            if pos + 1 > sf_data.len() {
+                break;
+            }
+            let length = sf_data[pos] as usize;
+            pos += 1;
+
+            if pos + length > sf_data.len() {
+                break;
+            }
+            let query_data = &sf_data[pos..pos + length];
+            pos += length;
+
+            // Process based on query type
+            match query_type {
+                0x81 => {
+                    // Usable Area - host tells terminal the expected screen size
+                    if query_data.len() >= 2 {
+                        let _rows = query_data[0] as u16;
+                        let _cols = query_data[1] as u16;
+                        // Note: Our display size is fixed, but we acknowledge the host's expectation
+                    }
+                }
+                0x82 => {
+                    // Character Sets - terminal supports character sets
+                }
+                0x83 => {
+                    // Highlighting - terminal supports highlighting
+                }
+                0x84 => {
+                    // Color - terminal supports color
+                }
+                0x85 => {
+                    // Field Outlining - terminal supports field outlining
+                }
+                0x86 => {
+                    // Partition - terminal supports partitions
+                }
+                0x87 => {
+                    // Field Validation - terminal supports field validation
+                }
+                _ => {
+                    // Unknown query type, skip
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Read a buffer address (12-bit or 14-bit)
     fn read_buffer_address(&mut self) -> Result<u16, String> {
         if self.pos + 1 >= self.data.len() {
@@ -557,16 +747,29 @@ impl<'a> DataStreamParser<'a> {
 // Implement TerminalProtocol trait for 3270
 impl TerminalProtocol for ProtocolProcessor3270 {
     fn process_data(&mut self, data: &[u8]) -> Result<(), String> {
-        // For the trait implementation, we need a display buffer
-        // This is a simplified version - real usage would pass display separately
-        let mut display = Display3270::new();
-        self.process_data(data, &mut display)?;
-        Ok(())
+        self.process_data_internal(data)
     }
     
     fn generate_response(&mut self) -> Option<Vec<u8>> {
-        // TODO: Implement response generation for Phase 3
-        None
+        match self.state {
+            ProcessorState::PendingReadBuffer => {
+                let response = self.create_read_buffer_response(&self.display, AidKey::NoAid);
+                self.state = ProcessorState::Ready;
+                Some(response)
+            }
+            ProcessorState::PendingReadModified => {
+                let response = self.create_read_modified_response(&self.display, AidKey::NoAid);
+                self.state = ProcessorState::Ready;
+                Some(response)
+            }
+            ProcessorState::PendingReadModifiedAll => {
+                // For ReadModifiedAll, return all modified fields (same as ReadModified for now)
+                let response = self.create_read_modified_response(&self.display, AidKey::NoAid);
+                self.state = ProcessorState::Ready;
+                Some(response)
+            }
+            _ => None,
+        }
     }
     
     fn reset(&mut self) {
@@ -578,12 +781,75 @@ impl TerminalProtocol for ProtocolProcessor3270 {
     }
     
     fn is_connected(&self) -> bool {
-        self.state == ProcessorState::Ready || self.state == ProcessorState::Processing
+        matches!(self.state, ProcessorState::Ready | ProcessorState::Processing | ProcessorState::PendingReadBuffer | ProcessorState::PendingReadModified | ProcessorState::PendingReadModifiedAll)
     }
     
-    fn handle_negotiation(&mut self, _option: u8, _data: &[u8]) -> Option<Vec<u8>> {
-        // TODO: Implement telnet negotiation for Phase 3
-        None
+    fn handle_negotiation(&mut self, option: u8, data: &[u8]) -> Option<Vec<u8>> {
+        match option {
+            // Binary Transmission (0)
+            0 => {
+                if data.is_empty() {
+                    // Server sent DO BINARY, respond with WILL BINARY
+                    Some(vec![255, 251, 0]) // IAC WILL BINARY
+                } else {
+                    None
+                }
+            }
+            // Suppress Go Ahead (3)
+            3 => {
+                if data.is_empty() {
+                    // Server sent DO SGA, respond with WILL SGA
+                    Some(vec![255, 251, 3]) // IAC WILL SGA
+                } else {
+                    None
+                }
+            }
+            // End of Record (25)
+            25 => {
+                if data.is_empty() {
+                    // Server sent DO EOR, respond with WILL EOR
+                    Some(vec![255, 251, 25]) // IAC WILL EOR
+                } else {
+                    None
+                }
+            }
+            // Terminal Type (24)
+            24 => {
+                if data.is_empty() {
+                    // Server sent DO TERMINAL-TYPE, respond with WILL TERMINAL-TYPE
+                    Some(vec![255, 251, 24]) // IAC WILL TERMINAL-TYPE
+                } else if !data.is_empty() && data[0] == 1 {
+                    // Server sent subnegotiation SEND, respond with IS IBM-3179-2
+                    let mut response = vec![255, 250, 24, 0]; // IAC SB TERMINAL-TYPE IS
+                    response.extend_from_slice(b"IBM-3179-2");
+                    response.extend_from_slice(&[255, 240]); // IAC SE
+                    Some(response)
+                } else {
+                    None
+                }
+            }
+            // TN3270E (40)
+            40 => {
+                if data.is_empty() {
+                    // Server sent WILL TN3270E, respond with DO TN3270E
+                    Some(vec![255, 253, 40]) // IAC DO TN3270E
+                } else if !data.is_empty() {
+                    // Handle TN3270E subnegotiation
+                    self.handle_tn3270e_negotiation(data)
+                } else {
+                    None
+                }
+            }
+            // Unknown option - reject it
+            _ => {
+                if data.is_empty() {
+                    // Server sent DO/WILL for unknown option, respond with DONT/WONT
+                    Some(vec![255, 254, option]) // IAC DONT option
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
 

@@ -408,3 +408,48 @@ fn test_write_to_display_packet_processing() {
 
     assert!(display_content.contains("HELLO"), "Display should contain 'HELLO' after processing WriteToDisplay packet");
 }
+
+#[test]
+fn test_fcw_processing() {
+    use tn5250r::lib5250::session::Session;
+    use tn5250r::lib5250::codes::*;
+
+    println!("Testing FCW (Field Control Word) processing...");
+
+    // Create a session
+    let mut session = Session::new();
+
+    // Authenticate the session first
+    match session.authenticate("testuser", "testpass") {
+        Ok(true) => println!("✓ Session authenticated successfully"),
+        Ok(false) => panic!("✗ Authentication failed"),
+        Err(e) => panic!("✗ Authentication error: {}", e),
+    }
+
+    // Create WriteToDisplay data with a field that has FCW
+    // Format: CC1, CC2, SF (Start Field), FFW bytes, FCW bytes, attribute, length
+    let data = vec![
+        0x00, 0x00,  // CC1=0x00, CC2=0x00
+        SF,           // Start of Field (0x1D)
+        0x00, 0x00,  // FFW (Field Format Word) - input field
+        FCW_WORD_WRAP, 0x01,  // FCW: Word wrap enabled
+        FCW_CONTINUOUS_FIELD, 0x01,  // FCW: Continuous field enabled
+        0x20,         // Attribute byte (protected field)
+        0x00, 0x0A,  // Field length = 10
+    ];
+
+    // Process the data
+    match session.process_stream(&data) {
+        Ok(_) => println!("✓ FCW data processed successfully"),
+        Err(e) => {
+            panic!("✗ FCW processing failed: {}", e);
+        }
+    }
+
+    // Verify FCW attributes were parsed
+    assert!(session.current_field_attributes.word_wrap, "Word wrap should be enabled");
+    assert!(session.current_field_attributes.continuous, "Continuous field should be enabled");
+    assert!(!session.current_field_attributes.mandatory_entry, "Mandatory entry should be disabled");
+
+    println!("✓ FCW processing test passed");
+}

@@ -36,11 +36,15 @@ pub const CMD_WRITE_STRUCTURED_FIELD: u8 = 0xF3;
 pub const SOH: u8 = 0x01;  // Start of header
 pub const RA: u8 = 0x02;   // Repeat to address
 pub const EA: u8 = 0x03;   // Erase to Address on 5494 (FIXME: not implemented)
+pub const MC: u8 = 0x06;   // Move Cursor
+pub const TD: u8 = 0x10;   // Transparent Data
 
 pub const SBA: u8 = 0x11;  // Set buffer address
+pub const WEA: u8 = 0x12;  // Write Extended Attributes
 
 pub const IC: u8 = 0x13;   // Insert cursor
 
+pub const WDSF: u8 = 0x15; // Write Display Structured Field
 
 pub const SF: u8 = 0x1D;   // Start of field
 
@@ -72,6 +76,15 @@ pub const DEFINE_OPERATOR_ERROR_MSGS: u8 = 0x39;
 pub const DEFINE_PITCH_TABLE: u8 = 0x3A;
 pub const DEFINE_FAKE_DP_CMD_KEY_FUNC: u8 = 0x3B;
 pub const PASS_THROUGH: u8 = 0x3F;
+
+/// Field Control Word (FCW) types
+pub const FCW_WORD_WRAP: u8 = 0x80;
+pub const FCW_CONTINUOUS_FIELD: u8 = 0x81;
+pub const FCW_FIELD_SELECTION: u8 = 0x82;
+pub const FCW_SIGNED_NUMERIC: u8 = 0x83;
+pub const FCW_RIGHT_ADJUST_ZERO_FILL: u8 = 0x84;
+pub const FCW_MANDATORY_FILL: u8 = 0x85;
+pub const FCW_MANDATORY_ENTRY: u8 = 0x86;
 pub const SF_5250_QUERY: u8 = 0x70;
 pub const SF_5250_QUERY_STATION_STATE: u8 = 0x72;
 
@@ -300,8 +313,12 @@ pub enum OrderCode {
     StartOfHeader = SOH as isize,
     RepeatToAddress = RA as isize,
     EraseToAddress = EA as isize,
+    MoveCursor = MC as isize,
+    TransparentData = TD as isize,
     SetBufferAddress = SBA as isize,
+    WriteExtendedAttributes = WEA as isize,
     InsertCursor = IC as isize,
+    WriteDisplayStructuredField = WDSF as isize,
     StartOfField = SF as isize,
 }
 
@@ -312,8 +329,12 @@ impl OrderCode {
             SOH => Some(Self::StartOfHeader),
             RA => Some(Self::RepeatToAddress),
             EA => Some(Self::EraseToAddress),
+            MC => Some(Self::MoveCursor),
+            TD => Some(Self::TransparentData),
             SBA => Some(Self::SetBufferAddress),
+            WEA => Some(Self::WriteExtendedAttributes),
             IC => Some(Self::InsertCursor),
+            WDSF => Some(Self::WriteDisplayStructuredField),
             SF => Some(Self::StartOfField),
             _ => None,
         }

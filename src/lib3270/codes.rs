@@ -42,6 +42,13 @@ pub const WCC_ALARM: u8 = 0x04;           // Sound alarm
 pub const WCC_RESTORE: u8 = 0x02;         // Restore keyboard
 pub const WCC_RESET_MDT: u8 = 0x01;       // Reset MDT bits
 
+/// Structured Field Types
+/// Used in Write Structured Field command
+pub const SF_QUERY: u16 = 0x0001;          // Query
+pub const SF_QUERY_REPLY: u16 = 0x0081;    // Query Reply
+pub const SF_OUTBOUND_3270DS: u16 = 0x0003; // Outbound 3270DS
+pub const SF_INBOUND_3270DS: u16 = 0x0083;  // Inbound 3270DS
+
 /// AID (Attention Identifier) Keys
 /// Sent from terminal to host to identify which key was pressed
 pub const AID_NO_AID: u8 = 0x60;          // No AID generated
