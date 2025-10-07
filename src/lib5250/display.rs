@@ -375,6 +375,36 @@ impl Display {
         self.screen.unlock_keyboard();
     }
 
+    /// Reset MDT (Modified Data Tag) flags for non-bypass fields
+    /// In 5250 protocol, this clears the modified flag on input fields
+    pub fn reset_non_bypass_mdt(&mut self) {
+        // TODO: Implement field MDT reset when field management is complete
+        // For now, this is a placeholder that would reset MDT on input-capable fields
+        println!("5250: Resetting MDT on non-bypass fields (placeholder)");
+    }
+
+    /// Reset all MDT flags regardless of field type
+    pub fn reset_all_mdt(&mut self) {
+        // TODO: Implement field MDT reset when field management is complete
+        // For now, this is a placeholder that would reset all MDT flags
+        println!("5250: Resetting all MDT flags (placeholder)");
+    }
+
+    /// Null (clear) MDT flags for non-bypass fields
+    /// This is similar to reset but may have different semantics in some implementations
+    pub fn null_non_bypass_mdt(&mut self) {
+        // TODO: Implement field MDT nulling when field management is complete
+        // For now, this is a placeholder that would clear MDT on input-capable fields
+        println!("5250: Nulling MDT on non-bypass fields (placeholder)");
+    }
+
+    /// Null MDT flags for fields matching specific criteria
+    pub fn null_non_bypass_fields(&mut self) {
+        // TODO: Implement field MDT nulling when field management is complete
+        // For now, this is a placeholder
+        println!("5250: Nulling MDT on non-bypass fields (placeholder)");
+    }
+
     // ===== EBCDIC conversion =====
 
     /// Convert EBCDIC character to ASCII using proper EBCDIC CP037 table

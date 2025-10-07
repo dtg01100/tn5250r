@@ -413,17 +413,28 @@ impl Session {
     /// Handle Control Character 1 - keyboard locking and field management
     fn handle_cc1(&mut self, cc1: u8) {
         let lock_keyboard = (cc1 & 0xE0) != 0x00;
-        let _reset_non_bypass_mdt = (cc1 & 0x40) != 0;
-        let _reset_all_mdt = (cc1 & 0x60) == 0x60;
-        let _null_non_bypass_mdt = (cc1 & 0x80) != 0;
-        let _null_non_bypass = (cc1 & 0xA0) == 0xA0;
-        
+        let reset_non_bypass_mdt = (cc1 & 0x40) != 0;
+        let reset_all_mdt = (cc1 & 0x60) == 0x60;
+        let null_non_bypass_mdt = (cc1 & 0x80) != 0;
+        let null_non_bypass = (cc1 & 0xA0) == 0xA0;
+
         if lock_keyboard {
             self.display.lock_keyboard();
         }
-        
-        // TODO: Apply field modifications based on CC1 flags
-        // This requires field management implementation
+
+        // Apply field modifications based on CC1 flags for 5250 protocol compliance
+        if reset_all_mdt {
+            // Reset all MDT flags (highest priority)
+            self.display.reset_all_mdt();
+        } else if reset_non_bypass_mdt {
+            // Reset MDT on non-bypass (input) fields
+            self.display.reset_non_bypass_mdt();
+        }
+
+        if null_non_bypass_mdt || null_non_bypass {
+            // Null/clear MDT on non-bypass fields
+            self.display.null_non_bypass_mdt();
+        }
     }
     
     /// Handle Control Character 2 - display indicators and alarms
@@ -782,17 +793,92 @@ impl Session {
 
         Ok(())
     }
+
+    /// Generate display orders for a partial screen region
+    /// Coordinates are 1-based as per 5250 protocol
+    fn generate_partial_screen_display_orders(&self, data: &mut Vec<u8>, top_row: usize, left_col: usize, depth: usize, width_param: usize) -> Result<(), String> {
+        let screen_data = self.display.get_screen_data();
+        let screen_width = self.display.width();
+        let screen_height = self.display.height();
+
+        // Convert 1-based coordinates to 0-based and clamp to screen bounds
+        let start_row = (top_row.saturating_sub(1)).min(screen_height.saturating_sub(1));
+        let start_col = (left_col.saturating_sub(1)).min(screen_width.saturating_sub(1));
+        let end_row = (start_row + depth).min(screen_height);
+        let end_col = (start_col + width_param).min(screen_width);
+
+        // Iterate through the specified region
+        for row in start_row..end_row {
+            for col in start_col..end_col {
+                let index = row * screen_width + col;
+                let ebcdic_char = screen_data[index];
+
+                // Skip null characters (0x00) - they represent empty/unused positions
+                if ebcdic_char != 0x00 {
+                    // Set Buffer Address (SBA) order
+                    data.push(SBA);
+                    data.push((row + 1) as u8); // 1-based row
+                    data.push((col + 1) as u8); // 1-based column
+
+                    // Add the character
+                    data.push(ebcdic_char);
+                }
+            }
+        }
+
+        Ok(())
+    }
     
     /// Save Partial Screen command
     fn save_partial_screen(&mut self) -> Result<Vec<u8>, String> {
-        let _flag_byte = self.get_byte()?;
-        let _top_row = self.get_byte()?;
-        let _left_col = self.get_byte()?;
-        let _depth = self.get_byte()?;
-        let _width = self.get_byte()?;
-        
-        // TODO: Save only the specified screen region
-        self.save_screen()
+        let flag_byte = self.get_byte()?;
+        let top_row = self.get_byte()? as usize;
+        let left_col = self.get_byte()? as usize;
+        let depth = self.get_byte()? as usize;
+        let width = self.get_byte()? as usize;
+
+        let mut data = Vec::new();
+
+        // ESC (0x04)
+        data.push(ESC);
+
+        // WriteToDisplay command (0x11)
+        data.push(CMD_WRITE_TO_DISPLAY);
+
+        // Sequence number
+        data.push(self.sequence_number);
+        self.sequence_number = self.sequence_number.wrapping_add(1);
+
+        // Length placeholder (2 bytes) - will be calculated
+        let length_pos = data.len();
+        data.extend_from_slice(&[0x00, 0x00]);
+
+        // Flags (use flag_byte from command)
+        data.push(flag_byte);
+
+        // Control Character 1 - Lock keyboard, reset MDT
+        data.push(0xC0);
+
+        // Control Character 2 - Unlock keyboard after processing
+        data.push(0x02);
+
+        // Generate display orders for the specified region
+        self.generate_partial_screen_display_orders(&mut data, top_row, left_col, depth, width)?;
+
+        // Calculate and set length
+        let length = (data.len() - length_pos - 2) as u16;
+        data[length_pos] = (length >> 8) as u8;
+        data[length_pos + 1] = (length & 0xFF) as u8;
+
+        // Add read command if we were in a read operation
+        if self.read_opcode != 0 {
+            data.push(ESC);
+            data.push(self.read_opcode);
+            data.push(0x00); // CC1
+            data.push(0x00); // CC2
+        }
+
+        Ok(data)
     }
     
     /// Roll command - scroll screen region
