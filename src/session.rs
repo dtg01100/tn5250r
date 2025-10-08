@@ -28,6 +28,10 @@ pub struct Session {
     pub connection_time: Option<std::time::Instant>,
     /// Last error message
     pub error_message: Option<String>,
+    /// Show monitoring dashboard for this session
+    pub show_monitoring_dashboard: bool,
+    /// Input buffer for session-specific commands
+    pub input_buffer: String,
 }
 
 impl Session {
@@ -43,6 +47,8 @@ impl Session {
             connection_time: None,
             error_message: None,
             profile,
+            show_monitoring_dashboard: false,
+            input_buffer: String::new(),
         }
     }
 
@@ -62,10 +68,8 @@ impl Session {
     }
 
     /// Get the current cursor position from the controller
-    pub fn get_cursor_position(&self) -> Option<(usize, usize)> {
-        // This would query the controller for cursor position
-        // Implementation depends on controller interface
-        None
+    pub fn get_cursor_position(&self) -> (usize, usize) {
+        self.controller.get_cursor_position().unwrap_or((1, 1))
     }
 
     /// Send function key to the session
@@ -80,11 +84,40 @@ impl Session {
         // This would send text input to the active session
     }
 
-    /// Connect the session
+    /// Connect the session using profile credentials
     pub fn connect(&mut self) {
+        // Clear any previous error message
+        self.error_message = None;
+
+        // Configure credentials from profile if available (RFC 4777 authentication)
+        if let (Some(username), Some(password)) = (&self.profile.username, &self.profile.password) {
+            self.controller.set_credentials(username, password);
+            println!("Session {}: Configured credentials for user: {}", self.id, username);
+        } else {
+            // Clear credentials if not set in profile
+            self.controller.clear_credentials();
+        }
+
+        // Set connecting state
         self.connecting = true;
         self.connection_time = Some(std::time::Instant::now());
-        // Implementation would call controller.connect()
+        self.terminal_content = format!("Connecting to {}:{}...\n", self.profile.host, self.profile.port);
+
+        // Use non-blocking connect with TLS options
+        // For now, use default TLS settings (port 992 uses SSL, others don't)
+        let use_tls = self.profile.port == 992;
+
+        if let Err(e) = self.controller.connect_async_with_tls_options(
+            self.profile.host.clone(),
+            self.profile.port,
+            Some(use_tls),
+            Some(false), // insecure = false
+            None, // ca_bundle_path = None
+        ) {
+            self.terminal_content = format!("Connection failed to start: {}\n", e);
+            self.connecting = false;
+            self.error_message = Some(format!("Connection failed: {}", e));
+        }
     }
 
     /// Disconnect the session

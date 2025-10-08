@@ -468,6 +468,13 @@ impl TN5250RApp {
         }
     }
 
+    /// Connect a specific session using its profile credentials
+    pub fn connect_session(&mut self, session_id: &str) {
+        if let Some(session) = self.sessions.get_mut(session_id) {
+            session.connect();
+        }
+    }
+
     /// Get all session IDs for UI
     pub fn get_session_ids(&self) -> Vec<String> {
         self.sessions.keys().cloned().collect()
@@ -475,22 +482,31 @@ impl TN5250RApp {
 
     /// Show content for a specific session
     pub fn show_session_content(&mut self, ui: &mut egui::Ui, session_id: &str) {
-        if let Some(session) = self.sessions.get(session_id) {
-            ui.heading(format!("TN5250R - {}", session.profile.name));
+        // Get session info needed for UI before borrowing
+        let session_info = self.sessions.get(session_id).map(|s| {
+            (s.profile.name.clone(), s.profile.host.clone(), s.profile.port, s.connecting)
+        });
+
+        if let Some((name, host, port, connecting)) = session_info {
+            ui.heading(format!("TN5250R - {}", name));
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("Host:");
-                ui.label(format!("{}:{}", session.profile.host, session.profile.port));
+                ui.label(format!("{}:{}", host, port));
 
                 if ui.button("Connect").clicked() {
-                    // TODO: Implement session-specific connect
+                    self.connect_session(session_id);
                 }
 
-                if session.connecting
-                    && ui.button("Cancel").clicked() {
-                        // TODO: Implement session-specific cancel
+                if connecting && ui.button("Cancel").clicked() {
+                    if let Some(session) = self.sessions.get_mut(session_id) {
+                        session.controller.cancel_connect();
+                        session.connecting = false;
+                        session.connection_time = None;
+                        session.terminal_content.push_str("\nConnection canceled by user.\n");
                     }
+                }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if self.debug_mode
@@ -503,120 +519,171 @@ impl TN5250RApp {
                 });
             });
 
-            // Username and Password fields for AS/400 authentication (RFC 4777)
-            ui.horizontal(|ui| {
-                ui.label("Username:");
-                ui.text_edit_singleline(&mut self.username);
+            // Check if monitoring dashboard should be shown for this session
+            let show_monitoring = self.sessions.get(session_id).map(|s| s.show_monitoring_dashboard).unwrap_or(false);
 
-                ui.label("Password:");
-                ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
-            });
-
-            ui.separator();
-
-            // Display terminal content with cursor and click handling
-            let scroll_area_response = egui::ScrollArea::vertical()
-                .id_salt(format!("terminal_display_{}", session.id))
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    // Display session's terminal content
-                    for line in session.terminal_content.lines() {
-                        ui.label(line);
-                    }
-                    // TODO: Implement cursor display for session
-                });
-
-            // Handle mouse clicks on the scroll area content
-            let content_rect = scroll_area_response.inner_rect;
-            let response = ui.interact(content_rect, egui::Id::new(format!("terminal_area_{}", session.id)), egui::Sense::click());
-
-            if response.clicked() {
-                if let Some(pos) = response.interact_pointer_pos() {
-                    // Calculate position relative to the content area
-                    let relative_pos = pos - content_rect.min;
-
-                    // Get font metrics for coordinate calculation
-                    let font = egui::FontId::monospace(14.0);
-                    let char_width = ui.fonts(|f| f.glyph_width(&font, ' '));
-                    let line_height = ui.fonts(|f| f.row_height(&font));
-
-                    let col = (relative_pos.x / char_width).floor() as usize + 1; // Convert to 1-based
-                    let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
-
-                    // Clamp to valid terminal bounds
-                    let row = row.clamp(1, 24);
-                    let col = col.clamp(1, 80);
-
-                    // TODO: Implement session-specific click handling
-                    eprintln!("Session {session_id}: Clicked at position ({row}, {col})");
-                }
-            }
-
-            // Display field information if available
-            if !session.fields_info.is_empty() {
-                ui.separator();
-                ui.collapsing("Field Information", |ui| {
-                    for (i, field) in session.fields_info.iter().enumerate() {
-                        ui.horizontal(|ui| {
-                            if field.is_active {
-                                ui.colored_label(egui::Color32::GREEN, "►");
-                            } else {
-                                ui.label(" ");
-                            }
-                            ui.label(format!("Field {}: {}", i + 1, field.label));
-                            ui.label(format!("Content: '{}'", field.content));
-
-                            // Show error if present
-                            if let Some(error) = &field.error_state {
-                                ui.colored_label(egui::Color32::RED, format!("Error: {}", error.get_user_message()));
-                            }
-
-                            // Show highlight status
-                            if field.highlighted {
-                                ui.colored_label(egui::Color32::YELLOW, "Highlighted");
-                            }
-                        });
-                    }
-                    ui.label("Use Tab/Shift+Tab to navigate between fields");
-                });
-            }
-
-            // TODO: Display monitoring dashboard if enabled for session
-
-            ui.separator();
-
-            // Input area for commands
-            ui.horizontal(|ui| {
-                ui.label("Input:");
-                // TODO: Add session-specific input buffer
-                let mut temp_input = String::new();
-                if ui.text_edit_singleline(&mut temp_input).lost_focus() &&
-                    ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    // TODO: Process session-specific input
-                    if !temp_input.is_empty() {
-                        // Echo the input to session terminal
-                        // TODO: Implement session input handling
-                    }
-                }
-
-                // TODO: Add Send button for session
-            });
-
-            // TODO: Display function keys if enabled for session
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            // Now borrow session again for the rest of the UI
+            if let Some(session) = self.sessions.get_mut(session_id) {
+                // Username and Password fields for AS/400 authentication (RFC 4777)
                 ui.horizontal(|ui| {
-                    if session.connecting {
-                        ui.colored_label(egui::Color32::YELLOW, format!("Connecting to {}:{} ... ", session.profile.host, session.profile.port));
-                    } else if session.connected {
-                        ui.colored_label(egui::Color32::GREEN, format!("Connected to {}:{} ", session.profile.host, session.profile.port));
-                    } else {
-                        ui.colored_label(egui::Color32::RED, "Disconnected");
-                    }
-                    ui.separator();
-                    ui.label("Ready");
+                    ui.label("Username:");
+                    ui.text_edit_singleline(&mut self.username);
+
+                    ui.label("Password:");
+                    ui.add(egui::TextEdit::singleline(&mut self.password).password(true));
                 });
-            });
+
+                ui.separator();
+
+                // Display terminal content with cursor and click handling
+                let scroll_area_response = egui::ScrollArea::vertical()
+                    .id_salt(format!("terminal_display_{}", session.id))
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        TN5250RApp::draw_terminal_with_cursor_for_session(ui, &*session);
+                    });
+
+                // Handle mouse clicks on the scroll area content
+                let content_rect = scroll_area_response.inner_rect;
+                let response = ui.interact(content_rect, egui::Id::new(format!("terminal_area_{}", session.id)), egui::Sense::click());
+
+                if response.clicked() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        // Calculate position relative to the content area
+                        let relative_pos = pos - content_rect.min;
+
+                        // Get font metrics for coordinate calculation
+                        let font = egui::FontId::monospace(14.0);
+                        let char_width = ui.fonts(|f| f.glyph_width(&font, ' '));
+                        let line_height = ui.fonts(|f| f.row_height(&font));
+
+                        let col = (relative_pos.x / char_width).floor() as usize + 1; // Convert to 1-based
+                        let row = (relative_pos.y / line_height).floor() as usize + 1; // Convert to 1-based
+
+                        // Clamp to valid terminal bounds
+                        let row = row.clamp(1, 24);
+                        let col = col.clamp(1, 80);
+
+                        // Handle session-specific click: position cursor and handle field navigation
+                        if let Err(e) = session.controller.click_at_position(row, col) {
+                            eprintln!("Failed to click at position ({row}, {col}): {e}");
+                        }
+                    }
+                }
+
+                // Display field information if available
+                if !session.fields_info.is_empty() {
+                    ui.separator();
+                    ui.collapsing("Field Information", |ui| {
+                        for (i, field) in session.fields_info.iter().enumerate() {
+                            ui.horizontal(|ui| {
+                                if field.is_active {
+                                    ui.colored_label(egui::Color32::GREEN, "►");
+                                } else {
+                                    ui.label(" ");
+                                }
+                                ui.label(format!("Field {}: {}", i + 1, field.label));
+                                ui.label(format!("Content: '{}'", field.content));
+
+                                // Show error if present
+                                if let Some(error) = &field.error_state {
+                                    ui.colored_label(egui::Color32::RED, format!("Error: {}", error.get_user_message()));
+                                }
+
+                                // Show highlight status
+                                if field.highlighted {
+                                    ui.colored_label(egui::Color32::YELLOW, "Highlighted");
+                                }
+                            });
+                        }
+                        ui.label("Use Tab/Shift+Tab to navigate between fields");
+                    });
+                }
+
+                if ui.button("Send").clicked() && !session.input_buffer.is_empty() {
+                    // Process the input when Send button is clicked
+                    session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
+
+                    // Send to controller
+                    if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                        session.terminal_content.push_str(&format!("\nError: {e}"));
+                    }
+
+                    session.input_buffer.clear();
+                }
+                ui.separator();
+                ui.collapsing("Cursor Information", |ui| {
+                    let cursor_pos = session.get_cursor_position();
+                    ui.horizontal(|ui| {
+                        ui.label("Position:");
+                        ui.label(format!("({}, {})", cursor_pos.0, cursor_pos.1));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Blinking:");
+                        // TODO: Implement actual blinking state detection
+                        ui.label("Not implemented");
+                    });
+                });
+
+                ui.separator();
+
+                // Input area for commands
+                ui.horizontal(|ui| {
+                    ui.label("Input:");
+                    if ui.text_edit_singleline(&mut session.input_buffer).lost_focus() &&
+                        ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        // Process the input when Enter is pressed
+                        if !session.input_buffer.is_empty() {
+                            // Echo the input to session terminal
+                            session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
+
+                            // Send to controller
+                            if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                                session.terminal_content.push_str(&format!("\nError: {e}"));
+                            }
+
+                            session.input_buffer.clear();
+                        }
+                    }
+
+                    if ui.button("Send").clicked() && !session.input_buffer.is_empty() {
+                        // Process the input when Send button is clicked
+                        session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
+
+                        // Send to controller
+                        if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                            session.terminal_content.push_str(&format!("\nError: {e}"));
+                        }
+
+                        session.input_buffer.clear();
+                    }
+                });
+
+                // Display function keys if enabled
+                if self.function_keys_visible {
+                    crate::ui::function_keys::render_function_keys_for_session(ui, session);
+                }
+
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.horizontal(|ui| {
+                        if session.connecting {
+                            ui.colored_label(egui::Color32::YELLOW, format!("Connecting to {}:{} ... ", session.profile.host, session.profile.port));
+                        } else if session.connected {
+                            ui.colored_label(egui::Color32::GREEN, format!("Connected to {}:{} ", session.profile.host, session.profile.port));
+                        } else {
+                            ui.colored_label(egui::Color32::RED, "Disconnected");
+                        }
+                        ui.separator();
+                        ui.label("Ready");
+                    });
+                });
+            }
+
+            // Display monitoring dashboard if enabled for session (after session borrow ends)
+            if show_monitoring {
+                ui.separator();
+                self.show_monitoring_dashboard_ui(ui);
+            }
         } else {
             // Session not found, show error
             ui.label("Session not found");
@@ -765,7 +832,6 @@ impl TN5250RApp {
                         self.terminal_content.push_str(&format!("\nError: {e}"));
                     }
 
-                    self.terminal_content.push_str("\nResponse would go here...\n");
                     self.input_buffer.clear();
                 }
             }
@@ -779,7 +845,6 @@ impl TN5250RApp {
                     self.terminal_content.push_str(&format!("\nError: {e}"));
                 }
 
-                self.terminal_content.push_str("\nResponse would go here...\n");
                 self.input_buffer.clear();
             }
         });
