@@ -23,6 +23,13 @@ pub enum CharAttribute {
     FieldExit,        // Field-exit attribute
     DupEnable,        // Duplicate enable
     Hidden,           // Hidden field
+    // Extended display attributes
+    BlinkingCursor,   // Blinking cursor
+    ReverseImage,     // Reverse image/video
+    Underline,        // Underlined text
+    HighIntensity,    // High intensity
+    ReverseVideo,     // Reverse video
+    Blink,            // Blinking text
 }
 
 // Represents a single character on the terminal screen

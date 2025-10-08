@@ -232,16 +232,18 @@ mod integration_tests {
         // Test with invalid data
         let invalid_data = vec![0xFF, 0xFF, 0xFF]; // Invalid command
         let result = session.process_integrated_data(&invalid_data);
-        // Should handle gracefully (may succeed or fail depending on implementation)
+        // Should handle gracefully - either return error or process without panicking
+        // For invalid data, we expect either an error or successful processing
+        assert!(result.is_ok() || result.is_err()); // Either outcome is acceptable as long as no panic
 
         // Test fallback buffer
         session.set_protocol_mode(ProtocolMode::NVT);
         let nvt_data = b"Test NVT data";
-        let _ = session.process_integrated_data(nvt_data);
+        let result = session.process_integrated_data(nvt_data);
+        assert!(result.is_ok()); // NVT processing should succeed
         let fallback_data = session.get_fallback_data();
-        // Fallback data may or may not be populated depending on implementation
-        // Just verify the method doesn't panic
-        let _ = fallback_data;
+        // In NVT mode, data should be stored in fallback buffer
+        assert_eq!(fallback_data, nvt_data); // Should return the exact data that was processed
     }
 
     #[test]

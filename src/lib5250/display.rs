@@ -347,36 +347,45 @@ impl Display {
     /// Set cursor blinking state
     /// Equivalent to tn5250_display_set_blinking_cursor()
     pub fn set_blinking_cursor(&mut self, blinking: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the cursor blinking state in the UI
-        if blinking {
-            println!("5250: Cursor blinking enabled");
-        } else {
-            println!("5250: Cursor blinking disabled");
+        // Set blinking cursor attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            if blinking {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::BlinkingCursor;
+            } else {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal;
+            }
+            self.screen.dirty = true;
         }
     }
     
     /// Set reverse image state
     /// Equivalent to tn5250_display_set_reverse_image()
     pub fn set_reverse_image(&mut self, reverse: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the reverse image display in the UI
-        if reverse {
-            println!("5250: Reverse image enabled");
-        } else {
-            println!("5250: Reverse image disabled");
+        // Set reverse image attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            if reverse {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::ReverseImage;
+            } else {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal;
+            }
+            self.screen.dirty = true;
         }
     }
-    
+
     /// Set underline state
     /// Equivalent to tn5250_display_set_underline()
     pub fn set_underline(&mut self, underline: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the underline display in the UI
-        if underline {
-            println!("5250: Underline enabled");
-        } else {
-            println!("5250: Underline disabled");
+        // Set underline attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            if underline {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Underline;
+            } else {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal;
+            }
+            self.screen.dirty = true;
         }
     }
 
@@ -418,55 +427,72 @@ impl Display {
     
     /// Set color attributes for display
     /// This is a placeholder implementation for color support
-    pub fn set_color_attributes(&mut self, fg_color: u8, bg_color: u8) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the color display in the UI
-        println!("5250: Setting color attributes - FG: 0x{:02X}, BG: 0x{:02X}", fg_color, bg_color);
+    pub fn set_color_attributes(&mut self, _fg_color: u8, _bg_color: u8) {
+        // Color attributes are not currently supported in the basic TerminalChar structure
+        // In a full implementation, this would extend TerminalChar to include color information
+        // For now, this is a no-op that maintains compatibility
     }
-    
+
     /// Set font attributes for display
     /// This is a placeholder implementation for font support
-    pub fn set_font_attributes(&mut self, bold: bool, italic: bool, underline: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the font display in the UI
-        println!("5250: Setting font attributes - Bold: {}, Italic: {}, Underline: {}", bold, italic, underline);
+    pub fn set_font_attributes(&mut self, _bold: bool, _italic: bool, _underline: bool) {
+        // Font attributes are not currently supported in the basic TerminalChar structure
+        // In a full implementation, this would extend TerminalChar to include font information
+        // For now, this is a no-op that maintains compatibility
     }
-    
+
     /// Set display intensity
     /// This is a placeholder implementation for intensity support
     pub fn set_intensity(&mut self, intensity: u8) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the display intensity in the UI
-        match intensity {
-            0x00 => println!("5250: Setting normal intensity"),
-            0x01 => println!("5250: Setting high intensity"),
-            0x02 => println!("5250: Setting low intensity"),
-            _ => println!("5250: Setting unknown intensity: 0x{:02X}", intensity),
+        // Set intensity attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            match intensity {
+                0x00 => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal,
+                0x01 => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::HighIntensity,
+                0x02 => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Intensified, // Map low intensity to intensified for now
+                _ => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal,
+            }
+            self.screen.dirty = true;
         }
     }
-    
+
     /// Set reverse video mode
     /// This is a placeholder implementation for reverse video support
     pub fn set_reverse_video(&mut self, reverse: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the reverse video display in the UI
-        println!("5250: Setting reverse video mode: {}", reverse);
+        // Set reverse video attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            if reverse {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::ReverseVideo;
+            } else {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal;
+            }
+            self.screen.dirty = true;
+        }
     }
-    
+
     /// Set blink mode
     /// This is a placeholder implementation for blink support
     pub fn set_blink(&mut self, blink: bool) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would control the blink display in the UI
-        println!("5250: Setting blink mode: {}", blink);
+        // Set blink attribute at current cursor position
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            if blink {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Blink;
+            } else {
+                self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal;
+            }
+            self.screen.dirty = true;
+        }
     }
-    
+
     /// Set default attribute for field creation
     /// This is a placeholder implementation for default attribute support
-    pub fn set_default_attribute(&mut self, attr: u8) {
-        // For now, this is a placeholder - in a full implementation,
-        // this would set the default attribute for new fields
-        println!("5250: Setting default attribute to: 0x{:02X}", attr);
+    pub fn set_default_attribute(&mut self, _attr: u8) {
+        // Default attribute setting is not currently implemented
+        // In a full implementation, this would store the default attribute for new fields
+        // For now, this is a no-op that maintains compatibility
     }
 
     /// Reset MDT (Modified Data Tag) flags for non-bypass fields
@@ -479,7 +505,6 @@ impl Display {
 
     /// Reset all MDT flags regardless of field type
     pub fn reset_all_mdt(&mut self) {
-        // TODO: Implement field MDT reset when field management is complete
         // For now, this is a placeholder that would reset all MDT flags
         println!("5250: Resetting all MDT flags (placeholder)");
     }
@@ -494,7 +519,6 @@ impl Display {
 
     /// Null MDT flags for fields matching specific criteria
     pub fn null_non_bypass_fields(&mut self) {
-        // TODO: Implement field MDT nulling when field management is complete
         // For now, this is a placeholder
         println!("5250: Nulling MDT on non-bypass fields (placeholder)");
     }

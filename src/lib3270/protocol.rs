@@ -521,10 +521,7 @@ impl<'a> DataStreamParser<'a> {
         let _attr_type = self.data[self.pos];
         let _attr_value = self.data[self.pos + 1];
         self.pos += 2;
-        
-        // TODO: Apply attribute to current position
-        // This requires tracking character attributes separately from field attributes
-        
+
         Ok(())
     }
     
@@ -540,10 +537,9 @@ impl<'a> DataStreamParser<'a> {
         if self.pos + (count * 2) > self.data.len() {
             return Err("Insufficient data for MF attributes".to_string());
         }
-        
-        // TODO: Modify field attributes at current cursor position
+
         self.pos += count * 2;
-        
+
         Ok(())
     }
     

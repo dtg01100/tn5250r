@@ -17,7 +17,13 @@ impl<'a> TN5250RHarness<'a> {
             .with_size(egui::Vec2::new(width, height))
             .build_ui(|ui| {
                 // Create a simple test UI for integration testing
-                // TODO: Integrate with actual TN5250RApp when version issues are resolved
+                // TODO: Integrate with actual TN5250RApp - BLOCKED by egui_kittest version incompatibility
+                // RESOLUTION PLAN:
+                // 1. Update egui_kittest to version compatible with TN5250RApp's egui/eframe dependencies
+                // 2. Implement proper TN5250RApp instantiation in test harness
+                // 3. Add integration tests for connection workflows, terminal display, and input handling
+                // 4. Consider creating separate integration test suite if version conflicts persist
+                // STATUS: Currently using mock UI for basic harness functionality testing
                 ui.heading("TN5250R Integration Test Harness");
 
                 ui.separator();

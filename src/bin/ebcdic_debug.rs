@@ -1,4 +1,3 @@
-// TODO: EBCDIC conversion not yet implemented in new lib5250 port
 // use tn5250r::lib5250::ebcdic_to_ascii;
 
 // Placeholder EBCDIC to ASCII conversion - not accurate

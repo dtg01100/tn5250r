@@ -215,19 +215,31 @@ fn test_connection_timeout_configuration() {
 }
 
 #[test]
-#[ignore] // Requires actual network connection
+#[ignore] // Requires actual network connection to test timeout behavior
 fn test_connection_with_timeout() {
     use tn5250r::network::AS400Connection;
     use std::time::Duration;
-    
-    let mut conn = AS400Connection::new("192.0.2.1".to_string(), 23); // Non-routable IP
-    
-    // Attempt connection with short timeout - should fail quickly
+
+    let mut conn = AS400Connection::new("192.0.2.1".to_string(), 23); // Non-routable IP for testing
+
+    // Attempt connection with short timeout - should fail quickly due to unreachable host
     let timeout = Duration::from_secs(2);
     let result = conn.connect_with_timeout(timeout);
-    
-    // Should timeout or fail to connect
+
+    // Should timeout or fail to connect to non-routable address
     assert!(result.is_err(), "Connection to non-routable IP should fail");
+
+    // Verify the error indicates connection failure (timeout, unreachable, etc.)
+    if let Err(e) = result {
+        let error_msg = e.to_string().to_lowercase();
+        assert!(
+            error_msg.contains("timeout") ||
+            error_msg.contains("unreachable") ||
+            error_msg.contains("refused") ||
+            error_msg.contains("failed"),
+            "Error should indicate connection failure, got: {}", e
+        );
+    }
 }
 
 #[test]
