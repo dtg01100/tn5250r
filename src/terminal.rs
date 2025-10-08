@@ -155,6 +155,7 @@ impl TerminalScreen {
     /// PERFORMANCE OPTIMIZATION: Fast buffer copy operations
     /// Copy a region from one buffer to another with optimized access
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub fn copy_region(&mut self, src: &TerminalScreen, src_row: usize, src_col: usize,
                       dst_row: usize, dst_col: usize, width: usize, height: usize) {
         let src_end_row = (src_row + height).min(TERMINAL_HEIGHT);

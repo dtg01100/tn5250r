@@ -28,15 +28,15 @@ use crate::terminal::{TERMINAL_WIDTH, TERMINAL_HEIGHT};
 /// ```
 pub fn validate_cursor_position(row: usize, col: usize) -> Result<(), String> {
     if row == 0 || col == 0 {
-        return Err(format!("Invalid cursor position: ({}, {}) - coordinates must be 1-based", row, col));
+        return Err(format!("Invalid cursor position: ({row}, {col}) - coordinates must be 1-based"));
     }
     
     if row > TERMINAL_HEIGHT {
-        return Err(format!("Invalid cursor position: ({}, {}) - row exceeds terminal height ({})", row, col, TERMINAL_HEIGHT));
+        return Err(format!("Invalid cursor position: ({row}, {col}) - row exceeds terminal height ({TERMINAL_HEIGHT})"));
     }
     
     if col > TERMINAL_WIDTH {
-        return Err(format!("Invalid cursor position: ({}, {}) - column exceeds terminal width ({})", row, col, TERMINAL_WIDTH));
+        return Err(format!("Invalid cursor position: ({row}, {col}) - column exceeds terminal width ({TERMINAL_WIDTH})"));
     }
     
     Ok(())
@@ -63,11 +63,11 @@ pub fn validate_cursor_position(row: usize, col: usize) -> Result<(), String> {
 /// ```
 pub fn validate_cursor_bounds(x: usize, y: usize) -> Result<(), String> {
     if x >= TERMINAL_WIDTH {
-        return Err(format!("Cursor position exceeds bounds: ({}, {}) - column >= {}", y, x, TERMINAL_WIDTH));
+        return Err(format!("Cursor position exceeds bounds: ({y}, {x}) - column >= {TERMINAL_WIDTH}"));
     }
     
     if y >= TERMINAL_HEIGHT {
-        return Err(format!("Cursor position exceeds bounds: ({}, {}) - row >= {}", y, x, TERMINAL_HEIGHT));
+        return Err(format!("Cursor position exceeds bounds: ({y}, {x}) - row >= {TERMINAL_HEIGHT}"));
     }
     
     Ok(())
@@ -134,7 +134,7 @@ pub fn cursor_0based_to_1based(x: usize, y: usize) -> (usize, usize) {
 /// * `col` - The attempted column position
 /// * `context` - Additional context for the log message
 pub fn log_invalid_cursor_attempt(row: usize, col: usize, context: &str) {
-    eprintln!("SECURITY: Invalid cursor position ({}, {}) - {} - out of bounds", row, col, context);
+    eprintln!("SECURITY: Invalid cursor position ({row}, {col}) - {context} - out of bounds");
 }
 
 /// Log security warning for cursor bounds violation
@@ -144,7 +144,7 @@ pub fn log_invalid_cursor_attempt(row: usize, col: usize, context: &str) {
 /// * `y` - The attempted row position (0-based)
 /// * `context` - Additional context for the log message
 pub fn log_cursor_bounds_violation(x: usize, y: usize, context: &str) {
-    eprintln!("SECURITY: Attempted to access outside terminal bounds at ({}, {}) - {}", y, x, context);
+    eprintln!("SECURITY: Attempted to access outside terminal bounds at ({y}, {x}) - {context}");
 }
 
 #[cfg(test)]

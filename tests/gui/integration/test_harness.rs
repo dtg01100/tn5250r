@@ -87,7 +87,7 @@ impl<'a> TN5250RHarness<'a> {
     }
 
     /// Click on an element by its text content
-    pub fn click_by_text(&mut self, text: &str) -> Result<(), String> {
+    pub fn click_by_text(&mut self, _text: &str) -> Result<(), String> {
         // Simplified click implementation for testing
         self.step(); // Process one frame
         Ok(())
@@ -101,7 +101,7 @@ impl<'a> TN5250RHarness<'a> {
     }
 
     /// Type text into the current focused element
-    pub fn type_text(&mut self, text: &str) -> Result<(), String> {
+    pub fn type_text(&mut self, _text: &str) -> Result<(), String> {
         // Simplified typing implementation for testing
         self.step(); // Process one frame
         Ok(())

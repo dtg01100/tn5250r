@@ -612,11 +612,11 @@ mod tests {
         // Trigger multiple alerts
         for i in 0..5 {
             let alert = Alert {
-                id: format!("test_alert_{}", i),
+                id: format!("test_alert_{i}"),
                 timestamp: Instant::now(),
                 level: AlertLevel::Warning,
-                component: format!("component_{}", i),
-                message: format!("Test alert {}", i),
+                component: format!("component_{i}"),
+                message: format!("Test alert {i}"),
                 details: HashMap::new(),
                 acknowledged: false,
                 acknowledged_at: None,

@@ -455,7 +455,7 @@ mod tests {
         for ch in test_chars.chars() {
             let ebcdic = ascii_to_ebcdic(ch);
             let ascii = ebcdic_to_ascii(ebcdic);
-            assert_eq!(ch, ascii, "Round trip failed for '{}'", ch);
+            assert_eq!(ch, ascii, "Round trip failed for '{ch}'");
         }
     }
 

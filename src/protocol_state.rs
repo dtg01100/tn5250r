@@ -180,7 +180,7 @@ impl ProtocolStateMachine {
 
     pub fn disconnect(&mut self) {
         // Save current screen state before disconnecting
-        let saved_screen = self.screen.to_string();
+        let _saved_screen = self.screen.to_string();
 
         self.state = ProtocolState::InitialNegotiation;
         self.connected = false;
@@ -500,7 +500,6 @@ impl ProtocolStateMachine {
 /// session::Session-based Protocol State Management Implementation
 /// This implementation provides direct session integration for protocol state management
 /// replacing the older ProtocolState trait approach with a more cohesive design.
-
 impl Default for ProtocolStateMachine {
     fn default() -> Self { Self::new() }
 }

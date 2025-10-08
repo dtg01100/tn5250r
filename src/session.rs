@@ -117,9 +117,9 @@ impl Session {
             Some(false), // insecure = false
             None, // ca_bundle_path = None
         ) {
-            self.terminal_content = format!("Connection failed to start: {}\n", e);
+            self.terminal_content = format!("Connection failed to start: {e}\n");
             self.connecting = false;
-            self.error_message = Some(format!("Connection failed: {}", e));
+            self.error_message = Some(format!("Connection failed: {e}"));
         }
     }
 

@@ -644,7 +644,7 @@ impl<'a> DataStreamParser<'a> {
     }
 
     /// Process a structured field
-    fn process_structured_field(&mut self, sf_type: u16, sf_data: &[u8], display: &mut Display3270) -> Result<(), String> {
+    fn process_structured_field(&mut self, sf_type: u16, sf_data: &[u8], _display: &mut Display3270) -> Result<(), String> {
         match sf_type {
             SF_QUERY_REPLY => self.process_query_reply(sf_data),
             SF_OUTBOUND_3270DS => {

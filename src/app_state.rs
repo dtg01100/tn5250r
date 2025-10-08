@@ -139,6 +139,7 @@ impl TN5250RApp {
         app
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_server(
         _cc: &eframe::CreationContext<'_>,
         server: String,
@@ -488,12 +489,12 @@ impl TN5250RApp {
         });
 
         if let Some((name, host, port, connecting)) = session_info {
-            ui.heading(format!("TN5250R - {}", name));
+            ui.heading(format!("TN5250R - {name}"));
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("Host:");
-                ui.label(format!("{}:{}", host, port));
+                ui.label(format!("{host}:{port}"));
 
                 if ui.button("Connect").clicked() {
                     self.connect_session(session_id);

@@ -679,7 +679,7 @@ mod tests {
         
         // Should allow first 10 errors
         for i in 0..10 {
-            assert!(limiter.should_log_error("test_error"), "Failed at attempt {}", i);
+            assert!(limiter.should_log_error("test_error"), "Failed at attempt {i}");
         }
         
         // Should block 11th error
@@ -738,7 +738,7 @@ mod tests {
             assert!(!tracker.record_violation(
                 "conn1",
                 "invalid_command".to_string(),
-                format!("Violation {}", i),
+                format!("Violation {i}"),
             ));
         }
         

@@ -166,7 +166,6 @@ impl ComponentHealthCheck {
 /// 
 /// These macros provide consistent formatting for security, monitoring,
 /// and error messages throughout the application.
-
 /// Log a security-related message
 /// 
 /// # Examples
@@ -220,27 +219,27 @@ macro_rules! debug_log {
 pub mod error_messages {
     /// Format an "out of bounds" error message
     pub fn out_of_bounds(item_type: &str, index: usize, max: usize) -> String {
-        format!("{} index {} out of bounds (max: {})", item_type, index, max)
+        format!("{item_type} index {index} out of bounds (max: {max})")
     }
     
     /// Format an "invalid position" error message
     pub fn invalid_position(position_type: &str, row: usize, col: usize) -> String {
-        format!("Invalid {} position: ({}, {})", position_type, row, col)
+        format!("Invalid {position_type} position: ({row}, {col})")
     }
     
     /// Format a "component state change" message
     pub fn component_state_change(component: &str, from_state: &str, to_state: &str) -> String {
-        format!("Component {} changed from {} to {}", component, from_state, to_state)
+        format!("Component {component} changed from {from_state} to {to_state}")
     }
     
     /// Format an "insufficient data" error message
     pub fn insufficient_data(operation: &str, required: usize, actual: usize) -> String {
-        format!("Insufficient data for {}: required {} bytes, got {}", operation, required, actual)
+        format!("Insufficient data for {operation}: required {required} bytes, got {actual}")
     }
     
     /// Format a "validation failed" error message
     pub fn validation_failed(validation_type: &str, details: &str) -> String {
-        format!("{} validation failed: {}", validation_type, details)
+        format!("{validation_type} validation failed: {details}")
     }
 }
 

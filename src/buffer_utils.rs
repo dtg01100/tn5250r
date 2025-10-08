@@ -9,6 +9,7 @@ use crate::terminal::{TERMINAL_WIDTH, TERMINAL_HEIGHT, TerminalChar};
 /// 
 /// Provides efficient iteration over (x, y, buffer_index) tuples for
 /// the entire terminal screen or a specified region.
+#[allow(dead_code)]
 pub struct TerminalPositionIterator {
     current_x: usize,
     current_y: usize,

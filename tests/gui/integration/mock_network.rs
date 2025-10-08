@@ -106,7 +106,7 @@ impl MockAS400Connection {
 
 
 impl Connection for MockAS400Connection {
-    fn connect(&mut self, host: &str, port: u16) -> Result<(), String> {
+    fn connect(&mut self, _host: &str, _port: u16) -> Result<(), String> {
         self.set_connected(true);
         Ok(())
     }

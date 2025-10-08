@@ -652,7 +652,7 @@ impl Session {
             };
             self.fields.push(field);
 
-            println!("5250: Start of output field - Length: {}", _length);
+            println!("5250: Start of output field - Length: {_length}");
         }
 
         Ok(())
@@ -712,7 +712,7 @@ impl Session {
 
             _ => {
                 // Unknown FCW type - log but don't fail
-                println!("5250: Unknown FCW type: 0x{:02X}, data: 0x{:02X}", fcw_type, fcw_data);
+                println!("5250: Unknown FCW type: 0x{fcw_type:02X}, data: 0x{fcw_data:02X}");
             }
         }
 
@@ -824,7 +824,7 @@ impl Session {
             self.display.add_char(data_byte);
         }
 
-        println!("5250: Transparent Data - processed {} bytes", length);
+        println!("5250: Transparent Data - processed {length} bytes");
         Ok(())
     }
 
@@ -850,7 +850,7 @@ impl Session {
 
         // Process extended attributes
         // Extended attributes provide additional display formatting options
-        println!("5250: Write Extended Attributes - {} bytes of attribute data", length);
+        println!("5250: Write Extended Attributes - {length} bytes of attribute data");
 
         // Parse and apply extended attributes starting from current cursor position
         let mut data_pos = 0;
@@ -864,7 +864,7 @@ impl Session {
             data_pos += 2;
 
             if data_pos + attr_length > attr_data.len() {
-                return Err(format!("Extended attribute data length {} exceeds available data", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available data"));
             }
 
             let attr_data_slice = &attr_data[data_pos..data_pos + attr_length];
@@ -889,12 +889,12 @@ impl Session {
 
         // Process display structured field
         // This can contain various display control information
-        println!("5250: Write Display Structured Field - {} bytes of structured field data", length);
+        println!("5250: Write Display Structured Field - {length} bytes of structured field data");
 
         // Basic processing - in full implementation this would parse the structured field
         if !sf_data.is_empty() {
             let sf_type = sf_data[0];
-            println!("5250: Structured field type: 0x{:02X}", sf_type);
+            println!("5250: Structured field type: 0x{sf_type:02X}");
         }
 
         Ok(())
@@ -948,7 +948,7 @@ impl Session {
                 }
                 // Additional attribute processing can be added here
                 _ => {
-                    println!("5250: SOH - Unknown header attribute byte: 0x{:02X}", attr_byte);
+                    println!("5250: SOH - Unknown header attribute byte: 0x{attr_byte:02X}");
                 }
             }
         }
@@ -1712,7 +1712,7 @@ impl Session {
                         // Operation types are typically in the range 0x01-0x03, but could be higher
                         // For simplicity, we'll assume parameters continue until we hit what looks like
                         // another operation type or end of data
-                        if next_byte >= 0x01 && next_byte <= 0x10 && self.buffer_pos < self.data_buffer.len() {
+                        if (0x01..=0x10).contains(&next_byte) && self.buffer_pos < self.data_buffer.len() {
                             // Peek at next byte to see if this might be a length or parameter
                             let peek_pos = self.buffer_pos;
                             if peek_pos < self.data_buffer.len() {
@@ -1733,7 +1733,7 @@ impl Session {
                 while self.buffer_pos < self.data_buffer.len() {
                     let param_byte = self.get_byte()?;
                     // Simple heuristic: if we see what looks like an operation type, put it back
-                    if param_byte >= 0x01 && param_byte <= 0x10 {
+                    if (0x01..=0x10).contains(&param_byte) {
                         self.buffer_pos -= 1;
                         break;
                     }
@@ -1875,7 +1875,7 @@ impl Session {
             let attr_length = self.get_byte()? as usize;
 
             if self.buffer_pos + attr_length > self.data_buffer.len() {
-                return Err(format!("Extended attribute data length {} exceeds available buffer", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available buffer"));
             }
 
             // Read attribute data
@@ -1915,7 +1915,7 @@ impl Session {
             let attr_length = self.get_byte()? as usize;
 
             if self.buffer_pos + attr_length > self.data_buffer.len() {
-                return Err(format!("Extended attribute data length {} exceeds available buffer", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available buffer"));
             }
 
             // Read attribute data
@@ -1931,7 +1931,7 @@ impl Session {
             };
 
             self.extended_attribute_list.push(extended_attr);
-            println!("5250: Parsed extended attribute ID: 0x{:02X}, length: {}", attr_id, attr_length);
+            println!("5250: Parsed extended attribute ID: 0x{attr_id:02X}, length: {attr_length}");
         }
 
         println!("5250: Set Extended Attribute List - parsed {} attributes", self.extended_attribute_list.len());
@@ -1956,16 +1956,12 @@ impl Session {
         if self.buffer_pos < self.data_buffer.len() {
             // Read starting row (1-based)
             start_row = self.get_byte()? as usize;
-            if start_row > 0 {
-                start_row -= 1; // Convert to 0-based
-            }
+            start_row = start_row.saturating_sub(1); // Convert to 0-based
 
             if self.buffer_pos < self.data_buffer.len() {
                 // Read starting column (1-based)
                 start_col = self.get_byte()? as usize;
-                if start_col > 0 {
-                    start_col -= 1; // Convert to 0-based
-                }
+                start_col = start_col.saturating_sub(1); // Convert to 0-based
 
                 if self.buffer_pos < self.data_buffer.len() {
                     // Read number of rows
@@ -2034,7 +2030,7 @@ impl Session {
             let attr_length = self.get_byte()? as usize;
 
             if self.buffer_pos + attr_length > self.data_buffer.len() {
-                return Err(format!("Extended attribute data length {} exceeds available buffer", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available buffer"));
             }
 
             // Read attribute data
@@ -2050,7 +2046,7 @@ impl Session {
             };
 
             self.extended_attribute_list.push(extended_attr);
-            println!("5250: Defined extended attribute ID: 0x{:02X}, length: {}", attr_id, attr_length);
+            println!("5250: Defined extended attribute ID: 0x{attr_id:02X}, length: {attr_length}");
         }
 
         println!("5250: Define Extended Attribute - processed {} attributes", self.extended_attribute_list.len());
@@ -2080,7 +2076,7 @@ impl Session {
             // Check if timestamps are enabled (bit 0 of flags)
             let timestamps_enabled = (flags & 0x01) != 0;
 
-            println!("5250: Set timestamp interval to {} seconds, enabled: {}", interval, timestamps_enabled);
+            println!("5250: Set timestamp interval to {interval} seconds, enabled: {timestamps_enabled}");
         } else {
             println!("5250: Request Timestamp Interval - no parameters, disabling timestamps");
             self.timestamp_interval = 0;
@@ -2103,7 +2099,7 @@ impl Session {
 
             if self.buffer_pos < self.data_buffer.len() {
                 let name_length = self.get_byte()? as usize;
-                println!("5250: Define Named Logical Unit - name length: {}", name_length);
+                println!("5250: Define Named Logical Unit - name length: {name_length}");
 
                 if self.buffer_pos + name_length <= self.data_buffer.len() {
                     // Read the logical unit name (EBCDIC encoded)
@@ -2121,7 +2117,7 @@ impl Session {
 
                     // Update the session's device ID with the logical unit name
                     self.device_id = lu_name_ascii.clone();
-                    println!("5250: Defined named logical unit: '{}' (device_id updated)", lu_name_ascii);
+                    println!("5250: Defined named logical unit: '{lu_name_ascii}' (device_id updated)");
                 } else {
                     return Err(format!("Insufficient data for logical unit name: expected {} bytes, {} available",
                                      name_length, self.data_buffer.len() - self.buffer_pos));
@@ -2145,7 +2141,7 @@ impl Session {
                 if attr_data.len() >= 2 {
                     let fg_color = attr_data[0];
                     let bg_color = attr_data[1];
-                    println!("5250: Extended Attribute - Color: FG=0x{:02X}, BG=0x{:02X}", fg_color, bg_color);
+                    println!("5250: Extended Attribute - Color: FG=0x{fg_color:02X}, BG=0x{bg_color:02X}");
                     // Apply color to display if supported
                     self.display.set_color_attributes(fg_color, bg_color);
                 }
@@ -2157,7 +2153,7 @@ impl Session {
                     let bold = (font_flags & 0x01) != 0;
                     let italic = (font_flags & 0x02) != 0;
                     let underline = (font_flags & 0x04) != 0;
-                    println!("5250: Extended Attribute - Font: Bold={}, Italic={}, Underline={}", bold, italic, underline);
+                    println!("5250: Extended Attribute - Font: Bold={bold}, Italic={italic}, Underline={underline}");
                     // Apply font attributes to display if supported
                     self.display.set_font_attributes(bold, italic, underline);
                 }
@@ -2170,7 +2166,7 @@ impl Session {
                         0x00 => println!("5250: Extended Attribute - Normal intensity"),
                         0x01 => println!("5250: Extended Attribute - High intensity"),
                         0x02 => println!("5250: Extended Attribute - Low intensity"),
-                        _ => println!("5250: Extended Attribute - Unknown intensity: 0x{:02X}", intensity),
+                        _ => println!("5250: Extended Attribute - Unknown intensity: 0x{intensity:02X}"),
                     }
                     // Apply intensity to display if supported
                     self.display.set_intensity(intensity);
@@ -2180,7 +2176,7 @@ impl Session {
                 // Reverse video
                 if !attr_data.is_empty() {
                     let reverse = attr_data[0] != 0;
-                    println!("5250: Extended Attribute - Reverse video: {}", reverse);
+                    println!("5250: Extended Attribute - Reverse video: {reverse}");
                     // Apply reverse video to display if supported
                     self.display.set_reverse_video(reverse);
                 }
@@ -2189,13 +2185,13 @@ impl Session {
                 // Blink attribute
                 if !attr_data.is_empty() {
                     let blink = attr_data[0] != 0;
-                    println!("5250: Extended Attribute - Blink: {}", blink);
+                    println!("5250: Extended Attribute - Blink: {blink}");
                     // Apply blink to display if supported
                     self.display.set_blink(blink);
                 }
             }
             _ => {
-                println!("5250: Unknown extended attribute ID: 0x{:02X}, data: {:02X?}", attr_id, attr_data);
+                println!("5250: Unknown extended attribute ID: 0x{attr_id:02X}, data: {attr_data:02X?}");
             }
         }
 
@@ -3058,7 +3054,7 @@ impl Session {
         // Format: [attribute_byte(1)]
         if self.buffer_pos < self.data_buffer.len() {
             let default_attr = self.get_byte()?;
-            println!("5250: Set default attribute to: 0x{:02X}", default_attr);
+            println!("5250: Set default attribute to: 0x{default_attr:02X}");
 
             // Store the default attribute in session state for 5250 protocol compliance
             // This affects how new fields are created without explicit attributes
@@ -3092,15 +3088,14 @@ impl Session {
             // Read field type
             let field_type = self.get_byte()?;
 
-            println!("5250: Create/Change Field - ID: {}, Position: {}x{}, Length: {}, Type: 0x{:02X}",
-                     field_id, row, col, length, field_type);
+            println!("5250: Create/Change Field - ID: {field_id}, Position: {row}x{col}, Length: {length}, Type: 0x{field_type:02X}");
 
             // Determine if this is an input field based on type
             let is_input_field = field_type & 0x80 != 0; // Input fields typically have high bit set
 
             // Create or update the field in the field list
             let field = Field {
-                label: Some(format!("FIELD_{}", field_id)),
+                label: Some(format!("FIELD_{field_id}")),
                 row: row.saturating_sub(1), // Convert to 0-based
                 col: col.saturating_sub(1), // Convert to 0-based
                 length: length as usize,
@@ -3147,7 +3142,7 @@ impl Session {
             let length = self.get_byte()? as usize;
 
             if self.buffer_pos + length > self.data_buffer.len() {
-                return Err(format!("Presentation element data length {} exceeds available buffer", length));
+                return Err(format!("Presentation element data length {length} exceeds available buffer"));
             }
 
             self.buffer_pos += length;
@@ -3155,27 +3150,26 @@ impl Session {
             match element_type {
                 0x01 => {
                     // Window definition
-                    println!("5250: Presentation - Window definition ({} bytes)", length);
+                    println!("5250: Presentation - Window definition ({length} bytes)");
                     // Process window definition data
                 },
                 0x02 => {
                     // Menu definition
-                    println!("5250: Presentation - Menu definition ({} bytes)", length);
+                    println!("5250: Presentation - Menu definition ({length} bytes)");
                     // Process menu definition data
                 },
                 0x03 => {
                     // Scrollbar definition
-                    println!("5250: Presentation - Scrollbar definition ({} bytes)", length);
+                    println!("5250: Presentation - Scrollbar definition ({length} bytes)");
                     // Process scrollbar definition data
                 },
                 0x04 => {
                     // Selection field definition
-                    println!("5250: Presentation - Selection field definition ({} bytes)", length);
+                    println!("5250: Presentation - Selection field definition ({length} bytes)");
                     // Process selection field definition data
                 },
                 _ => {
-                    println!("5250: Presentation - Unknown element type: 0x{:02X} ({} bytes)",
-                             element_type, length);
+                    println!("5250: Presentation - Unknown element type: 0x{element_type:02X} ({length} bytes)");
                 }
             }
         }
@@ -3194,7 +3188,7 @@ impl Session {
             let field_count_low = self.get_byte()?;
             let field_count = ((field_count_high as u16) << 8) | (field_count_low as u16);
 
-            println!("5250: Creating field list with {} fields", field_count);
+            println!("5250: Creating field list with {field_count} fields");
 
             // Clear existing fields
             self.fields.clear();
@@ -3202,7 +3196,7 @@ impl Session {
             // Process each field definition
             for i in 0..field_count {
                 if self.buffer_pos + 6 > self.data_buffer.len() {
-                    println!("5250: Insufficient data for field definition {}", i);
+                    println!("5250: Insufficient data for field definition {i}");
                     break;
                 }
 
@@ -3224,7 +3218,7 @@ impl Session {
 
                 // Create the field
                 let field = Field {
-                    label: Some(format!("FIELD_{}", field_id)),
+                    label: Some(format!("FIELD_{field_id}")),
                     row: row.saturating_sub(1), // Convert to 0-based
                     col: col.saturating_sub(1), // Convert to 0-based
                     length: length as usize,
@@ -3267,7 +3261,7 @@ impl Session {
         response.push((field_count >> 8) as u8);  // High byte
         response.push((field_count & 0xFF) as u8); // Low byte
 
-        println!("5250: Reading field list with {} fields", field_count);
+        println!("5250: Reading field list with {field_count} fields");
 
         // Add each field definition to the response
         for field in &self.fields {
@@ -3296,13 +3290,14 @@ impl Session {
                      field_id, field.row + 1, field.col + 1, length, field_type);
         }
 
-        println!("5250: Field list read with {} fields", field_count);
+        println!("5250: Field list read with {field_count} fields");
 
         // Update session state: no state change, just returning current field list
         Ok(response)
     }
 
     /// Handle Create/Change Extended Write structured field (0x8E) - This now calls the Create Field List handler
+    #[allow(dead_code)]
     fn handle_create_change_extended_write(&mut self) -> Result<Vec<u8>, String> {
         println!("5250: Create/Change Extended Write structured field - processing");
 
@@ -3311,6 +3306,7 @@ impl Session {
     }
 
     /// Handle Create/Change Extended Read structured field (0x8F) - This now calls the Read Field List handler
+    #[allow(dead_code)]
     fn handle_create_change_extended_read(&mut self) -> Result<Vec<u8>, String> {
         println!("5250: Create/Change Extended Read structured field - processing");
 
@@ -3326,13 +3322,13 @@ impl Session {
         // Format: [flags(1)] [extended_read_immediate_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Read Immediate flags: 0x{:02X}", flags);
+            println!("5250: Extended Read Immediate flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended read immediate data
-                println!("5250: Extended Read Immediate data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Read Immediate data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3347,13 +3343,13 @@ impl Session {
         // Format: [flags(1)] [extended_read_mdt_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Read MDT flags: 0x{:02X}", flags);
+            println!("5250: Extended Read MDT flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended read MDT data
-                println!("5250: Extended Read MDT data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Read MDT data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3368,13 +3364,13 @@ impl Session {
         // Format: [flags(1)] [extended_read_mdt_alt_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Read MDT Alternate flags: 0x{:02X}", flags);
+            println!("5250: Extended Read MDT Alternate flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended read MDT alternate data
-                println!("5250: Extended Read MDT Alternate data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Read MDT Alternate data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3389,13 +3385,13 @@ impl Session {
         // Format: [flags(1)] [extended_read_screen_immediate_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Read Screen Immediate flags: 0x{:02X}", flags);
+            println!("5250: Extended Read Screen Immediate flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended read screen immediate data
-                println!("5250: Extended Read Screen Immediate data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Read Screen Immediate data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3410,13 +3406,13 @@ impl Session {
         // Format: [flags(1)] [extended_save_screen_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Save Screen flags: 0x{:02X}", flags);
+            println!("5250: Extended Save Screen flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended save screen data
-                println!("5250: Extended Save Screen data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Save Screen data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3431,13 +3427,13 @@ impl Session {
         // Format: [flags(1)] [extended_save_partial_screen_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Save Partial Screen flags: 0x{:02X}", flags);
+            println!("5250: Extended Save Partial Screen flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended save partial screen data
-                println!("5250: Extended Save Partial Screen data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Save Partial Screen data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3452,13 +3448,13 @@ impl Session {
         // Format: [flags(1)] [extended_restore_screen_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Restore Screen flags: 0x{:02X}", flags);
+            println!("5250: Extended Restore Screen flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended restore screen data
-                println!("5250: Extended Restore Screen data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Restore Screen data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3473,13 +3469,13 @@ impl Session {
         // Format: [flags(1)] [extended_restore_partial_screen_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Restore Partial Screen flags: 0x{:02X}", flags);
+            println!("5250: Extended Restore Partial Screen flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended restore partial screen data
-                println!("5250: Extended Restore Partial Screen data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Restore Partial Screen data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3494,13 +3490,13 @@ impl Session {
         // Format: [flags(1)] [extended_roll_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Roll flags: 0x{:02X}", flags);
+            println!("5250: Extended Roll flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended roll data
-                println!("5250: Extended Roll data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Roll data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3515,13 +3511,13 @@ impl Session {
         // Format: [flags(1)] [extended_write_structured_field_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Write Structured Field flags: 0x{:02X}", flags);
+            println!("5250: Extended Write Structured Field flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended write structured field data
-                println!("5250: Extended Write Structured Field data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Write Structured Field data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3536,13 +3532,13 @@ impl Session {
         // Format: [flags(1)] [extended_read_text_data...]
         if self.buffer_pos < self.data_buffer.len() {
             let flags = self.get_byte()?;
-            println!("5250: Extended Read Text flags: 0x{:02X}", flags);
+            println!("5250: Extended Read Text flags: 0x{flags:02X}");
 
             // Process any additional data in the structured field
             while self.buffer_pos < self.data_buffer.len() {
                 let data_byte = self.get_byte()?;
                 // Process extended read text data
-                println!("5250: Extended Read Text data byte: 0x{:02X}", data_byte);
+                println!("5250: Extended Read Text data byte: 0x{data_byte:02X}");
             }
         }
 
@@ -3564,7 +3560,7 @@ impl Session {
             let attr_length = self.get_byte()? as usize;
 
             if self.buffer_pos + attr_length > self.data_buffer.len() {
-                return Err(format!("Extended attribute data length {} exceeds available buffer", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available buffer"));
             }
 
             let attr_data: Vec<u8> = self.data_buffer[self.buffer_pos..self.buffer_pos + attr_length]
@@ -3591,7 +3587,7 @@ impl Session {
                 self.extended_attribute_list.push(extended_attr);
             }
 
-            println!("5250: Extended attribute ID: 0x{:02X}, length: {} defined", attr_id, attr_length);
+            println!("5250: Extended attribute ID: 0x{attr_id:02X}, length: {attr_length} defined");
 
             // Parse and apply the extended attribute
             self.parse_extended_attribute(attr_id, &attr_data)?;
@@ -3618,7 +3614,7 @@ impl Session {
             let attr_length = self.get_byte()? as usize;
 
             if self.buffer_pos + attr_length > self.data_buffer.len() {
-                return Err(format!("Extended attribute data length {} exceeds available buffer", attr_length));
+                return Err(format!("Extended attribute data length {attr_length} exceeds available buffer"));
             }
 
             let attr_data: Vec<u8> = self.data_buffer[self.buffer_pos..self.buffer_pos + attr_length]
@@ -3632,7 +3628,7 @@ impl Session {
             };
 
             self.extended_attribute_list.push(extended_attr);
-            println!("5250: Extended attribute ID: 0x{:02X}, length: {} added to list", attr_id, attr_length);
+            println!("5250: Extended attribute ID: 0x{attr_id:02X}, length: {attr_length} added to list");
 
             // Parse and apply the extended attribute
             self.parse_extended_attribute(attr_id, &attr_data)?;
@@ -3683,7 +3679,7 @@ impl Session {
                         // Operation types are typically in the range 0x01-0x03, but could be higher
                         // For simplicity, we'll assume parameters continue until we hit what looks like
                         // another operation type or end of data
-                        if next_byte >= 0x01 && next_byte <= 0x10 && self.buffer_pos < self.data_buffer.len() {
+                        if (0x01..=0x10).contains(&next_byte) && self.buffer_pos < self.data_buffer.len() {
                             // Peek at next byte to see if this might be a length or parameter
                             let peek_pos = self.buffer_pos;
                             if peek_pos < self.data_buffer.len() {
@@ -3704,7 +3700,7 @@ impl Session {
                 while self.buffer_pos < self.data_buffer.len() {
                     let param_byte = self.get_byte()?;
                     // Simple heuristic: if we see what looks like an operation type, put it back
-                    if param_byte >= 0x01 && param_byte <= 0x10 {
+                    if (0x01..=0x10).contains(&param_byte) {
                         self.buffer_pos -= 1;
                         break;
                     }

@@ -453,6 +453,6 @@ mod tests {
     fn test_global_monitoring_instance() {
         let monitoring1 = MonitoringSystem::global();
         let monitoring2 = MonitoringSystem::global();
-        assert_eq!(std::ptr::eq(monitoring1.as_ref(), monitoring2.as_ref()), true);
+        assert!(std::ptr::eq(monitoring1.as_ref(), monitoring2.as_ref()));
     }
 }
