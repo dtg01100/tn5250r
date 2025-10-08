@@ -646,7 +646,7 @@ impl<'a> DataStreamParser<'a> {
     /// Process a structured field
     fn process_structured_field(&mut self, sf_type: u16, sf_data: &[u8], display: &mut Display3270) -> Result<(), String> {
         match sf_type {
-            SF_QUERY_REPLY => self.process_query_reply(sf_data, display),
+            SF_QUERY_REPLY => self.process_query_reply(sf_data),
             SF_OUTBOUND_3270DS => {
                 // Outbound 3270DS - data stream content
                 // For now, just skip as it's handled elsewhere
@@ -660,7 +660,7 @@ impl<'a> DataStreamParser<'a> {
     }
 
     /// Process Query Reply structured field
-    fn process_query_reply(&mut self, sf_data: &[u8], display: &mut Display3270) -> Result<(), String> {
+    fn process_query_reply(&mut self, sf_data: &[u8]) -> Result<(), String> {
         // Query Reply contains terminal capabilities
         // Parse the reply to understand what features are supported
         let mut pos = 0;

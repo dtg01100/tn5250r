@@ -358,6 +358,17 @@ impl Display {
             self.screen.dirty = true;
         }
     }
+
+    /// Check if cursor is currently blinking
+    /// Returns true if the character at the current cursor position has BlinkingCursor attribute
+    pub fn is_cursor_blinking(&self) -> bool {
+        if self.cursor_row < self.height && self.cursor_col < self.width {
+            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            matches!(self.screen.buffer[index].attribute, crate::terminal::CharAttribute::BlinkingCursor)
+        } else {
+            false
+        }
+    }
     
     /// Set reverse image state
     /// Equivalent to tn5250_display_set_reverse_image()

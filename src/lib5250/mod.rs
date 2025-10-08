@@ -9,9 +9,11 @@ pub mod session;
 pub mod telnet;
 
 // Re-exports for easy access
-pub use protocol::FieldAttribute;
+pub use protocol::{FieldAttribute, ProtocolProcessor, Packet};
+pub use codes::CommandCode;
 pub use session::Session;
 
 // Re-export EBCDIC functions from protocol_common for backward compatibility
+pub use crate::protocol_common::ebcdic::ebcdic_to_ascii;
 
 // Entry point for lib5250 functionality

@@ -7,10 +7,6 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-/// Global performance metrics instance
-static GLOBAL_METRICS: once_cell::sync::Lazy<Arc<PerformanceMetrics>> =
-    once_cell::sync::Lazy::new(|| Arc::new(PerformanceMetrics::new()));
-
 /// Performance metrics structure
 #[derive(Debug)]
 pub struct PerformanceMetrics {
@@ -235,6 +231,10 @@ impl Default for PerformanceMetrics {
     }
 }
 
+/// Global performance metrics instance
+static GLOBAL_METRICS: once_cell::sync::Lazy<Arc<PerformanceMetrics>> =
+    once_cell::sync::Lazy::new(|| Arc::new(PerformanceMetrics::new()));
+
 /// Performance timing helper
 pub struct PerformanceTimer {
     start_time: Instant,
@@ -256,41 +256,4 @@ impl Drop for PerformanceTimer {
         let elapsed = self.start_time.elapsed().as_nanos() as u64;
         self.metric.fetch_add(elapsed, Ordering::Relaxed);
     }
-}
-
-// Performance monitoring macros - exported at crate level
-// These macros provide convenient access to performance metrics
-
-/// Increment a performance counter
-#[macro_export]
-macro_rules! perf_counter {
-    ($category:ident, $field:ident) => {
-        $crate::performance_metrics::PerformanceMetrics::global()
-            .$category
-            .$field
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    };
-}
-
-/// Start a performance timer
-#[macro_export]
-macro_rules! perf_timer {
-    ($category:ident, $field:ident) => {
-        $crate::performance_metrics::PerformanceTimer::start(
-            &$crate::performance_metrics::PerformanceMetrics::global()
-                .$category
-                .$field
-        )
-    };
-}
-
-/// Add a value to a performance metric
-#[macro_export]
-macro_rules! perf_add {
-    ($category:ident, $field:ident, $value:expr) => {
-        $crate::performance_metrics::PerformanceMetrics::global()
-            .$category
-            .$field
-            .fetch_add($value, std::sync::atomic::Ordering::Relaxed)
-    };
 }

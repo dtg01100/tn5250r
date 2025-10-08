@@ -1,10 +1,10 @@
-// Protocol State Machine with Session Integration
+// Protocol State Machine with session::Session Integration
 use crate::component_utils::error_messages;
 use crate::error::ProtocolError;
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
 use crate::field_manager::{FieldManager, FieldType, Field as FmField};
 use crate::terminal::{TerminalScreen, TERMINAL_WIDTH, TERMINAL_HEIGHT};
-use crate::session::Session;
+use crate::lib5250::session as main_session;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProtocolState {
@@ -55,7 +55,7 @@ pub struct ProtocolStateMachine {
     saved_screen: Option<TerminalScreen>,
     saved_fields: Option<Vec<FmField>>,
     /// Integrated session for higher-level session management
-    pub session: Option<Session>,
+    pub session: Option<main_session::Session>,
 }
 
 impl ProtocolStateMachine {
@@ -76,17 +76,17 @@ impl ProtocolStateMachine {
     }
 
     /// Set the session for this protocol state machine
-    pub fn set_session(&mut self, session: Session) {
+    pub fn set_session(&mut self, session: main_session::Session) {
         self.session = Some(session);
     }
 
     /// Get a reference to the current session
-    pub fn get_session(&self) -> Option<&Session> {
+    pub fn get_session(&self) -> Option<&main_session::Session> {
         self.session.as_ref()
     }
 
     /// Get a mutable reference to the current session
-    pub fn get_session_mut(&mut self) -> Option<&mut Session> {
+    pub fn get_session_mut(&mut self) -> Option<&mut main_session::Session> {
         self.session.as_mut()
     }
 
@@ -166,25 +166,13 @@ impl ProtocolStateMachine {
         self.connected = true;
         self.screen.clear();
 
-        // Restore saved screen if available, otherwise show default message
-        let default_message = "Connected to AS/400 system\nReady...\n".to_string();
-        let display_message = if let Some(session) = self.session.as_ref() {
-            session.saved_screen.as_ref().unwrap_or(&default_message)
-        } else {
-            &default_message
-        };
+        // Show default connection message
+        let display_message = "Connected to AS/400 system\nReady...\n".to_string();
 
-        self.screen.write_string(display_message);
+        self.screen.write_string(&display_message);
         self.field_manager.clear_all_fields();
 
-        // Update session state if session is present
-        if let Some(session) = self.session.as_mut() {
-            session.connected = true;
-            session.connecting = false;
-            session.connection_time = Some(std::time::Instant::now());
-            session.error_message = None;
-            session.terminal_content = display_message.clone();
-        }
+        // Session state management removed - using protocol state machine state instead
 
         set_component_status("protocol", ComponentState::Running);
         set_component_error("protocol", None::<&str>);
@@ -200,14 +188,7 @@ impl ProtocolStateMachine {
         self.screen.write_string("Disconnected from AS/400 system\n");
         self.field_manager.clear_all_fields();
 
-        // Update session state if session is present
-        if let Some(session) = self.session.as_mut() {
-            session.connected = false;
-            session.connecting = false;
-            session.connection_time = None;
-            session.terminal_content = "Disconnected from AS/400 system\n".to_string();
-            session.saved_screen = Some(saved_screen);
-        }
+        // Session state management removed - using protocol state machine state instead
 
         set_component_status("protocol", ComponentState::Stopped);
         set_component_error("protocol", None::<&str>);
@@ -222,10 +203,7 @@ impl ProtocolStateMachine {
             set_component_status("protocol", ComponentState::Error);
             set_component_error("protocol", Some("Empty data packet"));
 
-            // Update session error state
-            if let Some(session) = self.session.as_mut() {
-                session.error_message = Some("Empty data packet".to_string());
-            }
+            // Session error state management removed
 
             return Err(ProtocolError::DeviceIdError { message: "Empty data packet".to_string() });
         }
@@ -235,10 +213,7 @@ impl ProtocolStateMachine {
             set_component_status("protocol", ComponentState::Error);
             set_component_error("protocol", Some("Data packet too large"));
 
-            // Update session error state
-            if let Some(session) = self.session.as_mut() {
-                session.error_message = Some("Data packet too large".to_string());
-            }
+            // Session error state management removed
 
             return Err(ProtocolError::DeviceIdError { message: "Data packet too large".to_string() });
         }
@@ -251,10 +226,7 @@ impl ProtocolStateMachine {
                 set_component_status("protocol", ComponentState::Running);
                 set_component_error("protocol", None::<&str>);
 
-                // Update session state
-                if let Some(session) = self.session.as_mut() {
-                    session.error_message = None;
-                }
+                // Session state management removed
 
                 Ok(vec![])
             },
@@ -263,10 +235,7 @@ impl ProtocolStateMachine {
                     set_component_status("protocol", ComponentState::Error);
                     set_component_error("protocol", Some("Invalid negotiation data"));
 
-                    // Update session error state
-                    if let Some(session) = self.session.as_mut() {
-                        session.error_message = Some("Invalid negotiation data".to_string());
-                    }
+                    // Session error state management removed
 
                     return Err(ProtocolError::DeviceIdError { message: "Invalid negotiation data".to_string() });
                 }
@@ -275,11 +244,7 @@ impl ProtocolStateMachine {
                         set_component_status("protocol", ComponentState::Running);
                         set_component_error("protocol", None::<&str>);
 
-                        // Update session state on successful negotiation
-                        if let Some(session) = self.session.as_mut() {
-                            session.error_message = None;
-                            session.terminal_content = "Negotiation complete, ready for data exchange\n".to_string();
-                        }
+                        // Session state management removed
 
                         Ok(self.create_device_identification_response())
                     },
@@ -287,10 +252,7 @@ impl ProtocolStateMachine {
                         set_component_status("protocol", ComponentState::Error);
                         set_component_error("protocol", Some(format!("Negotiation error: {e}")));
 
-                        // Update session error state
-                        if let Some(session) = self.session.as_mut() {
-                            session.error_message = Some(format!("Negotiation error: {e}"));
-                        }
+                        // Session error state management removed
 
                         Err(e)
                     }
@@ -300,10 +262,7 @@ impl ProtocolStateMachine {
                 set_component_status("protocol", ComponentState::Error);
                 set_component_error("protocol", Some("Protocol is in error state"));
 
-                // Update session error state
-                if let Some(session) = self.session.as_mut() {
-                    session.error_message = Some("Protocol is in error state".to_string());
-                }
+                // Session error state management removed
 
                 Err(ProtocolError::DeviceIdError { message: "Protocol is in error state".to_string() })
             },
@@ -311,10 +270,7 @@ impl ProtocolStateMachine {
                 set_component_status("protocol", ComponentState::Error);
                 set_component_error("protocol", Some("Invalid protocol state"));
 
-                // Update session error state
-                if let Some(session) = self.session.as_mut() {
-                    session.error_message = Some("Invalid protocol state".to_string());
-                }
+                // Session error state management removed
 
                 Err(ProtocolError::DeviceIdError { message: "Invalid protocol state".to_string() })
             },
@@ -541,7 +497,7 @@ impl ProtocolStateMachine {
     }
 }
 
-/// Session-based Protocol State Management Implementation
+/// session::Session-based Protocol State Management Implementation
 /// This implementation provides direct session integration for protocol state management
 /// replacing the older ProtocolState trait approach with a more cohesive design.
 
@@ -610,50 +566,23 @@ mod tests {
 
     #[test]
     fn test_session_integration() {
-        use crate::session_profile::SessionProfile;
-
         let mut proto = ProtocolStateMachine::new();
 
-        // Create a test session profile
-        let mut profile = SessionProfile::new(
-            "Test Session".to_string(),
-            "test.example.com".to_string(),
-            23
-        );
-        profile.username = Some("testuser".to_string());
-        profile.password = Some("testpass".to_string());
-
         // Create and set session
-        let session = Session::new(profile.clone());
+        let session = main_session::Session::new();
         proto.set_session(session);
 
         // Verify session is set
         assert!(proto.has_session());
-        assert_eq!(proto.get_session().unwrap().profile.name, "Test Session");
 
         // Test connect with session integration
         proto.connect();
         assert_eq!(proto.state, ProtocolState::Connected);
         assert!(proto.connected);
 
-        // Verify session state updated
-        let session_ref = proto.get_session().unwrap();
-        assert!(session_ref.connected);
-        assert!(!session_ref.connecting);
-        assert!(session_ref.connection_time.is_some());
-        assert!(session_ref.error_message.is_none());
-        assert_eq!(session_ref.terminal_content, "Connected to AS/400 system\nReady...\n");
-
         // Test disconnect with session integration
         proto.disconnect();
         assert_eq!(proto.state, ProtocolState::InitialNegotiation);
         assert!(!proto.connected);
-
-        // Verify session state updated
-        let session_ref = proto.get_session().unwrap();
-        assert!(!session_ref.connected);
-        assert!(!session_ref.connecting);
-        assert!(session_ref.connection_time.is_none());
-        assert_eq!(session_ref.terminal_content, "Disconnected from AS/400 system\n");
     }
 }

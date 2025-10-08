@@ -5,7 +5,6 @@
 
 use std::fmt;
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
-use crate::performance_metrics::PerformanceMetrics;
 
 // Terminal dimensions - standard IBM 5250 terminal sizes
 pub const TERMINAL_WIDTH: usize = 80;
@@ -96,9 +95,11 @@ impl TerminalScreen {
         self.dirty = true;
 
         // PERFORMANCE MONITORING: Track buffer clear operations
-        crate::performance_metrics::PerformanceMetrics::global()
-            .terminal_metrics
-            .buffer_clears
+        crate::monitoring::MonitoringSystem::global()
+            .performance_monitor
+            .get_metrics()
+            .terminal
+            .screen_updates_per_sec
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
@@ -210,9 +211,11 @@ impl TerminalScreen {
         self.dirty = true;
 
         // PERFORMANCE MONITORING: Track character write operations
-        crate::performance_metrics::PerformanceMetrics::global()
-            .terminal_metrics
-            .character_writes
+        crate::monitoring::MonitoringSystem::global()
+            .performance_monitor
+            .get_metrics()
+            .terminal
+            .character_writes_per_sec
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         // Move cursor to next position (unless it's a protected field)

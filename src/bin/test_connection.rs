@@ -4,7 +4,8 @@ use std::time::Duration;
 use std::env;
 
 // Import the EBCDIC translation function and 5250 session
-use tn5250r::lib5250::{ebcdic_to_ascii, Session};
+use tn5250r::lib5250::Session;
+use tn5250r::protocol_common::ebcdic::ebcdic_to_ascii;
 use tn5250r::telnet_negotiation::TelnetNegotiator;
 use tn5250r::ansi_processor::AnsiProcessor;
 use tn5250r::terminal::TerminalScreen;

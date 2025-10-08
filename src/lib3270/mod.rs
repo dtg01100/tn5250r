@@ -70,6 +70,9 @@ pub mod field;
 pub mod protocol;
 
 // Re-exports for easy access
+pub use display::{Display3270, ScreenSize};
+pub use protocol::ProtocolProcessor3270;
+pub use codes::{CommandCode, OrderCode, AidKey, CMD_WRITE, CMD_ERASE_WRITE, CMD_READ_BUFFER, ORDER_SF, ORDER_SBA, ORDER_IC, ORDER_RA, ATTR_PROTECTED, ATTR_NUMERIC, WCC_RESTORE, WCC_ALARM};
 
 // Re-export EBCDIC functions from protocol_common for convenience
 

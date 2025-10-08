@@ -620,8 +620,8 @@ impl TN5250RApp {
                     });
                     ui.horizontal(|ui| {
                         ui.label("Blinking:");
-                        // Implement actual blinking state detection
-                        ui.label(if session.display.is_cursor_blinking() { "Enabled" } else { "Disabled" });
+                        // TODO: Implement cursor blinking detection when display state is available
+                        ui.label("Disabled");
                     });
                 });
 

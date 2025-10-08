@@ -14,13 +14,6 @@ pub mod component_utils;
 /// Efficient iterators and utilities for terminal screen buffer operations
 pub mod buffer_utils;
 
-/// PERFORMANCE MONITORING: Global performance metrics
-/// Tracks key performance indicators across the application
-pub mod performance_metrics;
-
-// Re-export PerformanceMetrics for easier access
-pub use performance_metrics::PerformanceMetrics;
-
 /// INTEGRATION: Cross-platform abstraction layer
 /// Provides platform-independent operations for file I/O, networking, and system calls
 pub mod platform;
@@ -86,3 +79,13 @@ pub mod ui {
 pub mod constants;
 
 pub mod network_platform;
+
+/// PERFORMANCE MONITORING: Global performance metrics
+/// Tracks key performance indicators across the application
+pub mod performance_metrics;
+
+// Re-export Session for easier access across modules
+pub use session::Session;
+
+// Re-export PerformanceMetrics for easier access
+pub use performance_metrics::PerformanceMetrics;
