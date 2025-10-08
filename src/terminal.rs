@@ -5,6 +5,7 @@
 
 use std::fmt;
 use crate::monitoring::{set_component_status, set_component_error, ComponentState};
+use crate::performance_metrics::PerformanceMetrics;
 
 // Terminal dimensions - standard IBM 5250 terminal sizes
 pub const TERMINAL_WIDTH: usize = 80;
@@ -88,11 +89,10 @@ impl TerminalScreen {
         self.dirty = true;
 
         // PERFORMANCE MONITORING: Track buffer clear operations
-        // TODO: Re-enable performance metrics once import issues are resolved
-        // crate::performance_metrics::PerformanceMetrics::global()
-        //     .terminal_metrics
-        //     .buffer_clears
-        //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        crate::performance_metrics::PerformanceMetrics::global()
+            .terminal_metrics
+            .buffer_clears
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// PERFORMANCE OPTIMIZATION: Bulk character writing with cache-friendly access
@@ -203,11 +203,10 @@ impl TerminalScreen {
         self.dirty = true;
 
         // PERFORMANCE MONITORING: Track character write operations
-        // TODO: Re-enable performance metrics once import issues are resolved
-        // crate::PerformanceMetrics::global()
-        //     .terminal_metrics
-        //     .character_writes
-        //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        crate::performance_metrics::PerformanceMetrics::global()
+            .terminal_metrics
+            .character_writes
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         // Move cursor to next position (unless it's a protected field)
         if !matches!(attr, CharAttribute::Protected | CharAttribute::Hidden) {

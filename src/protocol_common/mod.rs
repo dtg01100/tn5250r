@@ -76,6 +76,8 @@ pub mod traits;
 pub mod telnet_base;
 
 // Re-export commonly used items for convenience
+pub use ebcdic::{ebcdic_to_ascii, ascii_to_ebcdic, ebcdic_to_ascii_string, ascii_to_ebcdic_vec};
+pub use telnet_base::{TelnetCommand, TelnetOption, build_negotiation, build_subnegotiation};
 
 /// Protocol version information
 pub const PROTOCOL_COMMON_VERSION: &str = env!("CARGO_PKG_VERSION");

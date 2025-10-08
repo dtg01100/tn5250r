@@ -32,6 +32,8 @@ pub struct Session {
     pub show_monitoring_dashboard: bool,
     /// Input buffer for session-specific commands
     pub input_buffer: String,
+    /// Saved screen content for session persistence
+    pub saved_screen: Option<String>,
 }
 
 impl Session {
@@ -49,6 +51,7 @@ impl Session {
             profile,
             show_monitoring_dashboard: false,
             input_buffer: String::new(),
+            saved_screen: None,
         }
     }
 

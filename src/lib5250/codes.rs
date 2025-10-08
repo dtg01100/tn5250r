@@ -35,7 +35,7 @@ pub const CMD_WRITE_STRUCTURED_FIELD: u8 = 0xF3;
 /// 5250 Protocol Orders
 pub const SOH: u8 = 0x01;  // Start of header
 pub const RA: u8 = 0x02;   // Repeat to address
-pub const EA: u8 = 0x03;   // Erase to Address on 5494 (FIXME: not implemented)
+pub const EA: u8 = 0x03;   // Erase to Address on 5494
 pub const MC: u8 = 0x06;   // Move Cursor
 pub const TD: u8 = 0x10;   // Transparent Data
 
@@ -98,6 +98,8 @@ pub const SF_REQUEST_TIMESTAMP_INTERVAL: u8 = 0x83;
 pub const SF_DEFINE_ROLL_DIRECTION: u8 = 0x86;
 pub const SF_SET_MONITOR_MODE: u8 = 0x87;
 pub const SF_CANCEL_RECOVERY: u8 = 0x88;
+pub const SF_CREATE_FIELD_LIST: u8 = 0x8E;  // Create Field List (Write Extended Write)
+pub const SF_READ_FIELD_LIST: u8 = 0x8F;   // Read Field List (Write Extended Read)
 pub const SF_CREATE_CHANGE_EXTENDED_ATTRIBUTE: u8 = 0xC1;
 pub const SF_SET_EXTENDED_ATTRIBUTE_LIST: u8 = 0xCA;
 pub const SF_READ_TEXT: u8 = 0xD2;

@@ -5,6 +5,7 @@
 
 use tn5250r::telnet_negotiation::{TelnetNegotiator, TelnetOption};
 use tn5250r::lib5250::protocol::Packet;
+use tn5250r::lib5250::codes::CommandCode;
 use tn5250r::protocol_common::ebcdic::ebcdic_to_ascii;
 
 // =============================================================================
@@ -90,16 +91,27 @@ fn test_multiple_environ_variable_requests() {
 
 #[test]
 fn test_packet_parsing_with_correct_length_format() {
-    // Issue #2: Determine correct length field interpretation
-    // This test will need to be updated once we determine the correct format
-    
-    // For now, document what we know doesn't work:
+    // Issue #2: Validate correct length field interpretation
+    // Length field represents data payload length only (not including header)
+
     let packet_data_only_length = vec![0xF1, 0x01, 0x00, 0x05, 0x00, 0x40, 0x40, 0x40, 0x40, 0x40];
-    let result1 = Packet::from_bytes(&packet_data_only_length);
-    
-    // TODO: Update this test once correct length interpretation is determined
-    // For now, just verify parsing doesn't crash
-    let _ = result1;
+    let result = Packet::from_bytes(&packet_data_only_length);
+
+    // Verify parsing succeeds
+    assert!(result.is_some(), "Packet parsing should succeed with correct length format");
+
+    let packet = result.unwrap();
+
+    // Verify packet structure
+    assert_eq!(packet.command, CommandCode::WriteToDisplay);
+    assert_eq!(packet.sequence_number, 0x01);
+    assert_eq!(packet.flags, 0x00);
+    assert_eq!(packet.data.len(), 5, "Data length should match length field value");
+    assert_eq!(packet.data, vec![0x40, 0x40, 0x40, 0x40, 0x40], "Data should contain expected payload");
+
+    // Verify round-trip serialization
+    let serialized = packet.to_bytes();
+    assert_eq!(serialized, packet_data_only_length, "Round-trip serialization should preserve original bytes");
 }
 
 #[test]

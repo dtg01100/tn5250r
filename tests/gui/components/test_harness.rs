@@ -143,10 +143,12 @@ impl<'a> TN5250RHarness<'a> {
     }
 
     /// Press a specific key
-    pub fn press_key(&mut self, _key: Key) -> Result<(), String> {
-        // TODO: Implement key press simulation
-        // Currently not implemented due to mutable borrow issues
-        Err("Key press simulation not yet implemented".to_string())
+    pub fn press_key(&mut self, key: Key) -> Result<(), String> {
+        // Simulate key press and release
+        self.harness.input_key(key, true, Modifiers::NONE);
+        self.harness.input_key(key, false, Modifiers::NONE);
+        self.step();
+        Ok(())
     }
 
     /// Press Enter key
