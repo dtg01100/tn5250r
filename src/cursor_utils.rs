@@ -3,13 +3,13 @@
 //! This module provides centralized cursor position validation logic to ensure
 //! cursor movements stay within terminal bounds and prevent security issues.
 
-use crate::terminal::{TERMINAL_WIDTH, TERMINAL_HEIGHT};
+use crate::terminal::{TERMINAL_WIDTH, TERMINAL_HEIGHT, TerminalScreen};
 
 /// Validate cursor position using 1-based coordinates (5250 protocol standard)
 /// 
 /// # Arguments
-/// * `row` - The row position (1-based, 1 <= row <= 24)
-/// * `col` - The column position (1-based, 1 <= col <= 80)
+/// * `row` - The row position (1-based, 1 <= row <= height)
+/// * `col` - The column position (1-based, 1 <= col <= width)
 /// 
 /// # Returns
 /// * `Ok(())` if the position is valid
@@ -42,7 +42,36 @@ pub fn validate_cursor_position(row: usize, col: usize) -> Result<(), String> {
     Ok(())
 }
 
-/// Validate cursor bounds using 0-based coordinates (internal buffer indexing)
+/// Validate cursor position using 1-based coordinates with dynamic dimensions
+/// 
+/// # Arguments
+/// * `row` - The row position (1-based)
+/// * `col` - The column position (1-based)
+/// * `screen` - The terminal screen to validate against
+/// 
+/// # Returns
+/// * `Ok(())` if the position is valid
+/// * `Err(String)` with error description if invalid
+pub fn validate_cursor_position_dynamic(row: usize, col: usize, screen: &TerminalScreen) -> Result<(), String> {
+    if row == 0 || col == 0 {
+        return Err(format!("Invalid cursor position: ({row}, {col}) - coordinates must be 1-based"));
+    }
+    
+    if row > screen.height {
+        return Err(format!("Invalid cursor position: ({row}, {col}) - row exceeds terminal height ({})", screen.height));
+    }
+    
+    if col > screen.width {
+        return Err(format!("Invalid cursor position: ({row}, {col}) - column exceeds terminal width ({})", screen.width));
+    }
+    
+    Ok(())
+}
+
+/// Validate cursor position within terminal bounds (0-based coordinates)
+/// 
+/// This function checks if a cursor position is within the valid terminal
+/// bounds using 0-based coordinates. Use this for internal buffer indexing.
 /// 
 /// # Arguments
 /// * `x` - The column position (0-based, 0 <= x < 80)
@@ -73,6 +102,28 @@ pub fn validate_cursor_bounds(x: usize, y: usize) -> Result<(), String> {
     Ok(())
 }
 
+/// Validate cursor position within terminal bounds using dynamic dimensions (0-based coordinates)
+/// 
+/// # Arguments
+/// * `x` - The column position (0-based)
+/// * `y` - The row position (0-based)
+/// * `screen` - The terminal screen to validate against
+/// 
+/// # Returns
+/// * `Ok(())` if the position is within bounds
+/// * `Err(String)` with error description if out of bounds
+pub fn validate_cursor_bounds_dynamic(x: usize, y: usize, screen: &TerminalScreen) -> Result<(), String> {
+    if x >= screen.width {
+        return Err(format!("Cursor position exceeds bounds: ({y}, {x}) - column >= {}", screen.width));
+    }
+    
+    if y >= screen.height {
+        return Err(format!("Cursor position exceeds bounds: ({y}, {x}) - row >= {}", screen.height));
+    }
+    
+    Ok(())
+}
+
 /// Clamp cursor position to valid terminal bounds (0-based coordinates)
 /// 
 /// This function ensures cursor positions stay within terminal bounds by
@@ -95,6 +146,21 @@ pub fn validate_cursor_bounds(x: usize, y: usize) -> Result<(), String> {
 pub fn clamp_cursor_position(x: usize, y: usize) -> (usize, usize) {
     let clamped_x = x.min(TERMINAL_WIDTH - 1);
     let clamped_y = y.min(TERMINAL_HEIGHT - 1);
+    (clamped_x, clamped_y)
+}
+
+/// Clamp cursor position to valid terminal bounds using dynamic dimensions (0-based coordinates)
+/// 
+/// # Arguments
+/// * `x` - The column position to clamp
+/// * `y` - The row position to clamp
+/// * `screen` - The terminal screen to clamp against
+/// 
+/// # Returns
+/// A tuple (x, y) with clamped coordinates
+pub fn clamp_cursor_position_dynamic(x: usize, y: usize, screen: &TerminalScreen) -> (usize, usize) {
+    let clamped_x = x.min(screen.width - 1);
+    let clamped_y = y.min(screen.height - 1);
     (clamped_x, clamped_y)
 }
 

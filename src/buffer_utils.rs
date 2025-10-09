@@ -17,6 +17,8 @@ pub struct TerminalPositionIterator {
     start_y: usize,
     end_x: usize,
     end_y: usize,
+    width: usize,
+    height: usize,
 }
 
 impl TerminalPositionIterator {
@@ -29,6 +31,22 @@ impl TerminalPositionIterator {
             start_y: 0,
             end_x: TERMINAL_WIDTH,
             end_y: TERMINAL_HEIGHT,
+            width: TERMINAL_WIDTH,
+            height: TERMINAL_HEIGHT,
+        }
+    }
+    
+    /// Create iterator for a full screen with explicit dimensions
+    pub fn full_screen_with_size(width: usize, height: usize) -> Self {
+        Self {
+            current_x: 0,
+            current_y: 0,
+            start_x: 0,
+            start_y: 0,
+            end_x: width,
+            end_y: height,
+            width,
+            height,
         }
     }
     
@@ -52,6 +70,27 @@ impl TerminalPositionIterator {
             start_y: bounded_start_y,
             end_x: bounded_end_x,
             end_y: bounded_end_y,
+            width: TERMINAL_WIDTH,
+            height: TERMINAL_HEIGHT,
+        }
+    }
+    
+    /// Create iterator for a specific region with explicit dimensions
+    pub fn region_with_size(start_x: usize, start_y: usize, end_x: usize, end_y: usize, width: usize, height: usize) -> Self {
+        let bounded_end_x = end_x.min(width);
+        let bounded_end_y = end_y.min(height);
+        let bounded_start_x = start_x.min(bounded_end_x);
+        let bounded_start_y = start_y.min(bounded_end_y);
+        
+        Self {
+            current_x: bounded_start_x,
+            current_y: bounded_start_y,
+            start_x: bounded_start_x,
+            start_y: bounded_start_y,
+            end_x: bounded_end_x,
+            end_y: bounded_end_y,
+            width,
+            height,
         }
     }
     
@@ -65,6 +104,15 @@ impl TerminalPositionIterator {
         }
     }
     
+    /// Create iterator for a single row with explicit dimensions
+    pub fn row_with_size(y: usize, width: usize, height: usize) -> Self {
+        if y >= height {
+            Self::region_with_size(0, 0, 0, 0, width, height)
+        } else {
+            Self::region_with_size(0, y, width, y + 1, width, height)
+        }
+    }
+
     /// Create iterator for a single column
     pub fn column(x: usize) -> Self {
         if x >= TERMINAL_WIDTH {
@@ -72,6 +120,15 @@ impl TerminalPositionIterator {
             Self::region(0, 0, 0, 0)
         } else {
             Self::region(x, 0, x + 1, TERMINAL_HEIGHT)
+        }
+    }
+    
+    /// Create iterator for a single column with explicit dimensions
+    pub fn column_with_size(x: usize, width: usize, height: usize) -> Self {
+        if x >= width {
+            Self::region_with_size(0, 0, 0, 0, width, height)
+        } else {
+            Self::region_with_size(x, 0, x + 1, height, width, height)
         }
     }
 }
@@ -86,7 +143,8 @@ impl Iterator for TerminalPositionIterator {
         
         let x = self.current_x;
         let y = self.current_y;
-        let buffer_index = crate::terminal::TerminalScreen::buffer_index(x, y);
+    // Compute index using the iterator's width to support dynamic screens
+    let buffer_index = y * self.width + x;
         
         // Advance to next position
         self.current_x += 1;
@@ -233,7 +291,7 @@ impl TerminalBufferUtils {
                     break;
                 }
                 
-                let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+                let index = y * TERMINAL_WIDTH + x;
                 if index < buffer.len() {
                     buffer[index] = ch;
                 }
@@ -275,28 +333,36 @@ impl TerminalBufferUtils {
 /// Extension trait for TerminalScreen to add iterator methods
 pub trait TerminalScreenIterExt {
     /// Iterate over all positions in the terminal
-    fn iter_positions(&self) -> TerminalPositionIterator {
-        TerminalPositionIterator::full_screen()
-    }
+    fn iter_positions(&self) -> TerminalPositionIterator;
     
     /// Iterate over positions in a specific region
-    fn iter_region(&self, start_x: usize, start_y: usize, end_x: usize, end_y: usize) -> TerminalPositionIterator {
-        TerminalPositionIterator::region(start_x, start_y, end_x, end_y)
-    }
+    fn iter_region(&self, start_x: usize, start_y: usize, end_x: usize, end_y: usize) -> TerminalPositionIterator;
     
     /// Iterate over positions in a specific row
-    fn iter_row(&self, y: usize) -> TerminalPositionIterator {
-        TerminalPositionIterator::row(y)
-    }
+    fn iter_row(&self, y: usize) -> TerminalPositionIterator;
     
     /// Iterate over positions in a specific column
-    fn iter_column(&self, x: usize) -> TerminalPositionIterator {
-        TerminalPositionIterator::column(x)
-    }
+    fn iter_column(&self, x: usize) -> TerminalPositionIterator;
 }
 
-// Implement the trait for TerminalScreen
-impl TerminalScreenIterExt for crate::terminal::TerminalScreen {}
+// Implement the trait for TerminalScreen with dynamic dimensions
+impl TerminalScreenIterExt for crate::terminal::TerminalScreen {
+    fn iter_positions(&self) -> TerminalPositionIterator {
+        TerminalPositionIterator::full_screen_with_size(self.width, self.height)
+    }
+
+    fn iter_region(&self, start_x: usize, start_y: usize, end_x: usize, end_y: usize) -> TerminalPositionIterator {
+        TerminalPositionIterator::region_with_size(start_x, start_y, end_x, end_y, self.width, self.height)
+    }
+
+    fn iter_row(&self, y: usize) -> TerminalPositionIterator {
+        TerminalPositionIterator::row_with_size(y, self.width, self.height)
+    }
+
+    fn iter_column(&self, x: usize) -> TerminalPositionIterator {
+        TerminalPositionIterator::column_with_size(x, self.width, self.height)
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -222,6 +222,17 @@ impl TN5250RApp {
                                     cfg.set_property("terminal.protocolMode", mode_str);
                                 }
                                 config::save_shared_config_async(&self.config);
+                                
+                                // If switching to TN3270, apply current screen size
+                                if self.selected_protocol_mode == ProtocolMode::TN3270 {
+                                    tokio::spawn({
+                                        let controller = self.controller.clone();
+                                        let screen_size = self.selected_screen_size;
+                                        async move {
+                                            controller.apply_tn3270_screen_size_async(screen_size).await;
+                                        }
+                                    });
+                                }
                             }
                         });
                         ui.end_row();
@@ -267,6 +278,17 @@ impl TN5250RApp {
                                     cfg.set_property("terminal.cols", self.selected_screen_size.cols() as i64);
                                 }
                                 config::save_shared_config_async(&self.config);
+                                
+                                // Apply screen size to controller if TN3270 mode is selected
+                                if self.selected_protocol_mode == ProtocolMode::TN3270 {
+                                    tokio::spawn({
+                                        let controller = self.controller.clone();
+                                        let screen_size = self.selected_screen_size;
+                                        async move {
+                                            controller.apply_tn3270_screen_size_async(screen_size).await;
+                                        }
+                                    });
+                                }
                             }
                         });
                         ui.end_row();

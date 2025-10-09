@@ -880,16 +880,20 @@ impl FieldManager {
             let start_col = field.start_col.saturating_sub(1); // Convert to 0-based
             
             // Clear the field area first
-            for i in 0..field.length.min(crate::terminal::TERMINAL_WIDTH - start_col) {
-                if start_col + i < crate::terminal::TERMINAL_WIDTH && row < crate::terminal::TERMINAL_HEIGHT {
-                    let index = crate::terminal::TerminalScreen::buffer_index(start_col + i, row);
-                    terminal.buffer[index].character = '_';
-                    terminal.buffer[index].attribute = match field.field_type {
-                        FieldType::Protected => crate::terminal::CharAttribute::Protected,
-                        FieldType::Password => crate::terminal::CharAttribute::NonDisplay,
-                        FieldType::Numeric => crate::terminal::CharAttribute::Numeric,
-                        _ => crate::terminal::CharAttribute::Normal,
-                    };
+            let term_width = terminal.width;
+            let term_height = terminal.height;
+            for i in 0..field.length.saturating_sub(0).min(term_width.saturating_sub(start_col)) {
+                if start_col + i < term_width && row < term_height {
+                    let index = terminal.index(start_col + i, row);
+                    if index < terminal.buffer.len() {
+                        terminal.buffer[index].character = '_';
+                        terminal.buffer[index].attribute = match field.field_type {
+                            FieldType::Protected => crate::terminal::CharAttribute::Protected,
+                            FieldType::Password => crate::terminal::CharAttribute::NonDisplay,
+                            FieldType::Numeric => crate::terminal::CharAttribute::Numeric,
+                            _ => crate::terminal::CharAttribute::Normal,
+                        };
+                    }
                 }
             }
             
@@ -898,9 +902,11 @@ impl FieldManager {
                 if i >= field.length {
                     break;
                 }
-                if start_col + i < crate::terminal::TERMINAL_WIDTH && row < crate::terminal::TERMINAL_HEIGHT {
-                    let index = crate::terminal::TerminalScreen::buffer_index(start_col + i, row);
-                    terminal.buffer[index].character = ch;
+                if start_col + i < term_width && row < term_height {
+                    let index = terminal.index(start_col + i, row);
+                    if index < terminal.buffer.len() {
+                        terminal.buffer[index].character = ch;
+                    }
                 }
             }
         }

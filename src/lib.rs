@@ -89,3 +89,10 @@ pub use session::Session;
 
 // Re-export PerformanceMetrics for easier access
 pub use performance_metrics::PerformanceMetrics;
+
+/// Test modules
+#[cfg(test)]
+pub mod tests {
+    /// Dynamic sizing behavior tests
+    pub mod dynamic_sizing_tests;
+}

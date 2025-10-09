@@ -56,6 +56,15 @@ impl ProtocolProcessor3270 {
         }
     }
     
+    /// Create a new protocol processor with specific screen size
+    pub fn with_screen_size(size: super::display::ScreenSize) -> Self {
+        Self {
+            state: ProcessorState::Ready,
+            display: Display3270::with_size(size),
+            use_14bit_addressing: size == super::display::ScreenSize::Model4 || size == super::display::ScreenSize::Model5,
+        }
+    }
+    
     /// Enable or disable 14-bit addressing
     pub fn set_14bit_addressing(&mut self, enabled: bool) {
         self.use_14bit_addressing = enabled;

@@ -878,4 +878,14 @@ impl TN5250RApp {
             });
         });
     }
+
+    /// Create a TN3270 protocol processor configured with current screen size settings
+    pub fn create_tn3270_processor(&self) -> crate::lib3270::protocol::ProtocolProcessor3270 {
+        crate::lib3270::protocol::ProtocolProcessor3270::with_screen_size(self.selected_screen_size)
+    }
+
+    /// Get screen dimensions based on current selection
+    pub fn get_screen_dimensions(&self) -> (usize, usize) {
+        (self.selected_screen_size.cols(), self.selected_screen_size.rows())
+    }
 }

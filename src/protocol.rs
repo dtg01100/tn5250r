@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use crate::ebcdic::ebcdic_to_ascii;
-use crate::cursor_utils::validate_cursor_bounds;
+use crate::cursor_utils::{validate_cursor_bounds, validate_cursor_bounds_dynamic};
 use crate::buffer_utils::TerminalPositionIterator;
 use crate::terminal::{TerminalScreen, TerminalChar, CharAttribute, TERMINAL_WIDTH, TERMINAL_HEIGHT};
 
@@ -462,7 +462,7 @@ impl Packet {
     }
 }
 
-// Cursor position management for 5250 terminal
+// Cursor position management for 5250 terminal with dynamic dimensions
 #[derive(Debug, Clone, Copy)]
 struct CursorPosition {
     x: usize,
@@ -474,22 +474,22 @@ impl CursorPosition {
         Self { x: 0, y: 0 }
     }
     
-    fn move_right(&mut self) {
+    fn move_right(&mut self, screen_width: usize, screen_height: usize) {
         self.x += 1;
-        if self.x >= TERMINAL_WIDTH {
+        if self.x >= screen_width {
             self.x = 0;
-            self.move_down();
+            self.move_down(screen_height);
         }
     }
     
-    fn move_down(&mut self) {
-        if self.y < TERMINAL_HEIGHT - 1 {
+    fn move_down(&mut self, screen_height: usize) {
+        if self.y < screen_height.saturating_sub(1) {
             self.y += 1;
         }
     }
     
-    fn move_to(&mut self, x: usize, y: usize) {
-        if x < TERMINAL_WIDTH && y < TERMINAL_HEIGHT {
+    fn move_to(&mut self, x: usize, y: usize, screen_width: usize, screen_height: usize) {
+        if x < screen_width && y < screen_height {
             self.x = x;
             self.y = y;
         }
@@ -499,9 +499,12 @@ impl CursorPosition {
         (self.x, self.y)
     }
     
-    fn offset_to_position(&self, offset: usize) -> (usize, usize) {
-        let row = (offset / TERMINAL_WIDTH).min(TERMINAL_HEIGHT - 1);
-        let col = offset % TERMINAL_WIDTH;
+    fn offset_to_position(&self, offset: usize, screen_width: usize, screen_height: usize) -> (usize, usize) {
+        if screen_width == 0 {
+            return (0, 0);
+        }
+        let row = (offset / screen_width).min(screen_height.saturating_sub(1));
+        let col = offset % screen_width;
         (col, row)
     }
 }
@@ -532,7 +535,7 @@ const DEFAULT_DEVICE_ID: &str = "IBM-5555-C01";
 // Saved screen state for save/restore functionality
 #[derive(Debug, Clone)]
 struct SavedScreenState {
-    buffer: [[TerminalChar; TERMINAL_WIDTH]; TERMINAL_HEIGHT],
+    buffer: Vec<Vec<TerminalChar>>, // dynamic rows x cols
     cursor_x: usize,
     cursor_y: usize,
 }
@@ -665,7 +668,7 @@ impl ProtocolProcessor {
                         // Process field attribute - for now we just advance position
                         match attr {
                             FieldAttribute::Skip => {
-                                self.cursor.move_right();
+                                self.cursor.move_right(self.screen.width, self.screen.height);
                             },
                             _ => {
                                 // Process other attributes as needed
@@ -688,7 +691,7 @@ impl ProtocolProcessor {
                         let row = data[pos] as usize;
                         let col = data[pos + 1] as usize;
                         // Convert from 1-based to 0-based indexing
-                        self.cursor.move_to(col.saturating_sub(1), row.saturating_sub(1));
+                        self.cursor.move_to(col.saturating_sub(1), row.saturating_sub(1), self.screen.width, self.screen.height);
                         pos += 2;
                     }
                 },
@@ -719,22 +722,22 @@ impl ProtocolProcessor {
                     // Handle special characters
                     match ch {
                         '\n' | '\r' => {
-                            self.cursor.move_down();
+                            self.cursor.move_down(self.screen.height);
                             self.cursor.x = 0; // CR
                         },
                         '\t' => {
                             // Tab - move to next tab stop (every 8 positions)
                             let tab_stop = (self.cursor.x + 8) / 8 * 8;
-                            self.cursor.x = std::cmp::min(tab_stop, TERMINAL_WIDTH - 1);
+                            self.cursor.x = std::cmp::min(tab_stop, self.screen.width.saturating_sub(1));
                         },
                         _ => {
-                            if self.cursor.y < TERMINAL_HEIGHT && self.cursor.x < TERMINAL_WIDTH {
-                                let index = crate::terminal::TerminalScreen::buffer_index(self.cursor.x, self.cursor.y);
+                            if self.cursor.y < self.screen.height && self.cursor.x < self.screen.width {
+                                let index = self.screen.index(self.cursor.x, self.cursor.y);
                                 self.screen.buffer[index] = crate::terminal::TerminalChar {
                                     character: ch,
                                     attribute: crate::terminal::CharAttribute::Normal,
                                 };
-                                self.cursor.move_right();
+                                self.cursor.move_right(self.screen.width, self.screen.height);
                             }
                         }
                     }
@@ -992,12 +995,12 @@ impl ProtocolProcessor {
     // Save current screen state
     fn save_screen_state(&mut self) {
         // Save the entire screen buffer, cursor position, and attributes
-        let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
+        let mut saved_buffer = vec![vec![TerminalChar::default(); self.screen.width]; self.screen.height];
 
         // Copy the current screen buffer
-        for y in 0..TERMINAL_HEIGHT {
-            for x in 0..TERMINAL_WIDTH {
-                let index = crate::terminal::TerminalScreen::buffer_index(x, y);
+        for y in 0..self.screen.height {
+            for x in 0..self.screen.width {
+                let index = self.screen.index(x, y);
                 saved_buffer[y][x] = self.screen.buffer[index];
             }
         }
@@ -1007,20 +1010,19 @@ impl ProtocolProcessor {
         let saved_cursor_y = self.screen.cursor_y;
 
         // Store the saved state
-        self.saved_state = Some(SavedScreenState {
-            buffer: saved_buffer,
-            cursor_x: saved_cursor_x,
-            cursor_y: saved_cursor_y,
-        });
+        self.saved_state = Some(SavedScreenState { buffer: saved_buffer, cursor_x: saved_cursor_x, cursor_y: saved_cursor_y });
     }
     
     // Restore saved screen state
     fn restore_screen_state(&mut self) {
         // Restore the saved screen state if it exists
         if let Some(saved_state) = &self.saved_state {
-            // Restore the screen buffer using buffer utilities
-            for (x, y, index) in TerminalPositionIterator::full_screen() {
-                if index < self.screen.buffer.len() {
+            // Restore the screen buffer using dynamic dimensions
+            let rows = self.screen.height.min(saved_state.buffer.len());
+            for y in 0..rows {
+                let cols = self.screen.width.min(saved_state.buffer[y].len());
+                for x in 0..cols {
+                    let index = self.screen.index(x, y);
                     self.screen.buffer[index] = saved_state.buffer[y][x];
                 }
             }
@@ -1028,7 +1030,7 @@ impl ProtocolProcessor {
             // Restore cursor position
             self.screen.cursor_x = saved_state.cursor_x;
             self.screen.cursor_y = saved_state.cursor_y;
-            self.cursor.move_to(saved_state.cursor_x, saved_state.cursor_y);
+            self.cursor.move_to(saved_state.cursor_x, saved_state.cursor_y, self.screen.width, self.screen.height);
 
             // Mark screen as dirty to trigger redraw
             self.screen.dirty = true;
@@ -1059,8 +1061,8 @@ impl ProtocolProcessor {
         let end_col = data[3] as usize;
 
         // SECURITY: Validate coordinates are within terminal bounds
-        if validate_cursor_bounds(start_col, start_row).is_err() ||
-           validate_cursor_bounds(end_col, end_row).is_err() {
+        if validate_cursor_bounds_dynamic(start_col, start_row, &self.screen).is_err() ||
+           validate_cursor_bounds_dynamic(end_col, end_row, &self.screen).is_err() {
             eprintln!("SECURITY: Invalid coordinates for partial screen save: start=({start_row},{start_col}), end=({end_row},{end_col})");
             return;
         }
@@ -1074,16 +1076,17 @@ impl ProtocolProcessor {
         // SECURITY: Limit region size to prevent memory exhaustion
         let region_width = end_col - start_col + 1;
         let region_height = end_row - start_row + 1;
-        if region_width > TERMINAL_WIDTH || region_height > TERMINAL_HEIGHT ||
+        if region_width > self.screen.width || region_height > self.screen.height ||
            region_width * region_height > 8192 { // Max 8K characters
             eprintln!("SECURITY: Partial screen save region too large");
             return;
         }
 
-        // Create a new saved state with current full screen using buffer utilities
-        let mut saved_buffer = [[TerminalChar::default(); TERMINAL_WIDTH]; TERMINAL_HEIGHT];
-        for (x, y, index) in TerminalPositionIterator::full_screen() {
-            if index < self.screen.buffer.len() {
+        // Create a new saved state with current full screen
+        let mut saved_buffer = vec![vec![TerminalChar::default(); self.screen.width]; self.screen.height];
+        for y in 0..self.screen.height {
+            for x in 0..self.screen.width {
+                let index = self.screen.index(x, y);
                 saved_buffer[y][x] = self.screen.buffer[index];
             }
         }
@@ -1093,11 +1096,7 @@ impl ProtocolProcessor {
         let saved_cursor_y = self.screen.cursor_y;
 
         // Store the saved state
-        self.saved_state = Some(SavedScreenState {
-            buffer: saved_buffer,
-            cursor_x: saved_cursor_x,
-            cursor_y: saved_cursor_y,
-        });
+        self.saved_state = Some(SavedScreenState { buffer: saved_buffer, cursor_x: saved_cursor_x, cursor_y: saved_cursor_y });
     }
     
     // Restore partial screen state
@@ -1226,9 +1225,9 @@ Ready...
         // This is a simplified implementation
         let mut buffer = Vec::new();
         
-        for row in 0..TERMINAL_HEIGHT {
-            for col in 0..TERMINAL_WIDTH {
-                let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+        for row in 0..self.screen.height {
+            for col in 0..self.screen.width {
+                let index = self.screen.index(col, row);
                 let ch = self.screen.buffer[index].character as u8;
                 if ch != 0 && ch != b' ' {
                     buffer.push(ch);

@@ -46,7 +46,7 @@ impl Display {
     /// Create a new display with standard 24x80 dimensions
     pub fn new() -> Self {
         Self {
-            screen: TerminalScreen::new(),
+            screen: TerminalScreen::new_with_size(80, 24),
             cursor_row: 0,
             cursor_col: 0,
             width: 80,
@@ -97,6 +97,7 @@ impl Display {
     pub fn clear_unit(&mut self) {
         self.width = 80;
         self.height = 24;
+        self.screen.resize(self.width, self.height, false);
         self.screen.clear();
         self.cursor_row = 0;
         self.cursor_col = 0;
@@ -111,6 +112,7 @@ impl Display {
     pub fn clear_unit_alternate(&mut self) {
         self.width = 132;
         self.height = 27;
+        self.screen.resize(self.width, self.height, false);
         self.screen.clear_alternate();
         self.cursor_row = 0;
         self.cursor_col = 0;
@@ -131,7 +133,8 @@ impl Display {
         if row < self.height && col < self.width {
             self.cursor_row = row;
             self.cursor_col = col;
-            self.screen.set_cursor(row, col);
+            // TerminalScreen uses (x,y) = (col,row)
+            self.screen.set_cursor(col, row);
         }
     }
 
@@ -147,7 +150,7 @@ impl Display {
             let mut found = false;
             for row in 0..self.height {
                 for col in 0..self.width {
-                    let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                    let index = self.screen.index(col, row);
                     if let Some(cell) = self.screen.buffer.get(index) {
                         // Bypass fields are protected fields - skip them
                         if !matches!(cell.attribute, crate::terminal::CharAttribute::Protected) {
@@ -175,8 +178,8 @@ impl Display {
         let ascii_char = self.ebcdic_to_ascii(ch);
         
         if self.cursor_row < self.height && self.cursor_col < self.width {
-              // Move cursor to position first, then add character
-              self.screen.move_cursor(self.cursor_col, self.cursor_row);
+                            // Move cursor to position first, then add character
+                            self.screen.move_cursor(self.cursor_col, self.cursor_row);
                 self.screen.write_char(ascii_char);
             
             // Advance cursor
@@ -188,7 +191,7 @@ impl Display {
                     self.cursor_row = self.height - 1;
                 }
             }
-            self.screen.set_cursor(self.cursor_row, self.cursor_col);
+            self.screen.set_cursor(self.cursor_col, self.cursor_row);
         }
     }
 
@@ -240,7 +243,7 @@ impl Display {
         // Convert screen buffer to 5250 format
         for row in 0..self.height {
             for col in 0..self.width {
-                let index = crate::terminal::TerminalScreen::buffer_index(col, row);
+                let index = self.screen.index(col, row);
                 let ch = self.screen.buffer[index].character;
 
                 // Convert ASCII to EBCDIC for 5250 protocol
@@ -303,6 +306,7 @@ impl Display {
     pub fn initialize_5250_screen(&mut self) {
         self.width = 80;
         self.height = 24;
+        self.screen.resize(self.width, self.height, false);
         self.screen.clear();
         self.set_cursor(0, 0);
         self.unlock_keyboard();
@@ -313,7 +317,7 @@ impl Display {
         for &byte in data {
             let ascii_char = self.ebcdic_to_ascii(byte);
             if self.cursor_row < self.height && self.cursor_col < self.width {
-                let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+                let index = self.screen.index(self.cursor_col, self.cursor_row);
                 self.screen.buffer[index] = crate::terminal::TerminalChar {
                     character: ascii_char,
                     attribute: crate::terminal::CharAttribute::Normal,
@@ -349,7 +353,7 @@ impl Display {
     pub fn set_blinking_cursor(&mut self, blinking: bool) {
         // Set blinking cursor attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             if blinking {
                 self.screen.buffer[index].attribute = crate::terminal::CharAttribute::BlinkingCursor;
             } else {
@@ -363,7 +367,7 @@ impl Display {
     /// Returns true if the character at the current cursor position has BlinkingCursor attribute
     pub fn is_cursor_blinking(&self) -> bool {
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             matches!(self.screen.buffer[index].attribute, crate::terminal::CharAttribute::BlinkingCursor)
         } else {
             false
@@ -375,7 +379,7 @@ impl Display {
     pub fn set_reverse_image(&mut self, reverse: bool) {
         // Set reverse image attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             if reverse {
                 self.screen.buffer[index].attribute = crate::terminal::CharAttribute::ReverseImage;
             } else {
@@ -390,7 +394,7 @@ impl Display {
     pub fn set_underline(&mut self, underline: bool) {
         // Set underline attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             if underline {
                 self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Underline;
             } else {
@@ -457,7 +461,7 @@ impl Display {
     pub fn set_intensity(&mut self, intensity: u8) {
         // Set intensity attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             match intensity {
                 0x00 => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Normal,
                 0x01 => self.screen.buffer[index].attribute = crate::terminal::CharAttribute::HighIntensity,
@@ -473,7 +477,7 @@ impl Display {
     pub fn set_reverse_video(&mut self, reverse: bool) {
         // Set reverse video attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             if reverse {
                 self.screen.buffer[index].attribute = crate::terminal::CharAttribute::ReverseVideo;
             } else {
@@ -488,7 +492,7 @@ impl Display {
     pub fn set_blink(&mut self, blink: bool) {
         // Set blink attribute at current cursor position
         if self.cursor_row < self.height && self.cursor_col < self.width {
-            let index = crate::terminal::TerminalScreen::buffer_index(self.cursor_col, self.cursor_row);
+            let index = self.screen.index(self.cursor_col, self.cursor_row);
             if blink {
                 self.screen.buffer[index].attribute = crate::terminal::CharAttribute::Blink;
             } else {
