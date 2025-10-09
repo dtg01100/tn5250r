@@ -525,6 +525,9 @@ impl TN5250RApp {
 
             // Now borrow session again for the rest of the UI
             if let Some(session) = self.sessions.get_mut(session_id) {
+                // Keep session model in sync with controller state
+                session.update_from_controller();
+
                 // Username and Password fields for AS/400 authentication (RFC 4777)
                 ui.horizontal(|ui| {
                     ui.label("Username:");
