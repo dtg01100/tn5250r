@@ -24,7 +24,6 @@ mod ebcdic;
 mod cursor_utils;
 mod component_utils;
 mod buffer_utils;
-mod protocol;
 mod constants;
 
 mod network_platform;

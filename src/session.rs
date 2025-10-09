@@ -76,15 +76,28 @@ impl Session {
     }
 
     /// Send function key to the session
-    pub fn send_function_key(&mut self, _key: crate::keyboard::FunctionKey) {
-        // Implementation depends on controller interface
-        // This would send the function key to the active session
+    pub fn send_function_key(&mut self, key: crate::keyboard::FunctionKey) {
+        match self.controller.send_function_key(key) {
+            Ok(()) => {
+                // On success, we can optimistically assume terminal content may change
+                // Actual content will be pulled in update_from_controller
+            }
+            Err(e) => {
+                self.error_message = Some(format!("Failed to send function key: {e}"));
+            }
+        }
     }
 
     /// Send text input to the session
-    pub fn send_input(&mut self, _input: &str) {
-        // Implementation depends on controller interface
-        // This would send text input to the active session
+    pub fn send_input(&mut self, input: &str) {
+        match self.controller.send_input(input.as_bytes()) {
+            Ok(()) => {
+                // Input sent; content updates will be reflected via controller polling
+            }
+            Err(e) => {
+                self.error_message = Some(format!("Failed to send input: {e}"));
+            }
+        }
     }
 
     /// Connect the session using profile credentials
@@ -133,7 +146,27 @@ impl Session {
 
     /// Update session state from controller
     pub fn update_from_controller(&mut self) {
-        // This would poll the controller for updates
-        // Update connected status, terminal content, fields, etc.
+        // Connection state
+        self.connected = self.controller.is_connected();
+        self.connecting = self.controller.is_connecting();
+
+        // Check for connection errors
+        if let Some(err) = self.controller.take_last_connect_error() {
+            self.error_message = Some(err.clone());
+            self.connecting = false;
+            self.connected = false;
+        }
+
+        // Pull latest terminal content
+        if let Ok(content) = self.controller.get_terminal_content() {
+            if !content.is_empty() {
+                self.terminal_content = content;
+            }
+        }
+
+        // Fetch field info for UI
+        if let Ok(fields) = self.controller.get_fields_info() {
+            self.fields_info = fields;
+        }
     }
 }

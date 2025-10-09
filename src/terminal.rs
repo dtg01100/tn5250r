@@ -33,10 +33,20 @@ pub enum CharAttribute {
 }
 
 // Represents a single character on the terminal screen
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TerminalChar {
     pub character: char,
     pub attribute: CharAttribute,
+}
+
+impl Default for TerminalChar {
+    fn default() -> Self {
+        // Display buffers should be space-filled, not NUL-filled
+        Self {
+            character: ' ',
+            attribute: CharAttribute::Normal,
+        }
+    }
 }
 
 
@@ -313,17 +323,27 @@ impl TerminalScreen {
     pub fn move_cursor(&mut self, x: usize, y: usize) {
         // CRITICAL FIX: Enhanced boundary validation with edge case handling
         // Prevent cursor from going out of bounds and handle invalid coordinates
-
-        // Validate coordinates are within reasonable bounds
-        if x > self.width || y > self.height {
-            eprintln!("SECURITY: Invalid cursor position ({y}, {x}) - exceeds terminal dimensions");
-            return;
+        // Clamp coordinates to valid range; log when clamping occurs
+        let mut safe_x = x;
+        let mut safe_y = y;
+        if safe_x >= self.width {
+            eprintln!(
+                "SECURITY: Cursor X clamped from {} to {} (width={})",
+                safe_x,
+                self.width.saturating_sub(1),
+                self.width
+            );
+            safe_x = self.width.saturating_sub(1);
         }
-
-        // Additional validation: ensure coordinates are not negative (though usize prevents this)
-        // But we should handle very large values that could cause overflow
-    let safe_x = if x >= self.width { self.width - 1 } else { x };
-    let safe_y = if y >= self.height { self.height - 1 } else { y };
+        if safe_y >= self.height {
+            eprintln!(
+                "SECURITY: Cursor Y clamped from {} to {} (height={})",
+                safe_y,
+                self.height.saturating_sub(1),
+                self.height
+            );
+            safe_y = self.height.saturating_sub(1);
+        }
 
         self.cursor_x = safe_x;
         self.cursor_y = safe_y;
@@ -337,12 +357,6 @@ impl TerminalScreen {
         // Validate coordinates are within bounds
         if x >= self.width || y >= self.height {
             eprintln!("SECURITY: Attempted to write outside terminal bounds at ({y}, {x})");
-            return;
-        }
-
-        // Additional validation: ensure coordinates are reasonable
-        if x > self.width || y > self.height {
-            eprintln!("SECURITY: Invalid coordinates ({y}, {x}) - exceeds maximum values");
             return;
         }
 
@@ -436,8 +450,10 @@ impl TerminalScreen {
     /// CRITICAL FIX: Safe buffer clearing with validation
     pub fn safe_clear(&mut self) {
         // PERFORMANCE OPTIMIZATION: Clear 1D vector directly for better cache locality
+        // Ensure screen is space-filled (not NUL-filled)
+        let default_char = TerminalChar { character: ' ', attribute: CharAttribute::Normal };
         for cell in self.buffer.iter_mut() {
-            *cell = TerminalChar::default();
+            *cell = default_char;
         }
 
         // Reset cursor to safe position
