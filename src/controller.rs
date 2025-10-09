@@ -1048,6 +1048,28 @@ impl Clone for AsyncTerminalController {
 }
 
 impl AsyncTerminalController {
+    /// Internal helper: try to lock controller with a few quick retries to avoid dropping operations
+    fn with_controller_retry<T, F>(&self, mut f: F) -> Result<T, String>
+    where
+        F: FnMut(&mut TerminalController) -> Result<T, String>,
+    {
+        const MAX_TRIES: usize = 3;
+        for attempt in 0..MAX_TRIES {
+            match self.controller.try_lock() {
+                Ok(mut ctrl) => return f(&mut ctrl),
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    eprintln!("SECURITY: Controller mutex poisoned in with_controller_retry");
+                    return Err("Controller lock poisoned".to_string());
+                }
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    // Short, bounded backoff to avoid GUI jank
+                    let delay_ms = 5 * (attempt as u64 + 1);
+                    std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+                }
+            }
+        }
+        Err("Controller busy, try again".to_string())
+    }
     pub fn new() -> Self {
         Self {
             controller: Arc::new(Mutex::new(TerminalController::new())),
@@ -1720,23 +1742,11 @@ impl AsyncTerminalController {
     }
 
     pub fn send_input(&self, input: &[u8]) -> Result<(), String> {
-        // Use try_lock to avoid brief GUI freezes during input
-        if let Ok(mut ctrl) = self.controller.try_lock() {
-            ctrl.send_input(input)
-        } else {
-            // Can't get lock - return error but don't block
-            Err("Controller busy, input queued".to_string())
-        }
+        self.with_controller_retry(|ctrl| ctrl.send_input(input))
     }
 
     pub fn send_function_key(&self, func_key: keyboard::FunctionKey) -> Result<(), String> {
-        // Use try_lock to avoid brief GUI freezes during function key press
-        if let Ok(mut ctrl) = self.controller.try_lock() {
-            ctrl.send_function_key(func_key)
-        } else {
-            // Can't get lock - return error but don't block
-            Err("Controller busy, try again".to_string())
-        }
+        self.with_controller_retry(|ctrl| ctrl.send_function_key(func_key))
     }
 
     pub fn get_terminal_content(&self) -> Result<String, String> {
@@ -1750,13 +1760,7 @@ impl AsyncTerminalController {
     }
 
     pub fn request_login_screen(&self) -> Result<(), String> {
-        // Use try_lock to avoid blocking the GUI thread
-        if let Ok(mut ctrl) = self.controller.try_lock() {
-            ctrl.request_login_screen()
-        } else {
-            // Can't get lock - return error but don't block
-            Err("Controller busy, try again".to_string())
-        }
+        self.with_controller_retry(|ctrl| ctrl.request_login_screen())
     }
 
     pub fn send_enter(&self) -> Result<(), String> {
