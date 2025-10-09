@@ -24,10 +24,9 @@ pub fn render_function_keys_for_session(ui: &mut egui::Ui, session: &mut crate::
                     _ => F1, // Should not happen
                 };
                 // Send function key to session controller
-                if let Err(e) = session.controller.send_function_key(func_key) {
-                    session.terminal_content.push_str(&format!("\nError sending function key: {e}"));
-                } else {
-                    session.terminal_content.push_str(&format!("\n[{func_key:?}] pressed"));
+                match session.send_function_key(func_key) {
+                    Ok(()) => session.terminal_content.push_str(&format!("\n[{func_key:?}] pressed")),
+                    Err(e) => session.terminal_content.push_str(&format!("\nError sending function key: {e}")),
                 }
             }
         }
@@ -45,10 +44,9 @@ pub fn render_function_keys_for_session(ui: &mut egui::Ui, session: &mut crate::
                     _ => F1, // Should not happen
                 };
                 // Send function key to session controller
-                if let Err(e) = session.controller.send_function_key(func_key) {
-                    session.terminal_content.push_str(&format!("\nError sending function key: {e}"));
-                } else {
-                    session.terminal_content.push_str(&format!("\n[{func_key:?}] pressed"));
+                match session.send_function_key(func_key) {
+                    Ok(()) => session.terminal_content.push_str(&format!("\n[{func_key:?}] pressed")),
+                    Err(e) => session.terminal_content.push_str(&format!("\nError sending function key: {e}")),
                 }
             }
         }

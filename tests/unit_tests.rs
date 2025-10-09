@@ -9,9 +9,10 @@ mod unit_tests {
     use tn5250r::lib5250::protocol::{ProtocolProcessor, Packet, FieldAttribute, StructuredFieldID};
     use tn5250r::lib5250::codes::CommandCode;
     use tn5250r::network::ProtocolMode;
-    use tn5250r::field_manager::{FieldManager, Field, FieldType, FieldError};
+    use tn5250r::field_manager::{FieldManager, Field, FieldType};
     use tn5250r::terminal::TerminalScreen;
-    use tn5250r::lib5250::{ebcdic_to_ascii, TelnetOption};
+    use tn5250r::lib5250::ebcdic_to_ascii;
+    use tn5250r::telnet_negotiation::TelnetOption;
 
     /// Test Session creation and basic functionality
     #[test]

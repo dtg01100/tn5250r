@@ -35,6 +35,10 @@ use tn5250r::telnet_negotiation::{TelnetNegotiator, TelnetOption};
 use tn5250r::lib5250::protocol::{ProtocolProcessor, StructuredFieldID};
 use tn5250r::platform::{Platform, FileSystem, System, Networking};
 
+// Allow this test to access local test helpers/mocks via crate::mocks::...
+#[cfg(test)]
+mod mocks;
+
 #[cfg(test)]
 mod integration_tests {
     use super::*;
@@ -358,7 +362,7 @@ mod integration_tests {
     #[test]
     fn test_end_to_end_session_simulation() {
         // END-TO-END: Simulate complete session from connection to data exchange
-        use tests::mocks::mock_network::MockAS400Connection;
+    use crate::mocks::mock_network::MockAS400Connection;
 
         let mock_connection = MockAS400Connection::new();
         

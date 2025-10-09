@@ -3,8 +3,7 @@
 //! This module provides mock objects and utilities to support comprehensive
 //! GUI testing of the TN5250R application without external dependencies.
 
-// Re-export commonly used mocks from integration tests for convenience
-pub use crate::integration::mock_network::{MockAS400Connection, MockScenario, Connection};
+// Note: GUI-specific mocks are defined in this module; avoid cross-crate re-exports to reduce coupling.
 
 /// Mock UI component for testing button interactions
 pub struct MockButton {

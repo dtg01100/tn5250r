@@ -1,6 +1,6 @@
 use std::time::Duration;
-use crate::test_harness::TN5250RHarness;
-use crate::mock_network::MockScenario;
+use super::test_harness::TN5250RHarness;
+use super::mock_network::MockScenario;
 
 #[cfg(test)]
 mod tests {

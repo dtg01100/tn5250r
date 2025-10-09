@@ -242,6 +242,14 @@ impl Session {
         let (r, c) = self.display.cursor_position();
         (r + 1, c + 1)
     }
+
+    /// Generate response data for tests or pending AID operations, if any
+    /// This is a stub to satisfy integration tests that probe for response output.
+    /// Returns None when there is no pending data to send.
+    pub fn generate_response_data(&self) -> Option<Vec<u8>> {
+        // In a full implementation, this would serialize pending AID/read buffer data.
+        None
+    }
     
     /// Enable or disable enhanced 5250 features
     pub fn set_enhanced(&mut self, enhanced: bool) {

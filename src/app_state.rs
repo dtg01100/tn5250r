@@ -605,14 +605,12 @@ impl TN5250RApp {
                 }
 
                 if ui.button("Send").clicked() && !session.input_buffer.is_empty() {
-                    // Process the input when Send button is clicked
-                    session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
-
-                    // Send to controller
-                    if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                    // Take a copy to avoid borrowing conflicts
+                    let input_text = session.input_buffer.clone();
+                    session.terminal_content.push_str(&format!("\n> {}", input_text));
+                    if let Err(e) = session.send_input(&input_text) {
                         session.terminal_content.push_str(&format!("\nError: {e}"));
                     }
-
                     session.input_buffer.clear();
                 }
                 ui.separator();
@@ -638,27 +636,21 @@ impl TN5250RApp {
                         ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                         // Process the input when Enter is pressed
                         if !session.input_buffer.is_empty() {
-                            // Echo the input to session terminal
-                            session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
-
-                            // Send to controller
-                            if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                            let input_text = session.input_buffer.clone();
+                            session.terminal_content.push_str(&format!("\n> {}", input_text));
+                            if let Err(e) = session.send_input(&input_text) {
                                 session.terminal_content.push_str(&format!("\nError: {e}"));
                             }
-
                             session.input_buffer.clear();
                         }
                     }
 
                     if ui.button("Send").clicked() && !session.input_buffer.is_empty() {
-                        // Process the input when Send button is clicked
-                        session.terminal_content.push_str(&format!("\n> {}", session.input_buffer));
-
-                        // Send to controller
-                        if let Err(e) = session.controller.send_input(session.input_buffer.as_bytes()) {
+                        let input_text = session.input_buffer.clone();
+                        session.terminal_content.push_str(&format!("\n> {}", input_text));
+                        if let Err(e) = session.send_input(&input_text) {
                             session.terminal_content.push_str(&format!("\nError: {e}"));
                         }
-
                         session.input_buffer.clear();
                     }
                 });

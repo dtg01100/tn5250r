@@ -76,26 +76,23 @@ impl Session {
     }
 
     /// Send function key to the session
-    pub fn send_function_key(&mut self, key: crate::keyboard::FunctionKey) {
+    pub fn send_function_key(&mut self, key: crate::keyboard::FunctionKey) -> Result<(), String> {
         match self.controller.send_function_key(key) {
-            Ok(()) => {
-                // On success, we can optimistically assume terminal content may change
-                // Actual content will be pulled in update_from_controller
-            }
+            Ok(()) => Ok(()),
             Err(e) => {
                 self.error_message = Some(format!("Failed to send function key: {e}"));
+                Err(e)
             }
         }
     }
 
     /// Send text input to the session
-    pub fn send_input(&mut self, input: &str) {
+    pub fn send_input(&mut self, input: &str) -> Result<(), String> {
         match self.controller.send_input(input.as_bytes()) {
-            Ok(()) => {
-                // Input sent; content updates will be reflected via controller polling
-            }
+            Ok(()) => Ok(()),
             Err(e) => {
                 self.error_message = Some(format!("Failed to send input: {e}"));
+                Err(e)
             }
         }
     }

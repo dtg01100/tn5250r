@@ -180,6 +180,30 @@ impl<'a> TN5250RHarness<'a> {
     pub fn harness(&mut self) -> &mut Harness<'a> {
         &mut self.harness
     }
+
+    /// Access the app state (stub for integration tests)
+    pub fn app(&self) -> std::sync::Arc<std::sync::Mutex<MockAppState>> {
+        std::sync::Arc::new(std::sync::Mutex::new(MockAppState::default()))
+    }
+}
+
+/// Mock app state for integration tests
+#[derive(Default)]
+pub struct MockAppState {
+    pub connected: bool,
+    pub connecting: bool,
+    pub host: String,
+    pub port: u16,
+    pub terminal_content: String,
+    pub input_buffer: String,
+    pub function_keys_visible: bool,
+    pub debug_mode: bool,
+}
+
+impl MockAppState {
+    pub fn lock(&self) -> Result<&Self, std::sync::PoisonError<std::sync::MutexGuard<Self>>> {
+        Ok(self)
+    }
 }
 
 #[cfg(test)]

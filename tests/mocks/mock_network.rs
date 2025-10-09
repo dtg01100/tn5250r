@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
-use tn5250r::network::AS400Connection;
+// Note: AS400Connection in the main crate is a concrete struct, not a trait.
+// This mock provides a minimal, independent interface used by tests.
 
 /// Mock AS/400 connection for GUI testing
 /// Provides deterministic responses for testing without external dependencies
@@ -94,22 +95,18 @@ impl MockAS400Connection {
     }
 }
 
-impl AS400Connection for MockAS400Connection {
-    fn connect(&mut self, _host: &str, _port: u16) -> Result<(), String> {
+impl MockAS400Connection {
+    pub fn connect(&mut self, _host: &str, _port: u16) -> Result<(), String> {
         self.set_connected(true);
         Ok(())
     }
 
-    fn disconnect(&mut self) -> Result<(), String> {
+    pub fn disconnect(&mut self) -> Result<(), String> {
         self.set_connected(false);
         Ok(())
     }
 
-    fn is_connected(&self) -> bool {
-        MockAS400Connection::is_connected(self)
-    }
-
-    fn send(&mut self, data: &[u8]) -> Result<(), String> {
+    pub fn send(&mut self, data: &[u8]) -> Result<(), String> {
         if !self.is_connected() {
             return Err("Not connected".to_string());
         }
@@ -117,7 +114,7 @@ impl AS400Connection for MockAS400Connection {
         Ok(())
     }
 
-    fn receive(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
+    pub fn receive(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
         if !self.is_connected() {
             return Err("Not connected".to_string());
         }
@@ -133,8 +130,13 @@ impl AS400Connection for MockAS400Connection {
         }
     }
 
-    fn set_timeout(&mut self, _timeout_ms: u64) {
-        // Mock doesn't need timeout
+    // Helper methods used by integration_tests.rs
+    pub fn read_data(&self) -> Option<Vec<u8>> {
+        self.responses.lock().unwrap().front().cloned()
+    }
+
+    pub fn send_data(&self, data: &[u8]) {
+        self.sent_data.lock().unwrap().push(data.to_vec());
     }
 }
 
