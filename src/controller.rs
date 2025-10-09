@@ -963,6 +963,12 @@ impl TerminalController {
         &self.pending_input
     }
 
+    /// Get terminal screen dimensions (width, height)
+    pub fn get_screen_dimensions(&self) -> (usize, usize) {
+        let screen = self.session.display().screen_ref();
+        (screen.width, screen.height)
+    }
+
     /// Check if new data has arrived and reset the flag
     pub fn check_data_arrival(&self) -> bool {
         self.data_arrival_flag.swap(false, Ordering::SeqCst)
@@ -971,6 +977,24 @@ impl TerminalController {
     /// Clear pending input buffer
     pub fn clear_pending_input(&mut self) {
         self.pending_input.clear();
+    }
+
+    /// Apply screen size configuration for TN5250 protocol
+    /// This method ensures that screen size selections are properly applied when TN5250 mode is active
+    pub fn apply_tn5250_screen_size(&mut self, screen_size: crate::lib3270::display::ScreenSize) {
+        // Update the terminal screen dimensions to match the selected screen size
+        let (width, height) = (screen_size.cols(), screen_size.rows());
+        self.session.display_mut().screen().resize(width, height, false);
+        
+        // For TN5250, we can support the same screen sizes as TN3270
+        // The protocol can handle different dimensions dynamically
+        println!("Applied TN5250 screen size: {}x{} ({})", width, height, 
+                 match screen_size {
+                     crate::lib3270::display::ScreenSize::Model2 => "Model 2",
+                     crate::lib3270::display::ScreenSize::Model3 => "Model 3", 
+                     crate::lib3270::display::ScreenSize::Model4 => "Model 4",
+                     crate::lib3270::display::ScreenSize::Model5 => "Model 5",
+                 });
     }
 
     /// Apply screen size configuration for TN3270 protocol
@@ -1876,6 +1900,13 @@ impl AsyncTerminalController {
 }
 
 impl AsyncTerminalController {
+    /// Apply screen size configuration for TN5250 protocol (async version)
+    pub async fn apply_tn5250_screen_size_async(&self, screen_size: crate::lib3270::display::ScreenSize) {
+        if let Ok(mut controller) = self.controller.try_lock() {
+            controller.apply_tn5250_screen_size(screen_size);
+        }
+    }
+
     /// Apply screen size configuration for TN3270 protocol (async version)
     pub async fn apply_tn3270_screen_size_async(&self, screen_size: crate::lib3270::display::ScreenSize) {
         if let Ok(mut controller) = self.controller.try_lock() {

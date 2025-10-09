@@ -369,3 +369,29 @@ fn test_large_screen_performance() {
     let char_at_center = large_screen.get_char_at(128, 64);
     assert_eq!(char_at_center.unwrap(), ' ');
 }
+
+/// Test TN5250 screen size integration with controller
+#[test]
+fn test_tn5250_screen_size_integration() {
+    use crate::controller::TerminalController;
+    use crate::lib3270::display::ScreenSize;
+    
+    // Create a terminal controller
+    let mut controller = TerminalController::new();
+    
+    // Test applying different screen sizes for TN5250
+    controller.apply_tn5250_screen_size(ScreenSize::Model2);
+    let (width, height) = controller.get_screen_dimensions();
+    assert_eq!(width, 80);
+    assert_eq!(height, 24);
+    
+    controller.apply_tn5250_screen_size(ScreenSize::Model5);
+    let (width, height) = controller.get_screen_dimensions();
+    assert_eq!(width, 132);
+    assert_eq!(height, 27);
+    
+    controller.apply_tn5250_screen_size(ScreenSize::Model4);
+    let (width, height) = controller.get_screen_dimensions();
+    assert_eq!(width, 80);
+    assert_eq!(height, 43);
+}

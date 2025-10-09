@@ -223,15 +223,37 @@ impl TN5250RApp {
                                 }
                                 config::save_shared_config_async(&self.config);
                                 
-                                // If switching to TN3270, apply current screen size
-                                if self.selected_protocol_mode == ProtocolMode::TN3270 {
-                                    tokio::spawn({
-                                        let controller = self.controller.clone();
-                                        let screen_size = self.selected_screen_size;
-                                        async move {
-                                            controller.apply_tn3270_screen_size_async(screen_size).await;
-                                        }
-                                    });
+                                // Apply current screen size based on protocol mode
+                                match self.selected_protocol_mode {
+                                    ProtocolMode::TN5250 => {
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn5250_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
+                                    ProtocolMode::TN3270 => {
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn3270_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
+                                    ProtocolMode::AutoDetect | ProtocolMode::NVT => {
+                                        // For AutoDetect and NVT modes, we can apply TN5250 sizing as a reasonable default
+                                        // since TN5250 is the primary protocol for this terminal emulator
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn5250_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         });
@@ -279,15 +301,36 @@ impl TN5250RApp {
                                 }
                                 config::save_shared_config_async(&self.config);
                                 
-                                // Apply screen size to controller if TN3270 mode is selected
-                                if self.selected_protocol_mode == ProtocolMode::TN3270 {
-                                    tokio::spawn({
-                                        let controller = self.controller.clone();
-                                        let screen_size = self.selected_screen_size;
-                                        async move {
-                                            controller.apply_tn3270_screen_size_async(screen_size).await;
-                                        }
-                                    });
+                                // Apply screen size to controller based on protocol mode
+                                match self.selected_protocol_mode {
+                                    ProtocolMode::TN5250 => {
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn5250_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
+                                    ProtocolMode::TN3270 => {
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn3270_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
+                                    ProtocolMode::AutoDetect | ProtocolMode::NVT => {
+                                        // For AutoDetect and NVT modes, apply TN5250 sizing as default
+                                        tokio::spawn({
+                                            let controller = self.controller.clone();
+                                            let screen_size = self.selected_screen_size;
+                                            async move {
+                                                controller.apply_tn5250_screen_size_async(screen_size).await;
+                                            }
+                                        });
+                                    }
                                 }
                             }
                         });
